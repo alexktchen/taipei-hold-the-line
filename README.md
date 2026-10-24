@@ -65,6 +65,10 @@ claude.ai artifact 只有登入的訪客才拿得到共享資料，無痕視窗�
 ## 部署到 Cloudflare Pages
 純靜態、免 build。Cloudflare 後台 → Workers & Pages → Create → Pages → Connect to Git → 選這個 repo；Framework preset 選 None、Build command 留空、Build output directory 填 `/`。之後推 main 就自動上線。`_headers` 已設好快取。
 
+## 交接與壓力測試
+- 最新交接：`docs/HANDOFF-2026-10-24-multiplayer-stress.md`（現況、多人同框架構、壓力測試結果、待辦、陷阱）。
+- 壓力測試腳本：`scripts/stress/`（`npm install` 後 `node sim.js game 10,20,40,60,100 25`；用獨立 stress-* 頻道，不影響正式站）。
+
 ## 本機執行
 ```bash
 python3 -m http.server 8080   # 在這個資料夾；然後開 http://localhost:8080

@@ -1,0 +1,6 @@
+{
+  "name": "taipei-hold-the-line-stress",
+  "private": true,
+  "description": "Supabase Realtime 多人上線壓力測試（模擬玩家，用獨立 stress-* 頻道）",
+  "dependencies": { "@supabase/supabase-js": "2.45.4", "ws": "8.18.0", "https-proxy-agent": "7.0.5" }
+}
