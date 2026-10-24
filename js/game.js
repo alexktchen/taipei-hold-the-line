@@ -142,9 +142,6 @@ export function createGame(ctx) {
   function pruneRemotes(alive, now) { for (const [id, w] of [...remotes]) { const age = (now - w.seen) / 1000; if (age > MP.timeout || (alive && !alive.has(id) && age > MP.presenceGrace)) removeRemote(id); } }
   function remoteEmote(id, em) { const w = remotes.get(id); if (!w) return null; bubble(w, em.say, MP.bubbleSeconds, em.k); if (em.k === 'help') ring(w.pos.x, w.pos.z, 0.4, 0xdb6a41, 6); return w.nick; }
   function remoteUlt(id) { const w = remotes.get(id); if (!w) return null; ring(w.pos.x, w.pos.z, 0.5, 0xfcea8b, 10); bubble(w, '台北人站出來！', 2, 'yay'); if (G.phase === 'round') for (const e of [...G.enemies]) if (d2(e, w.pos) < MP.allyUltRadius) damage(e, e.maxHp * RC.ultPct * MP.allyUltMul); return w.nick; }
-  // 打字聊天：頭上泡泡＋城市日誌一行（文字已由 UI 過濾，這裡只負責顯示）
-  function remoteSay(id, txt) { const w = remotes.get(id); if (!w) return null; bubble(w, txt, MP.chat.seconds, 'chat'); addLog(`💬 ${w.nick}：${txt}`, 'chat'); return w.nick; }
-  function mySay(txt) { if (!G.hero) return false; bubble(G.hero, txt, MP.chat.seconds, 'chat'); addLog(`💬 ${G.hero.nick || G.hero.cfg.name}：${txt}`, 'chat'); return true; }
   function myEmote(em) { if (!G.hero) return false; bubble(G.hero, em.say, MP.bubbleSeconds, em.k); if (em.k === 'help') ring(G.hero.pos.x, G.hero.pos.z, 0.4, 0xdb6a41, 6); return true; }
   // 走路與泡泡用真實時間（暫停、2× 都不影響別人的英雄）；幫忙攻擊只在你的回合進行中、跟著遊戲時間
   function updateRemotes(dt, zoom = 1) { for (const w of remotes.values()) { if (w.route) walk(w, dt, w.cfg.speed * MP.catchUp); else w.moving = false; if (!w.moving && w.pose !== 'fight') w.pose = w.fighting ? 'fight' : null; w.hit.position.set(w.pos.x, w.pos.y + 0.3, w.pos.z); }
@@ -186,5 +183,5 @@ export function createGame(ctx) {
     if (G.t >= RC.seconds || (!G.queue.length && !G.enemies.length && G.t > RC.bossAt + 4)) endRound();
   }
   function onPick(hit) { if (hit.remote) { emit('remote', hit.remote, remotes.get(hit.remote)); return; } if (G.phase !== 'round') return; if (hit.enemy && !hit.enemy.dead) { focusStrike(hit.enemy); return; } if (hit.island) heroGoTo(hit.island, hit.point); }
-  return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startRound, backToLobby, step, onPick, ultimate, setAuto, enemyHits, goalCenter, remoteHits, remotes, upsertRemote, removeRemote, pruneRemotes, remoteEmote, remoteUlt, myEmote, remoteSay, mySay, updateRemotes };
+  return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startRound, backToLobby, step, onPick, ultimate, setAuto, enemyHits, goalCenter, remoteHits, remotes, upsertRemote, removeRemote, pruneRemotes, remoteEmote, remoteUlt, myEmote, updateRemotes };
 }

@@ -155,17 +155,6 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
     if (m.t === 'e') { const em = typeof m.k === 'string' && EM.get(m.k); if (!em) return; const nick = game.remoteEmote(m.id, em); if (!nick) return;
       if (em.k === 'five' && m.to === myId()) { banner(`${nick} 跟你擊掌 🙌`, 2.5); game.myEmote(MP.five); } else if (em.k === 'help') hint(`${nick}：這邊需要支援！`); return; }
     if (m.t === 'u') { const nick = game.remoteUlt(m.id); if (nick) banner(`🙌 ${nick} 喊「台北人站出來」！`, 2.5); } });
-  // ── 打字聊天：收發兩端都過濾（別人可能繞過自己的頁面直接送），只用 textContent 顯示，不存資料庫 ──
-  const CH = MP.chat, chatDrop = new RegExp(CH.drop, 'i'), chatBlock = CH.block.map(w => new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').split('').join('\\s*'), 'gi'));
-  function cleanChat(raw) { if (typeof raw !== 'string') return ''; let t = raw.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim().slice(0, CH.max); if (!t || chatDrop.test(t)) return ''; for (const re of chatBlock) t = t.replace(re, m => '＊'.repeat(Math.min(m.length, 4))); return t; }
-  const rxChatAt = new Map(); let lastChatAt = 0, chatMuted = (() => { try { return localStorage.getItem(CH.muteKey) === '1'; } catch (e) { return false; } })();
-  const renderMute = () => { $('btnMute').setAttribute('aria-pressed', String(chatMuted)); $('btnMute').textContent = chatMuted ? '已靜音' : '靜音'; }; renderMute();
-  $('btnMute').addEventListener('click', () => { chatMuted = !chatMuted; try { localStorage.setItem(CH.muteKey, chatMuted ? '1' : '0'); } catch (e) {} renderMute(); hint(chatMuted ? '已隱藏別人打的字（表情照常顯示）' : '會顯示別人打的字'); });
-  $('chatInput').maxLength = CH.max;
-  $('chatForm').addEventListener('submit', ev => { ev.preventDefault(); const inp = $('chatInput'), raw = inp.value; if (!raw.trim()) return; const now = Date.now(); const wait = Math.ceil((CH.cooldown * 1000 - (now - lastChatAt)) / 1000);
-    if (wait > 0) { hint(`慢一點，${wait} 秒後再說`, true); return; } const t = cleanChat(raw); if (!t) { hint('不能貼網址、電話或 LINE 帳號', true); return; }
-    if (!game.mySay(t)) { hint('出戰後才能打字給其他玩家', true); return; } lastChatAt = now; inp.value = ''; S.send({ t: 't', s: t }); });
-  S.onNet(m => { if (!m || m.t !== 't' || typeof m.id !== 'string' || m.id.length > 64 || m.id === myId() || chatMuted) return; const now = performance.now(); if ((now - (rxChatAt.get(m.id) || 0)) < CH.rxGap * 1000) return; rxChatAt.set(m.id, now); const t = cleanChat(m.s); if (t) game.remoteSay(m.id, t); });
   function emote(k) { const em = EM.get(k); const now = Date.now(); if (!em || now - lastEmoteAt < MP.emoteCooldown * 1000) return; if (!game.myEmote(em)) { hint('出戰後才能跟其他玩家打招呼', true); return; } lastEmoteAt = now; S.send({ t: 'e', k }); }
   $('emotes').innerHTML = MP.emotes.map(e => `<button type="button" data-k="${esc(e.k)}" title="說：${esc(e.say)}" aria-label="${esc(e.say)}">${ICONS[e.k] || esc(e.icon)}</button>`).join('');
   for (const el of document.querySelectorAll('[data-ic]')) el.innerHTML = ICONS[el.dataset.ic] || '';
