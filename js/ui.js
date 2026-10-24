@@ -79,14 +79,36 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
   let hlQueue = [], hlDone = 0, hlTimer = 0, hlPaused = false;
   function pickHotline() { if (!hlQueue.length) hlQueue = shuffle(HOTLINE); return Math.random() < C.ticker.hotlineGenShare ? genHotline() : hlQueue.shift(); }
-  let hlItems = [];
-  function nextHotline() { let it = pickHotline(); for (let k = 0; k < 8 && hlItems.some(x => x[2] === it[2] || x[3] === it[3]); k++) it = pickHotline(); hlItems.unshift(it); hlItems = hlItems.slice(0, C.ticker.hotlineRows); hlDone++;
-    $('hlBody').innerHTML = hlItems.map(([dist, who, ask, fix], i) => `<div class="hl-item${i === 0 ? ' in' : ''}"><div class="hl-who"><span class="hl-dist">${esc(dist)}</span>${esc(who)}<span class="hl-stamp">已解決</span></div><p class="hl-ask">「${esc(ask)}」</p><div class="hl-fix"><b>🎙 市長</b>${esc(fix)}</div></div>`).join('');
-    $('hlCount').textContent = `今日已解決 ${fmt(1287 + hlDone)} 件`; }
+  let hlItems = [], hlBusy = null;
+  const hlTrack = document.createElement('div'); hlTrack.className = 'hl-track'; $('hlBody').appendChild(hlTrack); $('hotline').style.setProperty('--hl-ms', C.ticker.hotlineSlideMs + 'ms');
+  const HL_SEP = 17; // .hl-item 的 padding-bottom 8 + 虛線 1 + margin-bottom 8
+  const hlCard = ([dist, who, ask, fix]) => { const d = document.createElement('div'); d.className = 'hl-item'; d.innerHTML = `<div class="hl-who"><span class="hl-dist">${esc(dist)}</span>${esc(who)}<span class="hl-stamp">已解決</span></div><p class="hl-ask">「${esc(ask)}」</p><div class="hl-fix"><b>🎙 市長</b>${esc(fix)}</div>`; return d; };
+  // 可見高度＝第一則頂到最後一則內容底（不含最後一則的分隔線）
+  const hlSpan = (from) => { const kids = [...hlTrack.children].slice(from); if (!kids.length) return 0; const a = kids[0], b = kids[kids.length - 1]; return b.offsetTop + b.offsetHeight - (HL_SEP - 8) - a.offsetTop; };
+  function hlSettle() { if (!hlBusy) return; clearTimeout(hlBusy); hlBusy = null;
+    while (hlTrack.children.length > C.ticker.hotlineRows) hlTrack.firstElementChild.remove();
+    hlTrack.style.transition = 'none'; hlTrack.style.transform = ''; [...hlTrack.children].forEach(el => el.classList.remove('out', 'enter'));
+    void hlTrack.offsetHeight; hlTrack.style.transition = ''; }
+  function nextHotline(instant = false) { hlSettle();
+    let it = pickHotline(); for (let k = 0; k < 8 && hlItems.some(x => x[2] === it[2] || x[3] === it[3]); k++) it = pickHotline();
+    hlItems.push(it); hlItems = hlItems.slice(-C.ticker.hotlineRows); hlDone++;
+    $('hlCount').textContent = `今日已解決 ${fmt(1287 + hlDone)} 件`;
+    const card = hlCard(it); const body = $('hlBody');
+    const full = hlTrack.children.length >= C.ticker.hotlineRows;
+    const still = instant || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!full || still) { hlTrack.appendChild(card); while (hlTrack.children.length > C.ticker.hotlineRows) hlTrack.firstElementChild.remove(); body.style.height = hlSpan(0) + 'px'; return; }
+    // 新的一則從底部進來，整排往上推一格，最上面那則淡出後移除
+    card.classList.add('enter'); hlTrack.appendChild(card);
+    const first = hlTrack.firstElementChild; const shift = hlTrack.children[1].offsetTop - first.offsetTop;
+    const h = hlSpan(1);
+    requestAnimationFrame(() => { hlTrack.style.transform = `translateY(${-shift}px)`; body.style.height = h + 'px'; first.classList.add('out'); card.classList.remove('enter'); });
+    hlBusy = setTimeout(hlSettle, C.ticker.hotlineSlideMs + 60); }
   function scheduleHotline() { clearInterval(hlTimer); hlTimer = setInterval(() => { if (!hlPaused && !document.hidden) nextHotline(); }, C.ticker.hotlineSeconds * 1000); }
   $('hotline').addEventListener('mouseenter', () => { hlPaused = true; }); $('hotline').addEventListener('mouseleave', () => { hlPaused = false; });
   $('hlNext').addEventListener('click', () => { nextHotline(); scheduleHotline(); });
-  for (let i = 0; i < C.ticker.hotlineRows; i++) nextHotline(); scheduleHotline();
+  for (let i = 0; i < C.ticker.hotlineRows; i++) nextHotline(true); scheduleHotline();
+  const hlFit = () => { if (!hlBusy) $('hlBody').style.height = hlSpan(0) + 'px'; };
+  addEventListener('resize', hlFit); document.fonts?.ready.then(hlFit);
   let tkCount = 0; const narrowView = () => window.matchMedia('(max-width:900px)').matches;
   function nextTicker() { tkCount++; let txt; const mixHot = narrowView() || tkCount % C.ticker.mixHotlineEvery === 0;
     if (mixHot && tkCount % 2 === 0) { const [dist, who, ask, fix] = pickHotline(); txt = `📞 ${dist}${who}：「${ask}」　🎙 市長：${fix}`; }

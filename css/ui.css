@@ -111,7 +111,7 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 /* 1999 市民熱線卡（右側）與城市快訊跑馬燈（底部） */
 .hotline{right:max(14px,var(--sa-r));top:200px;width:300px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px);overflow:hidden}
 .hl-head{display:flex;align-items:center;gap:6px;font-size:13px} .hl-head b{font-weight:900;color:var(--coral)} .hl-count{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.hl-body{display:flex;flex-direction:column;gap:8px} .hl-item{position:relative;padding-bottom:8px;border-bottom:1px dashed var(--line)} .hl-item:last-child{border-bottom:0;padding-bottom:0} .hl-item.in{animation:hlIn .45s ease-out} @keyframes hlIn{from{opacity:.55;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hl-body{position:relative;overflow:hidden;transition:height var(--hl-ms,.7s) cubic-bezier(.22,.8,.25,1)} .hl-track{transition:transform var(--hl-ms,.7s) cubic-bezier(.22,.8,.25,1);will-change:transform} .hl-item{position:relative;padding-bottom:8px;margin-bottom:8px;border-bottom:1px dashed var(--line);transition:opacity .55s ease} .hl-item.out{opacity:0} .hl-item.enter{opacity:0}
 .hl-who{font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:6px} .hl-dist{background:#f3e7de;color:var(--ink);border-radius:999px;padding:1px 8px;font-size:11px}
 .hl-ask{margin:4px 0 6px;font-size:13px;font-weight:700;line-height:1.45;text-wrap:pretty}
 .hl-fix{background:#fbe4d8;border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.45} .hl-fix b{display:inline;color:var(--coral);font-size:11px;letter-spacing:.06em;margin-right:6px}
@@ -121,7 +121,7 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 .tk-label{flex:0 0 auto;background:var(--coral);height:100%;display:flex;align-items:center;padding:0 12px;font-weight:900;letter-spacing:.08em;font-size:12px}
 .tk-track{position:relative;flex:1;overflow:hidden;height:100%} .tk-text{position:absolute;left:0;top:50%;white-space:nowrap;transform:translate(var(--from,100vw),-50%);will-change:transform}
 @keyframes tk{from{transform:translate(var(--from),-50%)}to{transform:translate(var(--to),-50%)}}
-@media (prefers-reduced-motion: reduce){ .hl-body.in{animation:none} }
+@media (prefers-reduced-motion: reduce){ .hl-body,.hl-track,.hl-item{transition:none} }
 .logp{bottom:44px} .hero{bottom:44px} .hint{bottom:44px} .parody-badge{bottom:44px}
 @media (max-height:700px){ .hotline{display:none} }
 @media (max-width:900px){ .hotline{display:none} .ticker{height:28px;font-size:12px} .tk-label{padding:0 8px;font-size:11px}
