@@ -108,7 +108,7 @@ export function createGame(ctx) {
   const MP = C.multi; const remotes = new Map(); const remoteHits = [];
   function rebuildPeople() { people.build([...G.residents, G.mayor, G.hero, ...remotes.values()].filter(Boolean)); }
   function tagSprite(w) { tagDel(w); tagAdd(w, w.nick, `${w.cfg.icon} ${w.cfg.name}`, hex(w.cfg.color), 'player'); }
-  function bubble(w, txt, secs) { w.bubbleT = secs; emit('say', w, txt); }
+  function bubble(w, txt, secs, ic) { w.bubbleT = secs; emit('say', w, txt, ic); }
   function upsertRemote(m) { let w = remotes.get(m.id); const tp = new THREE.Vector3(m.x, TOP + 0.03, m.z);
     if (w && w.cls !== m.c) { removeRemote(m.id); w = null; }
     if (!w) { if (remotes.size >= MP.maxRemote) return null; w = people.makeWalker('citizen', tp, m.c); Object.assign(w, { remote: true, id: m.id, cls: m.c, cfg: C.heroes[m.c], nick: m.n, cd: 0, route: null, s: 0 }); tagSprite(w);
@@ -120,9 +120,9 @@ export function createGame(ctx) {
     return w; }
   function removeRemote(id) { const w = remotes.get(id); if (!w) return; tagDel(w); scene.remove(w.hit); const i = remoteHits.indexOf(w.hit); if (i >= 0) remoteHits.splice(i, 1); remotes.delete(id); rebuildPeople(); }
   function pruneRemotes(alive, now) { for (const [id, w] of [...remotes]) { const age = (now - w.seen) / 1000; if (age > MP.timeout || (alive && !alive.has(id) && age > MP.presenceGrace)) removeRemote(id); } }
-  function remoteEmote(id, em) { const w = remotes.get(id); if (!w) return null; bubble(w, `${em.icon} ${em.say}`, MP.bubbleSeconds); if (em.k === 'help') ring(w.pos.x, w.pos.z, 0.4, 0xdb6a41, 6); return w.nick; }
-  function remoteUlt(id) { const w = remotes.get(id); if (!w) return null; ring(w.pos.x, w.pos.z, 0.5, 0xfcea8b, 10); bubble(w, '🙌 台北人站出來！', 2); if (G.phase === 'round') for (const e of [...G.enemies]) if (d2(e, w.pos) < MP.allyUltRadius) damage(e, e.maxHp * RC.ultPct * MP.allyUltMul); return w.nick; }
-  function myEmote(em) { if (!G.hero) return false; bubble(G.hero, `${em.icon} ${em.say}`, MP.bubbleSeconds); if (em.k === 'help') ring(G.hero.pos.x, G.hero.pos.z, 0.4, 0xdb6a41, 6); return true; }
+  function remoteEmote(id, em) { const w = remotes.get(id); if (!w) return null; bubble(w, em.say, MP.bubbleSeconds, em.k); if (em.k === 'help') ring(w.pos.x, w.pos.z, 0.4, 0xdb6a41, 6); return w.nick; }
+  function remoteUlt(id) { const w = remotes.get(id); if (!w) return null; ring(w.pos.x, w.pos.z, 0.5, 0xfcea8b, 10); bubble(w, '台北人站出來！', 2, 'yay'); if (G.phase === 'round') for (const e of [...G.enemies]) if (d2(e, w.pos) < MP.allyUltRadius) damage(e, e.maxHp * RC.ultPct * MP.allyUltMul); return w.nick; }
+  function myEmote(em) { if (!G.hero) return false; bubble(G.hero, em.say, MP.bubbleSeconds, em.k); if (em.k === 'help') ring(G.hero.pos.x, G.hero.pos.z, 0.4, 0xdb6a41, 6); return true; }
   // 走路與泡泡用真實時間（暫停、2× 都不影響別人的英雄）；幫忙攻擊只在你的回合進行中、跟著遊戲時間
   function updateRemotes(dt, zoom = 1) { for (const w of remotes.values()) { if (w.route) walk(w, dt, w.cfg.speed * MP.catchUp); else w.moving = false; if (!w.moving && w.pose !== 'fight') w.pose = w.fighting ? 'fight' : null; w.hit.position.set(w.pos.x, w.pos.y + 0.3, w.pos.z); }
     for (const w of [G.hero, ...remotes.values()]) if (w && w.bubbleT > 0) { w.bubbleT -= dt; if (w.bubbleT <= 0) emit('say', w, null); } }

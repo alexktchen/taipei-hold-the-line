@@ -2,6 +2,7 @@
 import { CONFIG as C } from './config.js';
 import { HOTLINE } from './hotline.js';
 import { nextNews, genHotline } from './news.js';
+import { ICONS } from './icons.js';
 const RC = C.round, $ = id => document.getElementById(id);
 export function createUI({ game, callbacks, overview, flyTo, placePolicies, renderer, follow }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
@@ -30,7 +31,7 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   function renderStrip() { $('gOnline').textContent = fmt(online); $('gWaves').textContent = fmt(globals.waves); $('gBlocked').textContent = fmt(globals.blocked); $('gHeroes').textContent = fmt(globals.heroes); const d = daysToEve(); $('gCountdown').textContent = d > 0 ? `總攻擊倒數 ${d} 天` : '總攻擊之夜'; }
   function renderHud() { const inRound = G.phase === 'round'; const left = Math.max(0, RC.seconds - G.t); $('timer').textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`; $('approval').textContent = Math.max(0, Math.round(G.approval)); const bar = $('approvalBar'); bar.style.width = Math.max(0, G.approval) + '%'; bar.dataset.level = G.approval > 50 ? 'ok' : G.approval > 25 ? 'mid' : 'low';
     $('waveLabel').textContent = inRound ? `第 ${G.waveNo} 波・${G.issue.tag}${G.final ? '・總攻擊' : ''}` : '大廳'; $('enemies').textContent = inRound ? `${G.enemies.length} 隻在島上・${G.queue.length} 隻在路上・${G.residents.filter(r => r.state === 'engage' || r.state === 'fight').length} 位居民出動` : `${G.residents.length} 位居民在島上散步`; $('btnPause').disabled = !inRound; $('btnSpeed').disabled = !inRound; $('hudPanel').classList.toggle('round', inRound); }
-  function renderHero() { const p = $('heroPanel'); if (!G.hero) { p.hidden = true; return; } const H = G.hero.cfg; p.hidden = false; $('heroName').textContent = `${H.icon} ${G.hero.nick || H.name}（${H.name}）`; $('focusCd').textContent = G.focusCd > 0 ? `重擊冷卻 ${G.focusCd.toFixed(1)} 秒` : `點敵人：重擊 ×${RC.focusDmgMul}・點島嶼：移動`; const u = $('btnUlt'); u.disabled = G.ultCd > 0 || G.phase !== 'round'; const uh = G.ultCd > 0 ? `台北人站出來（${Math.ceil(G.ultCd)}s）` : '🙌 台北人站出來<span class="kbd">（Q）</span>'; if (u.innerHTML !== uh) u.innerHTML = uh; }
+  function renderHero() { const p = $('heroPanel'); if (!G.hero) { p.hidden = true; return; } const H = G.hero.cfg; p.hidden = false; $('heroName').textContent = `${H.icon} ${G.hero.nick || H.name}（${H.name}）`; $('focusCd').textContent = G.focusCd > 0 ? `重擊冷卻 ${G.focusCd.toFixed(1)} 秒` : `點敵人：重擊 ×${RC.focusDmgMul}・點島嶼：移動`; const u = $('btnUlt'); u.disabled = G.ultCd > 0 || G.phase !== 'round'; const uh = G.ultCd > 0 ? `台北人站出來（${Math.ceil(G.ultCd)}s）` : `<span class="ic">${ICONS.cheer}</span> 台北人站出來<span class="kbd">（Q）</span>`; if (u.innerHTML !== uh) u.innerHTML = uh; }
   function renderLog(log) { $('log').innerHTML = log.map(l => `<li class="${l.cls}"><time>${l.t}</time><span>${esc(l.txt)}</span></li>`).join(''); }
   let bannerT = 0; function banner(txt, secs) { const b = $('banner'); b.textContent = txt; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), secs * 1000); }
   let hintT = 0; function hint(txt, bad) { const h = $('hint'); h.textContent = txt || '點島嶼讓英雄走過去；點敵人重擊；拖曳旋轉、滾輪縮放。'; h.classList.toggle('bad', !!bad); clearTimeout(hintT); hintT = setTimeout(() => hint(''), bad ? 1500 : 4000); }
@@ -80,7 +81,8 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
       if (em.k === 'five' && m.to === myId()) { banner(`${nick} 跟你擊掌 🙌`, 2.5); game.myEmote(MP.five); } else if (em.k === 'help') hint(`${nick}：這邊需要支援！`); return; }
     if (m.t === 'u') { const nick = game.remoteUlt(m.id); if (nick) banner(`🙌 ${nick} 喊「台北人站出來」！`, 2.5); } });
   function emote(k) { const em = EM.get(k); const now = Date.now(); if (!em || now - lastEmoteAt < MP.emoteCooldown * 1000) return; if (!game.myEmote(em)) { hint('出戰後才能跟其他玩家打招呼', true); return; } lastEmoteAt = now; S.send({ t: 'e', k }); }
-  $('emotes').innerHTML = MP.emotes.map(e => `<button type="button" data-k="${esc(e.k)}" title="說：${esc(e.say)}" aria-label="${esc(e.say)}">${e.icon}</button>`).join('');
+  $('emotes').innerHTML = MP.emotes.map(e => `<button type="button" data-k="${esc(e.k)}" title="說：${esc(e.say)}" aria-label="${esc(e.say)}">${ICONS[e.k] || esc(e.icon)}</button>`).join('');
+  for (const el of document.querySelectorAll('[data-ic]')) el.innerHTML = ICONS[el.dataset.ic] || '';
   $('emotes').addEventListener('click', ev => { const b = ev.target.closest('button[data-k]'); if (b) emote(b.dataset.k); });
   callbacks.remote = (id, w) => { if (!w) return; const now = Date.now(); if (now - lastEmoteAt < MP.emoteCooldown * 1000) return; lastEmoteAt = now; if (G.hero) game.myEmote(MP.five); S.send({ t: 'e', k: 'five', to: id }); hint(`你跟 ${w.nick} 擊掌 🙌`); };
   // 英雄面板變高時（表情列），右側熱線卡讓出空間，不疊在一起

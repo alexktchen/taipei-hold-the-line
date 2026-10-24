@@ -172,3 +172,16 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 .nameplate.player .say,.nameplate.me .say{background:#fcea8b}
 .nameplate.person .say.pop{animation:sayPop .25s ease-out} @keyframes sayPop{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
 @media (prefers-reduced-motion: reduce){ .nameplate.person .say.pop{animation:none} }
+
+/* 卡通 SVG 圖示：表情列、跟隨／全景按鈕、說話泡泡 */
+.ic{display:inline-flex;line-height:0;vertical-align:-3px} .ic svg{display:block}
+.hud .btns .ic{font-size:18px;margin-right:4px} #btnFollow[aria-pressed="true"]{--cam:#fff8f4}
+.emotes button{font-size:24px;line-height:0;display:flex;align-items:center;justify-content:center;padding:5px 0}
+.emotes button svg{display:block;transition:transform .15s} .emotes button:hover svg{transform:scale(1.12) rotate(-4deg)}
+.nameplate.person .say{display:inline-flex;align-items:center;gap:5px} .nameplate.person .say .ic{font-size:18px;vertical-align:0}
+@media (max-width:900px){
+  #btnFollow::before,#btnHome::before{content:none} .hud .btns .t{display:none} .hud .btns .ic{font-size:26px;margin:0}
+  .emotes button{font-size:22px;padding:4px 0}
+}
+.ult .ic{font-size:27px;vertical-align:-7px}
+@media (max-width:900px){ .followbar{bottom:calc(40px + var(--hero-h,0px) + 10px + env(safe-area-inset-bottom,0px))} }

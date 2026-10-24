@@ -8,6 +8,7 @@ import { createKit, createModels } from './buildings.js';
 import { createPeople } from './people.js';
 import { createAnimals } from './animals.js';
 import { createGame } from './game.js';
+import { ICONS } from './icons.js';
 import { createUI } from './ui.js';
 import { mulberry, WATER_Y } from './env.js';
 const stage = document.getElementById('stage');
@@ -108,7 +109,7 @@ callbacks.tag = (op, w, t) => { const old = personLabels.get(w); if (old) { old.
   const el = document.createElement('div'); el.className = 'nameplate person ' + t.kind; const b = document.createElement('span'); b.className = 'badge'; b.textContent = t.badge; b.style.background = t.color; el.append(b, document.createTextNode(t.name)); labelLayer.appendChild(el);
   const L = { el, pos: new THREE.Vector3(), v: new THREE.Vector3(), prio: t.kind === 'mayor' ? 2.8 : t.kind === 'me' ? 2.7 : 2.5, w: 0, h: 0, follow: w }; labels.push(L); personLabels.set(w, L); };
 // 說話泡泡：掛在名牌上方（市長的政績口號、玩家的表情短句）
-callbacks.say = (w, txt) => { const L = personLabels.get(w); if (!L) return; let s = L.el.querySelector('.say'); if (!txt) { if (s) s.remove(); L.sayH = 0; return; } if (!s) { s = document.createElement('span'); s.className = 'say'; L.el.appendChild(s); } s.textContent = txt; s.classList.remove('pop'); L.sayH = s.offsetHeight + 9; s.classList.add('pop'); };
+callbacks.say = (w, txt, ic) => { const L = personLabels.get(w); if (!L) return; let s = L.el.querySelector('.say'); if (!txt) { if (s) s.remove(); L.sayH = 0; return; } if (!s) { s = document.createElement('span'); s.className = 'say'; L.el.appendChild(s); } s.textContent = ''; if (ic && ICONS[ic]) { const i = document.createElement('span'); i.className = 'ic'; i.innerHTML = ICONS[ic]; s.appendChild(i); } s.appendChild(document.createTextNode(txt)); s.classList.remove('pop'); L.sayH = s.offsetHeight + 9; s.classList.add('pop'); };
 const game = createGame({ scene, graph, centers, people, animals, islands: C.islands, colors, callbacks });
 gameRef = game; game.setStops(policyStops); game.spawnMayor(); people.build([...game.spawnResidents(), game.G.mayor]);
 // 相機
