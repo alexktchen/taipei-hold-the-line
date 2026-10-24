@@ -13,9 +13,10 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   function todaysIssue(list) { if (isFinalNow()) return list.find(i => i.id === C.election.finalIssueId) || list[0]; const today = todayTPE(); const open = list.filter(i => i.startsAt && i.startsAt <= today).sort((a, b) => a.startsAt < b.startsAt ? 1 : -1); return open[0] || list[0]; }
   let issues = [], policies = [], chosenIssue = null, nextTimer = 0, online = 1, onlineNames = [], chosenCls = 'chief', globals = { waves: 0, blocked: 0, heroes: 0 }; const districtName = id => (C.islands.find(i => i.id === id) || {}).name || '';
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
-  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; if (!$('nick').value) $('nick').value = h.nick || me.name || ''; chosenCls = h.cls || chosenCls;
+  let clsPicked = false;
+  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls) chosenCls = h.cls; /* 已存的英雄只當預設值，使用者點選過就以點選為準 */
     $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}</b><small>${H.desc}</small></span></button>`).join('');
-    $('classes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { chosenCls = b.dataset.id; renderLobby(); }));
+    $('classes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { chosenCls = b.dataset.id; clsPicked = true; renderLobby(); }));
     if (issues.length) { if (!chosenIssue || !issues.find(i => i.id === chosenIssue.id)) chosenIssue = pickNext(null);
     const rot = rotation(); const cur = chosenIssue;
     $('issues').innerHTML = `<div class="issue" aria-pressed="true" data-id="${esc(cur.id)}"><span class="tag">${esc(cur.tag)}</span><span><b>${esc(cur.title)}${cur.id === C.election.finalIssueId ? ' <em class="final">大選前夜</em>' : ' <em>下一波</em>'}</b><small>${esc(cur.desc || '')}</small></span></div>` + `<div class="rotation">${rot.filter(i => i.id !== cur.id).map(i => `<span>${esc(i.tag)}</span>`).join('')}</div>`; }
