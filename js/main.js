@@ -81,7 +81,7 @@ function placePolicies(list) { pkit.dispose(scene); policyById = new Map(); poli
   for (const pol of list) { const islId = pick(pol); const n = used.get(islId); used.set(islId, n + 1); const c = centers.get(islId), lay = LAYOUT.get(islId); const [sx, sz] = lay.slots[Math.min(n, POLICY_SLOTS - 1)]; pkit.owner = pol.id; pmodel(pol.model || 'kiosk', c.x + sx, c.z + sz, lay.size * 1.08, hash(pol.id) % 7); policyById.set(pol.id, pol); policyIsland.set(pol.id, islId); policyStops.push({ pol, island: islId, order: C.islands.find(i => i.id === islId).number, pos: new THREE.Vector3(c.x + sx, TOP, c.z + sz) }); }
   pkit.owner = null; policyMeshes = pkit.build(scene); if (gameRef) gameRef.setStops(policyStops); if (labelsReady) refreshPolicyLabels(); }
 placePolicies(C.policies);
-const people = createPeople(scene, colors, C.heroes); const animals = createAnimals(scene, C.animals);
+const people = createPeople(scene, colors, C.heroes); const animals = createAnimals(scene, C.animals, { chantSize: C.round.chantSize });
 // 名牌（DOM，螢幕固定大小，每幀投影）：政策標籤為主、可點；行政區只是淡淡的地面字；重疊時優先顯示前面的
 const labelLayer = document.getElementById('labels'); const labels = [];
 function addLabel(txt, pos, cls, num, prio = 1) { const el = document.createElement('div'); el.className = 'nameplate ' + (cls || ''); if (num) { const em = document.createElement('em'); em.textContent = num; el.appendChild(em); } el.appendChild(document.createTextNode(txt)); labelLayer.appendChild(el); const L = { el, pos: pos.clone(), v: new THREE.Vector3(), prio, w: 0, h: 0 }; labels.push(L); return L; }

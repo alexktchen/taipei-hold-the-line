@@ -43,6 +43,9 @@ ICONS.cheer = svg(`<path d="M16 1.8v3M9.6 3.4l1.3 2.4M22.4 3.4l-1.3 2.4" stroke=
   <g transform="translate(-1.2 7.4) scale(.66) rotate(-12 16 16)"><path d="${HAND}" fill="#f8d2ae" stroke="#211d1d" stroke-width="2.6" stroke-linejoin="round"/></g>
   <g transform="translate(33.2 7.4) scale(-.66 .66) rotate(-12 16 16)"><path d="${HAND}" fill="#f8d2ae" stroke="#211d1d" stroke-width="2.6" stroke-linejoin="round"/></g>`);
 ICONS.five = ICONS.hi;
+// 怎麼玩：黃色對話框＋問號
+ICONS.howto = svg(`<path d="M16 3.5c7 0 12.5 4.6 12.5 10.6S23 24.7 16 24.7c-1.5 0-2.9-.2-4.2-.6L6 27.5l1.4-5.6C5 20 3.5 17.2 3.5 14.1 3.5 8.1 9 3.5 16 3.5z" fill="#fcea8b" ${S}/>
+  <path d="M12.6 11.4a3.5 3.5 0 0 1 6.8 1.1c0 2.4-3.4 2.8-3.4 5" fill="none" stroke="#211d1d" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="21" r="1.5" fill="#211d1d"/>`);
 // 政策卡的分類圖示：依標籤（去掉 #）挑，沒有對應的用 fallback
 export const POLICY_ICONS = {
   // 居住：珊瑚屋頂小屋＋黃門＋藍窗

@@ -68,7 +68,7 @@ export function createGame(ctx) {
   }
   // ── 一場 ──
   function startRound(issue, hero, waveNo, isFinal) {
-    clearRound(); Object.assign(G, { phase: 'round', t: 0, approval: RC.startApproval, issue, waveNo, final: !!isFinal, kills: 0, leaked: 0, raids: 0, surges: 0, spawnedTotal: 0, speed: 1, paused: false, windLeft: 0, surgeT: 0, log: [], ultCd: 0, focusCd: 0 });
+    clearRound(); Object.assign(G, { phase: 'round', t: 0, approval: RC.startApproval, issue, waveNo, final: !!isFinal, kills: 0, leaked: 0, raids: 0, surges: 0, spawnedTotal: 0, speed: 1, paused: false, windLeft: 0, surgeT: 0, log: [], ultCd: 0, focusCd: 0, nextSpawn: 0, chantGap: 0 }); lastLine = '';
     // 有選 12 區對抗的區就從那座島的步道出發，沒選就從市政府
     const home = hero.district && centers.get(hero.district); const start = home ? graph.nodes[graph.nodeNear(hero.district, home)].p.clone().setY(goalCenter.y + 0.03) : goalCenter.clone().add(new THREE.Vector3(0, 0.03, 1.1));
     const hw = people.makeWalker('citizen', start, hero.cls); hw.pose = 'wave'; hw.nick = hero.nick; hw.district = hero.district || null; hw.cfg = C.heroes[hero.cls]; hw.cls = hero.cls; hw.cd = 0; hw.route = null; hw.s = 0;
@@ -88,10 +88,20 @@ export function createGame(ctx) {
   // ── 敵人 ──
   function landingRoute(routeId) { const land = C.landings[routeId]; const lc = centers.get(land.island); const away = lc.clone().sub(goalCenter).setY(0).normalize(); const ring = graph.ringIndex.get(land.island); let best = ring[0], bd = -1e9; for (const n of ring) { const d = graph.nodes[n].p.clone().sub(lc).dot(away); if (d > bd) { bd = d; best = n; } } const goalNode = graph.nodeNear(goalIsland.id, graph.nodes[best].p); const ids = graph.shortest(best, goalNode); const start = graph.nodes[best].p.clone().add(away.clone().multiplyScalar(2.6)); start.y = TOP + 0.03; return makeRoute([start, ...ids.map(n => graph.nodes[n].p.clone()), goalCenter.clone().setY(TOP + 0.03)]); }
   const routeCache = {};
-  function spawn(type, routeId) { const A = C.animals[type]; const route = routeCache[routeId] || (routeCache[routeId] = landingRoute(routeId)); const e = { id: ++eid, type, route, routeId, hp: A.hp, maxHp: A.hp, s: 0, x: route.pts[0].x, z: route.pts[0].z, slow: 0, slowT: 0, speedMul: 1, hairT: 0, chant: null, chantT: Math.random() * RC.chantOff, fixed: null, wing: Math.random() * 6, hopT: Math.random(), seed: Math.random(), spawnT: 0, prog: 0, lateral: (Math.random() - 0.5) * 0.16, obj: animals.spawn(type), dead: false, defenders: 0 };
-    if (A.repeat) e.fixed = pickChant(e); e.obj.userData.hit.userData.enemy = e; enemyHits.push(e.obj.userData.hit); e.obj.position.set(e.x, TOP + 0.03, e.z); G.enemies.push(e); G.spawnedTotal++;
+  function spawn(type, routeId) { const A = C.animals[type]; const route = routeCache[routeId] || (routeCache[routeId] = landingRoute(routeId)); const e = { id: ++eid, type, route, routeId, hp: A.hp, maxHp: A.hp, s: 0, x: route.pts[0].x, z: route.pts[0].z, slow: 0, slowT: 0, speedMul: 1, hairT: 0, chant: null, chantT: 0, restT: 0, spoke: false, wing: Math.random() * 6, hopT: Math.random(), seed: Math.random(), spawnT: 0, prog: 0, lateral: (Math.random() - 0.5) * 0.16, obj: animals.spawn(type), dead: false, defenders: 0 };
+    e.obj.userData.hit.userData.enemy = e; enemyHits.push(e.obj.userData.hit); e.obj.position.set(e.x, TOP + 0.03, e.z); G.enemies.push(e); G.spawnedTotal++;
     if (A.boss) { emit('banner', `${A.name} 從${C.landings[routeId].name}登陸了！`, 3); addLog(`${A.name}從${C.landings[routeId].name}方向登陸`, 'bad'); } return e; }
-  function pickChant(e) { const A = C.animals[e.type]; const pool = Math.random() < 0.65 ? G.issue.chants : A.chants; return pool[Math.floor(Math.random() * pool.length)]; }
+  // 頭上對話：同時最多 chantMax 句、每句至少隔 chantEvery 秒；剛登陸還沒講過的先講（魔王優先），講完休息 chantRest 秒
+  // 台詞用洗牌的牌堆依序抽，整副抽完才重洗，每句梗都輪得到；鸚鵡會把上一句複製一次再加 +1
+  const decks = new Map(); let lastLine = '';
+  function draw(key, list) { let d = decks.get(key); if (!d || !d.length) { d = [...list]; for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; } decks.set(key, d); } return d.pop(); }
+  function lineFor(e) { const A = C.animals[e.type]; if (A.repeat && lastLine && lastLine.length <= RC.chantCopyMax && Math.random() < 0.6) return lastLine.replace(/[!！]+$/, '') + '+1';
+    return Math.random() < RC.chantIssueShare ? draw('issue:' + G.issue.id, G.issue.chants) : draw('animal:' + e.type, A.chants); }
+  function updateChants(dt) { let talking = 0; G.chantGap -= dt;
+    for (const e of G.enemies) { if (e.chant) { e.chantT -= dt; if (e.chantT <= 0) { e.chant = null; e.restT = RC.chantRest; animals.setChant(e.obj, null); } else talking++; } else if (e.restT > 0) e.restT -= dt; }
+    if (talking >= RC.chantMax || G.chantGap > 0) return;
+    let best = null, bestScore = -1; for (const e of G.enemies) { if (e.dead || e.chant || e.restT > 0) continue; const score = (e.spoke ? 0 : 2) + (C.animals[e.type].boss ? 3 : 0) + Math.random(); if (score > bestScore) { best = e; bestScore = score; } }
+    if (!best) return; best.chant = lineFor(best); best.chantT = RC.chantOn; best.spoke = true; lastLine = best.chant; G.chantGap = RC.chantEvery; animals.setChant(best.obj, best.chant); }
   function damage(e, amt, by) { if (e.dead) return; e.hp -= amt; animals.setHp(e.obj, Math.max(0, e.hp / e.maxHp)); if (e.hp <= 0) { e.dead = true; G.kills++; floatText(by && by.role && !by.hero ? '勸退！' : '+1', e.x, TOP + 0.9, e.z, { bg: '#fcea8b' }); emit('hud'); } }
   function leak(e) { const A = C.animals[e.type]; G.leaked++; G.approval = Math.max(RC.approvalFloor, G.approval - A.leak); floatText(`−${A.leak}% 滿意度`, goalCenter.x, TOP + 2.4, goalCenter.z, { bg: '#c23b2a', fg: '#fff' }); if (A.boss) addLog(`${A.name}衝進市政府，滿意度 −${A.leak}%`, 'bad'); emit('hud'); }
   function removeEnemy(e) { animals.remove(e.obj); const i = enemyHits.indexOf(e.obj.userData.hit); if (i >= 0) enemyHits.splice(i, 1); }
@@ -142,7 +152,9 @@ export function createGame(ctx) {
     updateMayor(dt, zoom);
     if (G.phase !== 'round') { updateResidents(dt); return; }
     G.t += dt;
-    while (G.queue.length && G.queue[0].t <= G.t) { const q = G.queue.shift(); spawn(q.type, q.path); }
+    // 依序登陸：兩隻之間至少隔 spawnGap 秒，才看得清楚每一隻頭上講什麼
+    if (G.queue.length && G.queue[0].t <= G.t && G.t >= G.nextSpawn) { const q = G.queue.shift(); spawn(q.type, q.path); G.nextSpawn = G.t + RC.spawnGap; }
+    updateChants(dt);
     G.raidT -= dt; if (G.raidT <= 0 && G.t < RC.bossAt) { if (Math.random() < RC.raid.chance) raid(); G.raidT = RC.raid.minGap + Math.random() * (RC.raid.maxGap - RC.raid.minGap); }
     G.windT -= dt; if (G.windT <= 0 && G.t < RC.surgeAt) { G.windLeft = RC.windShift.duration; emit('banner', '💨 風向變了！敵人全體加速', 2.5); addLog('有人帶風向，網軍短暫加速', 'raid'); G.windT = RC.windShift.minGap + Math.random() * (RC.windShift.maxGap - RC.windShift.minGap); }
     if (G.windLeft > 0) G.windLeft -= dt;
@@ -156,7 +168,6 @@ export function createGame(ctx) {
       if (e.s >= e.route.total) { e.dead = true; leak(e); continue; }
       const smp = sampleRoute(e.route, e.s); e.x = smp.p.x + -smp.dir.z * e.lateral; e.z = smp.p.z + smp.dir.x * e.lateral; e.prog = e.s; e.obj.position.set(e.x, TOP + 0.03, e.z); e.obj.rotation.y = Math.atan2(smp.dir.x, smp.dir.z) - Math.PI / 2;
       e.wing += dt * (A.model === 'mouse' ? 22 : 12); if (A.hop) e.hopT += dt * A.speed * 1.6 * e.speedMul;
-      e.chantT -= dt; if (e.chantT <= 0) { if (e.chant) { e.chant = null; e.chantT = RC.chantOff * (0.6 + Math.random()); } else { e.chant = e.fixed || pickChant(e); e.chantT = RC.chantOn; } animals.setChant(e.obj, e.chant); }
       if (A.spawn) { e.spawnT += dt; if (e.spawnT >= A.spawn.every) { e.spawnT = 0; const n = spawn(A.spawn.type, e.routeId); n.s = e.s; } }
       animals.animate(e.obj, e, dt, G.t); }
     for (const e of G.enemies) if (e.dead) removeEnemy(e); G.enemies = G.enemies.filter(e => !e.dead);

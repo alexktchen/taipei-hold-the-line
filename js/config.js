@@ -10,14 +10,16 @@ export const CONFIG = {
   },
   election: { date: '2026-11-28', tz: 'Asia/Taipei', finalIssueId: 'final' },
   round: {
-    seconds: 180, autoNextSeconds: 8, dayStart: 420, dayEnd: 1050, // 一場的天色從 07:00 走到 17:30，不進入夜晚
+    seconds: 180, autoNextSeconds: 4, toastLinger: 2, dayStart: 420, dayEnd: 1050, // 一場的天色從 07:00 走到 17:30，不進入夜晚
     bossAt: 140, surgeAt: 158, surgeEvery: 1.5, surgePct: 0.35, surgeBelowApproval: 40, wipeAt: 176,
     startApproval: 100, approvalFloor: 1,
     baseSpawn: 26, bursts: [ { from: 3, to: 45, share: 0.35 }, { from: 55, to: 98, share: 0.35 }, { from: 106, to: 138, share: 0.30 } ],
     windShift: { minGap: 30, maxGap: 55, duration: 5, speedMul: 1.5 },
     raid: { minGap: 28, maxGap: 48, size: 5, chance: 0.7 },
     unitsPerSec: 0.9,          // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
-    chantOn: 1.8, chantOff: 1.3,
+    spawnGap: 1.2,             // 依序登陸：兩隻之間至少隔幾秒
+    // 頭上對話：每句顯示 chantOn 秒、同時最多 chantMax 句、新的一句至少隔 chantEvery 秒、講完休息 chantRest 秒；chantIssueShare = 講議題台詞（其餘講動物自己的）的比例；鸚鵡複製上一句的長度上限 chantCopyMax；chantSize = 對話框高度（世界單位）
+    chantOn: 2.6, chantMax: 2, chantEvery: 1.6, chantRest: 7, chantIssueShare: 0.65, chantCopyMax: 6, chantSize: 0.32,
     focusDmgMul: 3, focusCooldown: 1.4, ultCooldown: 45, ultPct: 0.6, ultSlow: 0.6, ultSlowTime: 3,
     projSpeed: 9,
   },

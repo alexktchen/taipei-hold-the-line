@@ -1,7 +1,7 @@
 /* 攻擊方動物（Q 版，和行人同一個比例尺）。每隻一個 Group，零件用圓角方塊與球體。 */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-export function createAnimals(scene, ANIMALS) {
+export function createAnimals(scene, ANIMALS, opts = {}) { const chantSize = opts.chantSize || 0.5;
   const geo = { rbox: new RoundedBoxGeometry(1, 1, 1, 2, 0.3), sphere: new THREE.SphereGeometry(0.5, 12, 10), cone: new THREE.ConeGeometry(0.5, 1, 8), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 8), torus: new THREE.TorusGeometry(0.5, 0.1, 6, 16), shadow: new THREE.CircleGeometry(0.5, 16).rotateX(-Math.PI / 2), hit: new THREE.SphereGeometry(0.5, 8, 8) };
   const mats = new Map(); const mat = c => { if (!mats.has(c)) mats.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 })); return mats.get(c); };
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x2a2018, transparent: true, opacity: 0.22, depthWrite: false }); const hitMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -38,7 +38,7 @@ export function createAnimals(scene, ANIMALS) {
     g.userData = { type: typeId, parts, hit, hp: { bg, fg, w: bw }, chant: null, chantY: barY + 0.26 }; scene.add(g); return g;
   }
   function setHp(g, f) { const b = g.userData.hp; b.fg.scale.x = Math.max(0.001, b.w * f); b.fg.position.x = -(b.w * (1 - f)) / 2; b.fg.material = f > 0.5 ? hpFg : f > 0.25 ? hpMid : hpLow; }
-  function setChant(g, txt) { const u = g.userData; if (u.chant) { g.remove(u.chant); u.chant = null; } if (!txt) return; const tex = chantTexture(txt); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); const asp = tex.userData.w / tex.userData.h; sp.scale.set(0.5 * asp, 0.5, 1); sp.position.y = u.chantY + 0.2; sp.renderOrder = 10; u.chant = sp; g.add(sp); }
+  function setChant(g, txt) { const u = g.userData; if (u.chant) { g.remove(u.chant); u.chant = null; } if (!txt) return; const tex = chantTexture(txt); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); const asp = tex.userData.w / tex.userData.h; sp.scale.set(chantSize * asp, chantSize, 1); sp.position.y = u.chantY + chantSize * 0.4; sp.renderOrder = 10; u.chant = sp; g.add(sp); }
   function animate(g, e, dt, t) { const A = ANIMALS[e.type]; const p = g.userData.parts;
     if (p.wings) { const f = Math.sin(e.wing) * 0.7; for (const wg of p.wings) wg.rotation.x = wg.userData.side * f; }
     if (A.hop) { const ph = e.hopT % 1; p.inner.position.y = Math.sin(ph * Math.PI) * 0.22 * A.size; p.inner.scale.y = ph < 0.1 || ph > 0.9 ? 0.78 : 1; }
