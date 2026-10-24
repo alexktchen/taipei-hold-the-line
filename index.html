@@ -29,13 +29,14 @@
   </header>
   <div class="parody-badge" id="parodyBadge" aria-label="二創惡搞作品，非官方">二創惡搞</div>
   <section class="gstrip panel" aria-label="全體戰績">
-    <div class="online"><i class="dot"></i><b id="gOnline">1</b><span>人在線</span></div>
+    <button class="online" id="btnOnline" type="button" aria-expanded="false" aria-controls="playersPanel" title="看在線的人"><i class="dot"></i><b id="gOnline">1</b><span>人在線</span><span class="lg" id="gPlaying"></span></button>
     <div><b id="gWaves">0</b><span class="lg">波攻擊已阻擋</span><span class="sm">波已擋</span></div>
     <div><b id="gBlocked">0</b><span>隻網軍被擋下</span></div>
     <div><b id="gHeroes">0</b><span>位英雄</span></div>
     <div class="cd" id="gCountdown">總攻擊倒數</div>
   </section>
   <aside class="dpanel panel" id="dPanel" aria-label="12 區對抗"><button class="dp-head" id="dpHead" type="button" aria-expanded="false"><b>12 區對抗</b><span id="dpMine"></span></button><ol id="dpList"></ol></aside>
+  <aside class="players panel" id="playersPanel" hidden aria-label="在線的人"><div class="pl-head"><b id="plTitle"></b><button class="close" id="btnPlClose" type="button" aria-label="關閉">×</button></div><ol class="plist" id="plList"></ol><p class="note">人數＝開著這個網頁的人（同一支手機或電腦開多個分頁算一個）。點「守城中」的人，鏡頭會飛過去。</p></aside>
   <section class="hud panel" id="hudPanel" aria-label="城市狀態">
     <div class="row"><span class="k">剩餘</span><b id="timer">3:00</b><span class="k2" id="waveLabel">大廳</span></div>
     <div class="row"><span class="k">滿意度</span><b><span id="approval">100</span>%</b><span class="meter"><i id="approvalBar"></i></span></div>
@@ -97,7 +98,7 @@
         <p class="note q-note"><span id="goWho"></span> <span id="mine"></span> <span id="modeNote"></span></p>
       </section>
       <div class="lobby-grid">
-        <div class="col"><h3>下一波來襲</h3><div class="issues" id="issues"></div><p class="note">議題自動輪替，每一波都不一樣，不用選。</p><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div><h3>現在在線</h3><p class="note" id="onlineList"></p></div>
+        <div class="col"><h3>下一波來襲</h3><div class="issues" id="issues"></div><p class="note">議題自動輪替，每一波都不一樣，不用選。</p><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div><h3>現在在線</h3><div class="note" id="onlineList"></div></div>
         <div class="col"><h3>12 區對抗</h3><ol class="dboard" id="dboard"></ol></div>
         <div class="col"><h3>英雄榜</h3><ol class="board" id="board"></ol></div>
       </div>

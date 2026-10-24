@@ -5,7 +5,7 @@
 window.PIStore = (function () {
   const LS_HERO = 'pi.hero.v1';
   const state = { db: null, user: null, uid: null, canWrite: null, canEdit: false, me: { name: '', avatarUrl: '', color: '' },
-    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], sb: null, presenceCh: null, presence: {} };
+    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], sb: null, presenceCh: null, presence: {} };
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const loadLocalHero = () => safe(() => JSON.parse(localStorage.getItem(LS_HERO) || 'null'), null);
   const saveLocalHero = (h) => safe(() => localStorage.setItem(LS_HERO, JSON.stringify(h)), null);
@@ -14,7 +14,7 @@ window.PIStore = (function () {
     if (ch === 'leaderboard') state.subs.leaderboard.forEach(fn => fn(leaderboard()));
     if (ch === 'issues') state.subs.issues.forEach(fn => fn(listIssues()));
     if (ch === 'policies') state.subs.policies.forEach(fn => fn(listPolicies()));
-    if (ch === 'online') state.subs.online.forEach(fn => fn(state.online, state.onlineNames));
+    if (ch === 'online') state.subs.online.forEach(fn => fn(state.online, state.onlineNames, state.onlinePeople));
   }
   function totals() {
     const list = state.mode !== 'local' ? state.heroes : (state.hero ? [state.hero] : []);
@@ -48,7 +48,7 @@ window.PIStore = (function () {
     const claude = window.claude;
     if (!claude || typeof claude.use !== 'function') { await initSupabase(); return finishInit(); }
     const [db, user, room] = await Promise.all([claude.use('db'), claude.use('user'), claude.use('room')]);
-    if (room) { state.room = room; room.onPeers(ch => { const viewers = ch.peers.filter(p => p.kind === 'viewer'); state.online = Math.max(1, viewers.length); state.onlineNames = viewers.map(p => (p.presence && typeof p.presence.nick === 'string') ? p.presence.nick.slice(0, 24) : '').filter(Boolean); emit('online'); }, err => console.warn('[store] room', err)); }
+    if (room) { state.room = room; room.onPeers(ch => { const viewers = ch.peers.filter(p => p.kind === 'viewer'); state.onlinePeople = viewers.map((p, i) => peer(String(p.id || i), p.presence)); state.online = Math.max(1, viewers.length); state.onlineNames = state.onlinePeople.map(p => p.nick).filter(Boolean); emit('online'); }, err => console.warn('[store] room', err)); }
     state.db = db; state.user = user;
     if (user) {
       const me = await user.me();
@@ -67,6 +67,8 @@ window.PIStore = (function () {
     }
     return finishInit();
   }
+  // 在線名單的一筆：presence 是其他訪客送的，只取固定欄位並檢查型別；同一人開多個分頁算一個（key 是匿名 uid）
+  const peer = (id, p) => { p = p || {}; return { id, nick: typeof p.nick === 'string' ? p.nick.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 24) : '', cls: typeof p.cls === 'string' && Object.hasOwn(PI_CONFIG.heroes, p.cls) ? p.cls : null, phase: p.phase === 'round' ? 'round' : 'lobby', away: p.away === true }; };
   // ── Supabase（靜態站用）：匿名登入取得每位訪客的 uid；heroes 每人一列；presence 頻道算線上人數 ──
   let refreshT = 0;
   // heroes.district 欄位要先跑 supabase/districts.sql；還沒加的話自動退回不含 district 的讀寫，戰績照存
@@ -84,7 +86,7 @@ window.PIStore = (function () {
       const [pol, iss] = await Promise.all([sb.from('policies').select('id,data'), sb.from('issues').select('id,data')]);
       state.policiesRemote = (pol.data || []).map(r => ({ ...(r.data || {}), id: r.id })); state.issuesRemote = (iss.data || []).map(r => ({ ...(r.data || {}), id: r.id })); emit('policies'); emit('issues');
       const ch = sb.channel('online', { config: { presence: { key: state.uid } } });
-      ch.on('presence', { event: 'sync' }, () => { const ps = ch.presenceState(); state.onlineIds = Object.keys(ps); const list = Object.values(ps).map(a => a[0] || {}); state.online = Math.max(1, list.length); state.onlineNames = list.map(p => typeof p.nick === 'string' ? p.nick.slice(0, 24) : '').filter(Boolean); emit('online'); });
+      ch.on('presence', { event: 'sync' }, () => { const ps = ch.presenceState(); state.onlineIds = Object.keys(ps); state.onlinePeople = Object.entries(ps).map(([id, a]) => peer(id, a[0])); state.online = Math.max(1, state.onlinePeople.length); state.onlineNames = state.onlinePeople.map(p => p.nick).filter(Boolean); emit('online'); });
       ch.subscribe(st => { if (st === 'SUBSCRIBED') { state.presenceCh = ch; ch.track(state.presence).catch(() => {}); } });
       // 多人同框：英雄位置、表情、大招走 broadcast（不寫資料庫、不保留），收到的內容一律當不可信資料，由 UI 驗證
       const play = sb.channel('play', { config: { broadcast: { self: false } } });
@@ -125,7 +127,7 @@ window.PIStore = (function () {
   }
   return { init, hero, saveHero, recordRound, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
     onPolicies: fn => { state.subs.policies.push(fn); fn(listPolicies()); },
-    onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames); }, setPresence, send,
+    onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames, state.onlinePeople); }, setPresence, send,
     onNet: fn => { state.subs.net.push(fn); },
     onGlobal: fn => { state.subs.global.push(fn); fn(totals()); },
     onLeaderboard: fn => { state.subs.leaderboard.push(fn); fn(leaderboard()); },

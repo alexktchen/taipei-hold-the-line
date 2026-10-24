@@ -4,7 +4,7 @@ import { HOTLINE } from './hotline.js';
 import { nextNews, genHotline } from './news.js';
 import { ICONS, policyIcon } from './icons.js';
 const RC = C.round, $ = id => document.getElementById(id);
-export function createUI({ game, callbacks, overview, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow }) {
+export function createUI({ game, callbacks, overview, flyTo, placePolicies, islandOf, islandNear, setDistrictRanks, renderer, follow }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const todayTPE = () => new Date().toLocaleDateString('en-CA', { timeZone: C.election.tz }); const dayNum = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const eveDate = () => new Date((dayNum(C.election.date) - 1) * 86400000).toISOString().slice(0, 10); const isFinalNow = () => dayNum(todayTPE()) >= dayNum(eveDate()); const daysToEve = () => dayNum(eveDate()) - dayNum(todayTPE());
@@ -12,7 +12,7 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   function rotation() { const today = todayTPE(); const open = issues.filter(i => i.id !== C.election.finalIssueId && (!i.startsAt || i.startsAt <= today)); return open.length ? open : issues.filter(i => i.id !== C.election.finalIssueId); }
   function pickNext(lastId) { if (isFinalNow()) return issues.find(i => i.id === C.election.finalIssueId) || issues[0]; const pool = rotation(); const cand = pool.length > 1 ? pool.filter(i => i.id !== lastId) : pool; return cand[Math.floor(Math.random() * cand.length)] || issues[0]; }
   function todaysIssue(list) { if (isFinalNow()) return list.find(i => i.id === C.election.finalIssueId) || list[0]; const today = todayTPE(); const open = list.filter(i => i.startsAt && i.startsAt <= today).sort((a, b) => a.startsAt < b.startsAt ? 1 : -1); return open[0] || list[0]; }
-  let issues = [], policies = [], chosenIssue = null, nextTimer = 0, online = 1, onlineNames = [], chosenCls = 'chief', globals = { waves: 0, blocked: 0, heroes: 0 }; const districtName = id => (C.islands.find(i => i.id === id) || {}).name || '';
+  let issues = [], policies = [], people = [], chosenIssue = null, nextTimer = 0, online = 1, onlineNames = [], chosenCls = 'chief', globals = { waves: 0, blocked: 0, heroes: 0 }; const districtName = id => (C.islands.find(i => i.id === id) || {}).name || '';
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   let clsPicked = false, districtPicked = false; const DISTRICTS = C.islands.filter(i => !i.detached);
   // 沒存過區的人先隨機給一區，大家一進來就算進 12 區對抗；可以自己換
@@ -64,13 +64,13 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
     const rot = rotation(); const cur = chosenIssue;
     $('issues').innerHTML = `<div class="issue" aria-pressed="true" data-id="${esc(cur.id)}"><span class="tag">${esc(cur.tag)}</span><span><b>${esc(cur.title)}${cur.id === C.election.finalIssueId ? ' <em class="final">大選前夜</em>' : ' <em>下一波</em>'}</b><small>${esc(cur.desc || '')}</small></span></div>` + `<div class="rotation">${rot.filter(i => i.id !== cur.id).map(i => `<span>${esc(i.tag)}</span>`).join('')}</div>`; }
     const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}）` : d === 0 ? '今晚就是總攻擊之夜' : `總攻擊已於 ${eveDate()} 擋下，可隨時重演`;
-    $('onlineList').textContent = online > 1 ? `${online} 人一起守城${onlineNames.length ? '：' + onlineNames.slice(0, 12).join('、') : ''}` : '目前只有你，邀朋友一起來守。';
+    $('onlineList').innerHTML = online > 1 ? `<p><b>${fmt(online)}</b> 人在線・<b>${fmt(playingCount())}</b> 人正在守</p><ol class="plist">${sortedPeople().map(p => personRow(p, false)).join('')}</ol>` : '目前只有你，邀朋友一起來守。';
     $('lobbyStats').innerHTML = `<div><b>${fmt(online)}</b><span>人在線</span></div><div><b>${fmt(globals.waves)}</b><span>${C.site.waveWord}已阻擋</span></div><div><b>${fmt(globals.blocked)}</b><span>隻網軍被擋下</span></div><div><b>${fmt(globals.heroes)}</b><span>位英雄參戰</span></div>`.replace(/<div><b>[^<]*<\/b><span>位英雄參戰<\/span><\/div>$/, '');
     $('mine').textContent = h.rounds ? `你已經守了 ${h.rounds} 波、擊退 ${fmt(h.kills)} 隻。` : '你還沒出戰過。';
     $('modeNote').textContent = S.state.mode === 'supabase' ? '已連線：戰績與線上人數和所有人共享。' : S.state.mode === 'remote' ? (S.state.canWrite === false ? '目前只能瀏覽：你的戰績不會計入共享總數。' : '戰績會計入所有人的共享總數。') : '本機模式：沒有連到共享後端，戰績只存在這個瀏覽器。';
     $('adminBox').hidden = !(S.state.canEdit && S.state.mode === 'remote'); }
   function renderBoard(list) { $('board').innerHTML = list.length ? list.map((h, i) => `<li><span class="rank">${i + 1}</span><span class="who">${esc(h.nick || '匿名英雄')} <small>${C.heroes[h.cls] ? C.heroes[h.cls].icon : ''}</small></span><b>${fmt(h.kills)}</b><small>${h.rounds || 0} 波</small></li>`).join('') : '<li class="empty">還沒有人出戰。第一個就是你。</li>'; }
-  function renderStrip() { $('gOnline').textContent = fmt(online); $('gWaves').textContent = fmt(globals.waves); $('gBlocked').textContent = fmt(globals.blocked); $('gHeroes').textContent = fmt(globals.heroes); const d = daysToEve(); $('gCountdown').textContent = d > 0 ? `總攻擊倒數 ${d} 天` : '總攻擊之夜'; }
+  function renderStrip() { $('gOnline').textContent = fmt(online); const playing = playingCount(); $('gPlaying').textContent = playing ? `・${fmt(playing)} 人在守` : ''; $('gWaves').textContent = fmt(globals.waves); $('gBlocked').textContent = fmt(globals.blocked); $('gHeroes').textContent = fmt(globals.heroes); const d = daysToEve(); $('gCountdown').textContent = d > 0 ? `總攻擊倒數 ${d} 天` : '總攻擊之夜'; }
   function renderHud() { const inRound = G.phase === 'round'; const left = Math.max(0, RC.seconds - G.t); $('timer').textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`; $('approval').textContent = Math.max(0, Math.round(G.approval)); const bar = $('approvalBar'); bar.style.width = Math.max(0, G.approval) + '%'; bar.dataset.level = G.approval > 50 ? 'ok' : G.approval > 25 ? 'mid' : 'low';
     $('waveLabel').textContent = inRound ? `第 ${G.waveNo} 波・${G.issue.tag}${G.final ? '・總攻擊' : ''}` : '大廳'; $('enemies').textContent = inRound ? `${G.enemies.length} 隻在島上・${G.queue.length} 隻在路上・${G.residents.filter(r => r.state === 'engage' || r.state === 'fight').length} 位居民出動` : `${G.residents.length} 位居民在島上散步`; $('btnPause').disabled = !inRound; $('btnSpeed').disabled = !inRound; $('hudPanel').classList.toggle('round', inRound); }
   function renderHero() { const p = $('heroPanel'); if (!G.hero) { p.hidden = true; return; } const H = G.hero.cfg; p.hidden = false; $('heroName').textContent = `${H.icon} ${G.hero.nick || H.name}（${H.name}）`; $('focusCd').textContent = G.focusCd > 0 ? `重擊冷卻 ${G.focusCd.toFixed(1)} 秒` : (G.auto ? `點敵人：重擊 ×${RC.focusDmgMul}・點島嶼：移動` : `自由逛逛：點地圖走過去・點玩家擊掌・點敵人重擊`); const ab = $('btnAuto'); ab.setAttribute('aria-checked', String(G.auto)); $('autoSt').textContent = G.auto ? '開' : '關・自由逛逛'; const u = $('btnUlt'); u.disabled = G.ultCd > 0 || G.phase !== 'round'; const uh = G.ultCd > 0 ? `台北人站出來（${Math.ceil(G.ultCd)}s）` : `<span class="ic">${ICONS.cheer}</span> 台北人站出來<span class="kbd">（Q）</span>`; if (u.innerHTML !== uh) u.innerHTML = uh; }
@@ -155,6 +155,21 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
     if (m.t === 'e') { const em = typeof m.k === 'string' && EM.get(m.k); if (!em) return; const nick = game.remoteEmote(m.id, em); if (!nick) return;
       if (em.k === 'five' && m.to === myId()) { banner(`${nick} 跟你擊掌 🙌`, 2.5); game.myEmote(MP.five); } else if (em.k === 'help') hint(`${nick}：這邊需要支援！`); return; }
     if (m.t === 'u') { const nick = game.remoteUlt(m.id); if (nick) banner(`🙌 ${nick} 喊「台北人站出來」！`, 2.5); } });
+  // ── 在線名單：人數＝開著頁面的人（同一人多分頁算一個）；正在守＝在回合中且分頁在前景。點「人在線」看所有人，點守城中的人鏡頭飛過去 ──
+  // 這幾個是 function 宣告（會提升）：大廳可能在這段執行前就先畫在線名單
+  function statusOf(p) { return p.away ? 'away' : p.phase; }
+  function playingCount() { return people.filter(p => statusOf(p) === 'round').length; }
+  function sortedPeople() { const me = S.state.uid, order = { round: 0, lobby: 1, away: 2 }; return [...people].sort((a, b) => (b.id === me) - (a.id === me) || order[statusOf(a)] - order[statusOf(b)] || a.nick.localeCompare(b.nick, 'zh-Hant')); }
+  function personRow(p, clickable) { const me = p.id === S.state.uid, H = p.cls && C.heroes[p.cls], st = statusOf(p), go = clickable && !me && game.remotes.has(p.id), label = { round: '守城中', lobby: '在大廳', away: '暫離' }[st];
+    return `<li class="${st}${me ? ' me' : ''}${go ? ' fly' : ''}"${go ? ` data-pid="${esc(p.id)}" tabindex="0" role="button"` : ''}><i></i><span class="pn">${esc(p.nick || '匿名英雄')}${me ? ' <em>你</em>' : ''}</span><small>${H ? H.icon + ' ' : ''}${label}${clickable && st === 'round' && !me && !go ? '・還沒收到位置' : ''}</small></li>`; }
+  // 每秒會重畫一次：內容沒變就不動 DOM，不然點到一半元素被換掉，點擊會失效
+  function renderPlayers() { $('plTitle').textContent = `${fmt(online)} 人在線・${fmt(playingCount())} 人正在守`; const html = sortedPeople().map(p => personRow(p, true)).join('') || '<li class="empty">目前只有你</li>'; if ($('plList').dataset.html !== html) { $('plList').innerHTML = html; $('plList').dataset.html = html; } }
+  const setPlayers = open => { $('playersPanel').hidden = !open; $('btnOnline').setAttribute('aria-expanded', String(open)); if (open) renderPlayers(); };
+  $('btnOnline').addEventListener('click', () => setPlayers($('playersPanel').hidden)); $('btnPlClose').addEventListener('click', () => setPlayers(false));
+  const goPlayer = el => { if (!el) return; const w = game.remotes.get(el.dataset.pid); if (!w) { hint('他剛離開地圖', true); renderPlayers(); return; } flyTo(islandNear(w.pos)); setPlayers(false); hint(`飛到 ${w.nick} 那邊`); };
+  $('plList').addEventListener('click', e => goPlayer(e.target.closest('li[data-pid]'))); $('plList').addEventListener('keydown', e => { if (e.key === 'Enter') goPlayer(e.target.closest('li[data-pid]')); });
+  // 分頁切到背景就標成暫離（背景分頁不送位置，別人的地圖上 25 秒後會看不到）；回到前景馬上補送一次位置
+  document.addEventListener('visibilitychange', () => { S.setPresence({ away: document.hidden }); if (!document.hidden) { lastSent = null; sendPos(); } });
   function emote(k) { const em = EM.get(k); const now = Date.now(); if (!em || now - lastEmoteAt < MP.emoteCooldown * 1000) return; if (!game.myEmote(em)) { hint('出戰後才能跟其他玩家打招呼', true); return; } lastEmoteAt = now; S.send({ t: 'e', k }); }
   $('emotes').innerHTML = MP.emotes.map(e => `<button type="button" data-k="${esc(e.k)}" title="說：${esc(e.say)}" aria-label="${esc(e.say)}">${ICONS[e.k] || esc(e.icon)}</button>`).join('');
   for (const el of document.querySelectorAll('[data-ic]')) el.innerHTML = ICONS[el.dataset.ic] || '';
@@ -181,8 +196,8 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   document.addEventListener('visibilitychange', () => { if (document.hidden && G.phase === 'round' && !G.paused) $('btnPause').click(); });
   $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
   S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); }); S.onIssues(list => { issues = list; fillIssueSelect(); if (!$('lobby').hidden) renderLobby(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
-  S.onOnline((n, names) => { online = n; onlineNames = names; renderStrip(); if (!$('lobby').hidden) renderLobby(); });
-  S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', phase: 'lobby' }); renderLobby(); }); renderHud(); renderHero(); hint('');
+  S.onOnline((n, names, list) => { online = n; onlineNames = names; people = list || []; renderStrip(); if (!$('lobby').hidden) renderLobby(); if (!$('playersPanel').hidden) renderPlayers(); });
+  S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', phase: 'lobby', away: document.hidden }); renderLobby(); }); renderHud(); renderHero(); hint('');
   // ── 市民熱線（右側卡片輪播）與城市快訊（底部跑馬燈）──
   const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
   let hlQueue = [], hlDone = 0, hlTimer = 0, hlPaused = false;
@@ -228,5 +243,5 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   $('tkText').addEventListener('animationend', nextTicker); requestAnimationFrame(nextTicker);
   $('nick').addEventListener('input', () => S.setPresence({ nick: $('nick').value.trim().slice(0, 24) }));
   let distTick = 0;
-  return { tick() { renderHud(); renderHero(); if (follow.kind) renderFollow(); if (G.phase === 'round' && ++distTick % 5 === 0) renderDistricts(); } };
+  return { tick() { renderHud(); renderHero(); if (follow.kind) renderFollow(); if (++distTick % 5) return; if (G.phase === 'round') renderDistricts(); if (!$('playersPanel').hidden) renderPlayers(); } };
 }
