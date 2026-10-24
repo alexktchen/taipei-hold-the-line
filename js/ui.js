@@ -79,14 +79,14 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
   let hlQueue = [], hlDone = 0, hlTimer = 0, hlPaused = false;
   function pickHotline() { if (!hlQueue.length) hlQueue = shuffle(HOTLINE); return Math.random() < C.ticker.hotlineGenShare ? genHotline() : hlQueue.shift(); }
-  function nextHotline() { const [dist, who, ask, fix] = pickHotline(); hlDone++;
-    const body = $('hlBody'); body.classList.remove('in'); void body.offsetWidth;
-    body.innerHTML = `<div class="hl-who"><span class="hl-dist">${esc(dist)}</span>${esc(who)}</div><p class="hl-ask">「${esc(ask)}」</p><div class="hl-fix"><b>🎙 市長</b>${esc(fix)}</div><span class="hl-stamp">已解決</span>`;
-    body.classList.add('in'); $('hlCount').textContent = `今日已解決 ${fmt(1287 + hlDone)} 件`; }
+  let hlItems = [];
+  function nextHotline() { let it = pickHotline(); for (let k = 0; k < 8 && hlItems.some(x => x[2] === it[2] || x[3] === it[3]); k++) it = pickHotline(); hlItems.unshift(it); hlItems = hlItems.slice(0, C.ticker.hotlineRows); hlDone++;
+    $('hlBody').innerHTML = hlItems.map(([dist, who, ask, fix], i) => `<div class="hl-item${i === 0 ? ' in' : ''}"><div class="hl-who"><span class="hl-dist">${esc(dist)}</span>${esc(who)}<span class="hl-stamp">已解決</span></div><p class="hl-ask">「${esc(ask)}」</p><div class="hl-fix"><b>🎙 市長</b>${esc(fix)}</div></div>`).join('');
+    $('hlCount').textContent = `今日已解決 ${fmt(1287 + hlDone)} 件`; }
   function scheduleHotline() { clearInterval(hlTimer); hlTimer = setInterval(() => { if (!hlPaused && !document.hidden) nextHotline(); }, C.ticker.hotlineSeconds * 1000); }
   $('hotline').addEventListener('mouseenter', () => { hlPaused = true; }); $('hotline').addEventListener('mouseleave', () => { hlPaused = false; });
   $('hlNext').addEventListener('click', () => { nextHotline(); scheduleHotline(); });
-  nextHotline(); scheduleHotline();
+  for (let i = 0; i < C.ticker.hotlineRows; i++) nextHotline(); scheduleHotline();
   let tkCount = 0; const narrowView = () => window.matchMedia('(max-width:900px)').matches;
   function nextTicker() { tkCount++; let txt; const mixHot = narrowView() || tkCount % C.ticker.mixHotlineEvery === 0;
     if (mixHot && tkCount % 2 === 0) { const [dist, who, ask, fix] = pickHotline(); txt = `📞 ${dist}${who}：「${ask}」　🎙 市長：${fix}`; }

@@ -24,7 +24,7 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 .brand .tag{font-size:10px;color:var(--muted);border:1px solid var(--line);padding:1px 7px;border-radius:999px;display:inline-block;margin-top:6px}
 .gstrip{left:50%;top:14px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:6px 16px;background:var(--paper);color:var(--ink);border-radius:999px;white-space:nowrap}
 .gstrip>div{display:flex;align-items:baseline;gap:5px} .gstrip b{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--coral)} .gstrip span{font-size:11px;color:var(--muted)} .gstrip .cd{background:var(--gold);color:#211d1d;padding:1px 9px;border-radius:999px;font-size:11px;font-weight:700}
-.hud{right:max(14px,var(--sa-r));top:14px;padding:10px 12px;min-width:240px;display:flex;flex-direction:column;gap:4px}
+.hud{right:max(14px,var(--sa-r));top:14px;padding:10px 12px;width:300px;display:flex;flex-direction:column;gap:4px}
 .hud .row{display:flex;align-items:center;gap:8px} .hud .k{font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;width:44px} .hud b{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--coral)} .hud .k2{font-size:11px;color:var(--muted)}
 .meter{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden} .meter i{display:block;height:100%;width:100%;background:var(--ok);transition:width .3s,background .3s} .meter i[data-level="mid"]{background:#e8c547} .meter i[data-level="low"]{background:var(--bad)}
 .hud .btns{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap} .hud .btns button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700} .hud .btns button[aria-pressed="true"]{background:var(--gold);color:#211d1d;border-color:var(--gold)} .hud .btns button:disabled{opacity:.4;cursor:default}
@@ -109,13 +109,13 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
   .fb-btns{flex-wrap:nowrap;width:100%} .fb-btns button{flex:1;padding:6px 4px;font-size:11px} }
 
 /* 1999 市民熱線卡（右側）與城市快訊跑馬燈（底部） */
-.hotline{right:max(14px,var(--sa-r));top:172px;width:280px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px}
+.hotline{right:max(14px,var(--sa-r));top:200px;width:300px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px);overflow:hidden}
 .hl-head{display:flex;align-items:center;gap:6px;font-size:13px} .hl-head b{font-weight:900;color:var(--coral)} .hl-count{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.hl-body{position:relative;min-height:132px} .hl-body.in{animation:hlIn .45s ease-out} @keyframes hlIn{from{opacity:.55;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hl-body{display:flex;flex-direction:column;gap:8px} .hl-item{position:relative;padding-bottom:8px;border-bottom:1px dashed var(--line)} .hl-item:last-child{border-bottom:0;padding-bottom:0} .hl-item.in{animation:hlIn .45s ease-out} @keyframes hlIn{from{opacity:.55;transform:translateY(6px)}to{opacity:1;transform:none}}
 .hl-who{font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:6px} .hl-dist{background:#f3e7de;color:var(--ink);border-radius:999px;padding:1px 8px;font-size:11px}
-.hl-ask{margin:6px 0 8px;font-size:14px;font-weight:700;line-height:1.5;text-wrap:pretty}
-.hl-fix{background:#fbe4d8;border-radius:12px;padding:8px 10px;font-size:13px;line-height:1.5} .hl-fix b{display:block;color:var(--coral);font-size:11px;letter-spacing:.08em;margin-bottom:2px}
-.hl-stamp{position:absolute;right:-2px;top:22px;transform:rotate(12deg);border:2px solid #4f8a3f;color:#4f8a3f;font-weight:900;font-size:12px;padding:1px 8px;border-radius:6px;background:#fff8f4cc}
+.hl-ask{margin:4px 0 6px;font-size:13px;font-weight:700;line-height:1.45;text-wrap:pretty}
+.hl-fix{background:#fbe4d8;border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.45} .hl-fix b{display:inline;color:var(--coral);font-size:11px;letter-spacing:.06em;margin-right:6px}
+.hl-stamp{margin-left:auto;transform:rotate(-6deg);border:1.5px solid #4f8a3f;color:#4f8a3f;font-weight:900;font-size:10px;padding:0 6px;border-radius:5px;background:#fff8f4cc}
 .hl-foot{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)} .hl-foot button{border:0;background:transparent;color:var(--coral);font-weight:700;font-size:12px;padding:2px 0}
 .ticker{position:absolute;z-index:2;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;background:#211d1d;color:#fff8f4;font-size:13px;padding-left:max(0px,var(--sa-l));padding-right:max(0px,var(--sa-r));padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:content-box}
 .tk-label{flex:0 0 auto;background:var(--coral);height:100%;display:flex;align-items:center;padding:0 12px;font-weight:900;letter-spacing:.08em;font-size:12px}
@@ -123,6 +123,6 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 @keyframes tk{from{transform:translate(var(--from),-50%)}to{transform:translate(var(--to),-50%)}}
 @media (prefers-reduced-motion: reduce){ .hl-body.in{animation:none} }
 .logp{bottom:44px} .hero{bottom:44px} .hint{bottom:44px} .parody-badge{bottom:44px}
-@media (max-height:760px){ .hotline{display:none} }
+@media (max-height:700px){ .hotline{display:none} }
 @media (max-width:900px){ .hotline{display:none} .ticker{height:28px;font-size:12px} .tk-label{padding:0 8px;font-size:11px}
   .gstrip{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .hero{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .followbar{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .card{bottom:calc(92px + env(safe-area-inset-bottom,0px))} }
