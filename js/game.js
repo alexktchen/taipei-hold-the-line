@@ -6,7 +6,7 @@ const RC = C.round, RS = C.residents;
 export function createGame(ctx) {
   const { scene, graph, centers, people, animals, islands, colors } = ctx; const cb = ctx.callbacks; const emit = (k, ...a) => cb[k] && cb[k](...a);
   const goalIsland = islands.find(i => i.goal); const goalCenter = centers.get(goalIsland.id);
-  const G = { phase: 'lobby', t: 0, approval: 100, enemies: [], projs: [], beams: [], floats: [], rings: [], queue: [], issue: null, hero: null, residents: [], kills: 0, leaked: 0, raids: 0, waveNo: 1, raidT: 0, windT: 0, windLeft: 0, surgeT: 0, surges: 0, final: false, log: [], spawnedTotal: 0, ultCd: 0, focusCd: 0, paused: false, speed: 1 };
+  const G = { phase: 'lobby', t: 0, approval: 100, enemies: [], projs: [], beams: [], floats: [], rings: [], queue: [], issue: null, hero: null, residents: [], kills: 0, leaked: 0, raids: 0, waveNo: 1, raidT: 0, windT: 0, windLeft: 0, surgeT: 0, surges: 0, final: false, log: [], spawnedTotal: 0, ultCd: 0, focusCd: 0, paused: false, speed: 1, auto: true };
   const d2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   let eid = 0; const enemyHits = [];
   // ── 文字貼圖 ──
@@ -91,9 +91,14 @@ export function createGame(ctx) {
   function leak(e) { const A = C.animals[e.type]; G.leaked++; G.approval = Math.max(RC.approvalFloor, G.approval - A.leak); floatText(`−${A.leak}% 滿意度`, goalCenter.x, TOP + 2.4, goalCenter.z, { bg: '#c23b2a', fg: '#fff' }); if (A.boss) addLog(`${A.name}衝進市政府，滿意度 −${A.leak}%`, 'bad'); emit('hud'); }
   function removeEnemy(e) { animals.remove(e.obj); const i = enemyHits.indexOf(e.obj.userData.hit); if (i >= 0) enemyHits.splice(i, 1); }
   // ── 英雄 ──
-  function heroGoTo(islandId, point) { const H = G.hero; if (!H || G.phase !== 'round') return; const node = point ? graph.nodeNear(islandId, point) : graph.ringIndex.get(islandId)[0]; H.route = routeTo(H.pos, node); H.s = 0; H.pose = null; H.manual = 8; emit('hint', `${H.nick} 前往「${islands.find(i => i.id === islandId).name}」（8 秒內不會自己跑掉）`); }
+  function heroGoTo(islandId, point) { const H = G.hero; if (!H || G.phase !== 'round') return; const node = point ? graph.nodeNear(islandId, point) : graph.ringIndex.get(islandId)[0]; H.route = routeTo(H.pos, node);
+    // 點的位置離步道很近就走到點的那一格（逛街用），太遠（建築裡）就停在步道上
+    if (point) { const tp = point.clone().setY(TOP + 0.03); if (tp.distanceTo(graph.nodes[node].p) < C.heroMode.exactRadius) H.route = makeRoute([...H.route.pts, tp]); }
+    H.s = 0; H.pose = null; H.manual = G.auto ? C.heroMode.manualSeconds : 0; const name = islands.find(i => i.id === islandId).name; emit('hint', G.auto ? `${H.nick} 前往「${name}」（${C.heroMode.manualSeconds} 秒內不會自己跑掉）` : `${H.nick} 散步到「${name}」`); }
+  // 自動攻擊開關：開＝自己找怪、自動開火；關＝不追怪也不自動開火，點哪走哪、可以找其他玩家互動（點敵人仍可重擊）
+  function setAuto(on) { G.auto = !!on; const H = G.hero; if (H) { H.manual = 0; if (!G.auto) { H.route = null; H.moving = false; if (H.pose === 'fight') H.pose = null; } } emit('hero'); }
   // 英雄自動找怪：射程內沒敵人就往最前面（最接近市政府）的敵人走
-  function heroAuto(dt) { const H = G.hero; H.manual = Math.max(0, (H.manual || 0) - dt); H.think = (H.think || 0) - dt; if (H.manual > 0 || H.think > 0) return; H.think = 0.8; let best = null; for (const e of G.enemies) if (!e.dead && (!best || e.prog / e.route.total > best.prog / best.route.total)) best = e; if (!best) { if (!H.route && d2(H.pos, goalCenter) > 2.2) { H.route = routeTo(H.pos, graph.nodeNear(goalIsland.id, H.pos)); H.s = 0; } return; } if (d2(best, H.pos) <= H.cfg.range * 0.85) { H.route = null; H.moving = false; return; } H.route = routeTo(H.pos, graph.nearestNode(ev(best))); H.s = 0; H.pose = null; }
+  function heroAuto(dt) { const H = G.hero; if (!G.auto) return; H.manual = Math.max(0, (H.manual || 0) - dt); H.think = (H.think || 0) - dt; if (H.manual > 0 || H.think > 0) return; H.think = 0.8; let best = null; for (const e of G.enemies) if (!e.dead && (!best || e.prog / e.route.total > best.prog / best.route.total)) best = e; if (!best) { if (!H.route && d2(H.pos, goalCenter) > 2.2) { H.route = routeTo(H.pos, graph.nodeNear(goalIsland.id, H.pos)); H.s = 0; } return; } if (d2(best, H.pos) <= H.cfg.range * 0.85) { H.route = null; H.moving = false; return; } H.route = routeTo(H.pos, graph.nearestNode(ev(best))); H.s = 0; H.pose = null; }
   function focusStrike(e) { if (G.focusCd > 0 || !G.hero) return; const H = G.hero.cfg; G.focusCd = RC.focusCooldown; beam(G.hero.pos.clone().add(new THREE.Vector3(0, 0.45, 0)), new THREE.Vector3(e.x, TOP + 0.3, e.z), H.color); damage(e, H.dmg * RC.focusDmgMul); floatText('重擊', e.x, TOP + 0.9, e.z, { bg: '#db6a41', fg: '#fff' }); emit('hero'); }
   function ultimate() { if (G.phase !== 'round' || G.ultCd > 0) return; G.ultCd = RC.ultCooldown; ring(G.hero.pos.x, G.hero.pos.z, 0.5, 0xfcea8b, 14); for (const e of [...G.enemies]) { damage(e, e.maxHp * RC.ultPct); if (!e.dead) { e.slow = Math.max(e.slow, RC.ultSlow); e.slowT = RC.ultSlowTime; } } emit('banner', '🙌 台北人站出來！', 2.5); addLog('英雄大招：台北人站出來', 'good'); emit('hero'); }
   function surge() { G.surges++; ring(goalCenter.x, goalCenter.z, 0.5, 0xdb6a41, 16); for (const e of [...G.enemies]) damage(e, e.maxHp * RC.surgePct); if (G.surges === 1) { emit('banner', '🏙️ 全民護城！每座島的居民都出來了', 3); addLog('全民護城啟動：居民一起把網軍請出去', 'good'); } }
@@ -114,7 +119,7 @@ export function createGame(ctx) {
     if (!w) { if (remotes.size >= MP.maxRemote) return null; w = people.makeWalker('citizen', tp, m.c); Object.assign(w, { remote: true, id: m.id, cls: m.c, cfg: C.heroes[m.c], nick: m.n, cd: 0, route: null, s: 0 }); tagSprite(w);
       w.hit = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshBasicMaterial({ visible: false })); w.hit.userData.remoteId = m.id; scene.add(w.hit); remoteHits.push(w.hit); remotes.set(m.id, w); rebuildPeople(); }
     if (w.nick !== m.n) { w.nick = m.n; tagSprite(w); }
-    w.inRound = m.r; w.fighting = m.f; w.seen = performance.now();
+    w.inRound = m.r; w.fighting = m.f; w.auto = m.a; w.seen = performance.now();
     const d = d2(w.pos, tp); if (d > MP.snapDist) { w.pos.copy(tp); w.route = null; }
     else if (d > 0.12) { const pts = d < 1 ? [w.pos.clone(), tp] : [w.pos.clone(), ...graph.shortest(graph.nearestNode(w.pos), graph.nearestNode(tp)).map(n => graph.nodes[n].p.clone()), tp]; w.route = makeRoute(pts); w.s = 0; }
     return w; }
@@ -126,7 +131,7 @@ export function createGame(ctx) {
   // 走路與泡泡用真實時間（暫停、2× 都不影響別人的英雄）；幫忙攻擊只在你的回合進行中、跟著遊戲時間
   function updateRemotes(dt, zoom = 1) { for (const w of remotes.values()) { if (w.route) walk(w, dt, w.cfg.speed * MP.catchUp); else w.moving = false; if (!w.moving && w.pose !== 'fight') w.pose = w.fighting ? 'fight' : null; w.hit.position.set(w.pos.x, w.pos.y + 0.3, w.pos.z); }
     for (const w of [G.hero, ...remotes.values()]) if (w && w.bubbleT > 0) { w.bubbleT -= dt; if (w.bubbleT <= 0) emit('say', w, null); } }
-  function allyFire(dt) { for (const w of remotes.values()) { if (!w.inRound) continue; w.cd -= dt; if (w.cd > 0) continue; const tg = nearest(w.pos, w.cfg.range); if (!tg) { if (w.pose === 'fight' && !w.fighting) w.pose = null; continue; } w.cd = w.cfg.rate; fire(w.pos.clone().add(new THREE.Vector3(0, 0.45, 0)), tg, w.cfg.dmg * MP.allyDmg, w.cfg); if (!w.moving) { w.yaw = Math.atan2(tg.x - w.pos.x, tg.z - w.pos.z); w.pose = 'fight'; } } }
+  function allyFire(dt) { for (const w of remotes.values()) { if (!w.inRound || w.auto === false) continue; w.cd -= dt; if (w.cd > 0) continue; const tg = nearest(w.pos, w.cfg.range); if (!tg) { if (w.pose === 'fight' && !w.fighting) w.pose = null; continue; } w.cd = w.cfg.rate; fire(w.pos.clone().add(new THREE.Vector3(0, 0.45, 0)), tg, w.cfg.dmg * MP.allyDmg, w.cfg); if (!w.moving) { w.yaw = Math.atan2(tg.x - w.pos.x, tg.z - w.pos.z); w.pose = 'fight'; } } }
   // ── 主迴圈 ──
   function step(dt, zoom = 1) {
     updateMayor(dt, zoom);
@@ -152,7 +157,7 @@ export function createGame(ctx) {
     for (const e of G.enemies) if (e.dead) removeEnemy(e); G.enemies = G.enemies.filter(e => !e.dead);
     updateResidents(dt); allyFire(dt);
     // 英雄
-    { const H = G.hero; heroAuto(dt); if (H.route) walk(H, dt, H.cfg.speed); H.cd -= dt; if (H.cd <= 0) { const tg = nearest(H.pos, H.cfg.range); if (tg) { H.cd = H.cfg.rate; fire(H.pos.clone().add(new THREE.Vector3(0, 0.45, 0)), tg, H.cfg.dmg, H.cfg); if (!H.moving) H.yaw = Math.atan2(tg.x - H.pos.x, tg.z - H.pos.z); if (!H.moving) H.pose = 'fight'; } else if (!H.moving && H.pose === 'fight') H.pose = null; } }
+    { const H = G.hero; heroAuto(dt); if (H.route) walk(H, dt, H.cfg.speed); H.cd -= dt; if (H.cd <= 0) { const tg = G.auto ? nearest(H.pos, H.cfg.range) : null; if (tg) { H.cd = H.cfg.rate; fire(H.pos.clone().add(new THREE.Vector3(0, 0.45, 0)), tg, H.cfg.dmg, H.cfg); if (!H.moving) H.yaw = Math.atan2(tg.x - H.pos.x, tg.z - H.pos.z); if (!H.moving) H.pose = 'fight'; } else if (!H.moving && H.pose === 'fight') H.pose = null; } }
     for (const p of G.projs) { const tg = p.target; if (tg.dead) { p.dead = true; continue; } const to = new THREE.Vector3(tg.x, TOP + (C.animals[tg.type].fly ? 0.55 : 0.2), tg.z); const d = p.pos.distanceTo(to), v = RC.projSpeed * dt; if (d <= v + 0.05) { p.dead = true; damage(tg, p.dmg); if (p.slow && !C.animals[tg.type].boss) { tg.slow = Math.max(tg.slow, p.slow); tg.slowT = p.slowTime; } } else { p.pos.lerp(to, v / d); p.obj.position.copy(p.pos); } }
     for (const p of G.projs) if (p.dead) scene.remove(p.obj); G.projs = G.projs.filter(p => !p.dead);
     for (const e of G.enemies) if (e.dead) removeEnemy(e); G.enemies = G.enemies.filter(e => !e.dead);
@@ -162,5 +167,5 @@ export function createGame(ctx) {
     if (G.t >= RC.seconds || (!G.queue.length && !G.enemies.length && G.t > RC.bossAt + 4)) endRound();
   }
   function onPick(hit) { if (hit.remote) { emit('remote', hit.remote, remotes.get(hit.remote)); return; } if (G.phase !== 'round') return; if (hit.enemy && !hit.enemy.dead) { focusStrike(hit.enemy); return; } if (hit.island) heroGoTo(hit.island, hit.point); }
-  return { G, spawnResidents, spawnMayor, setStops, startRound, backToLobby, step, onPick, ultimate, enemyHits, goalCenter, remoteHits, remotes, upsertRemote, removeRemote, pruneRemotes, remoteEmote, remoteUlt, myEmote, updateRemotes };
+  return { G, spawnResidents, spawnMayor, setStops, startRound, backToLobby, step, onPick, ultimate, setAuto, enemyHits, goalCenter, remoteHits, remotes, upsertRemote, removeRemote, pruneRemotes, remoteEmote, remoteUlt, myEmote, updateRemotes };
 }

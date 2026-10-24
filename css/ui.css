@@ -185,3 +185,12 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 }
 .ult .ic{font-size:27px;vertical-align:-7px}
 @media (max-width:900px){ .followbar{bottom:calc(40px + var(--hero-h,0px) + 10px + env(safe-area-inset-bottom,0px))} }
+
+/* 自動攻擊開關 */
+.auto{display:flex;align-items:center;gap:8px;width:100%;margin:6px 0 0;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:6px 10px;font-weight:900;font-size:13px;text-align:left}
+.auto .sw{position:relative;flex:0 0 auto;width:38px;height:22px;border-radius:999px;background:#d9cfc7;border:2px solid #211d1d;transition:background .2s}
+.auto .sw i{position:absolute;top:1px;left:1px;width:16px;height:16px;border-radius:50%;background:#fff8f4;border:2px solid #211d1d;transition:transform .2s;box-sizing:border-box}
+.auto[aria-checked="true"] .sw{background:#db6a41} .auto[aria-checked="true"] .sw i{transform:translateX(16px)}
+.auto .lbl{flex:1} .auto .st{font-size:11px;color:var(--muted)} .auto[aria-checked="true"] .st{color:var(--coral)}
+@media (prefers-reduced-motion: reduce){ .auto .sw,.auto .sw i{transition:none} }
+@media (max-width:900px){ .auto{margin:0 0 6px;padding:5px 8px;font-size:12px} .auto .sw{width:34px;height:20px} .auto .sw i{width:14px;height:14px} .auto[aria-checked="true"] .sw i{transform:translateX(14px)} }

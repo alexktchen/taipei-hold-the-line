@@ -106,6 +106,8 @@ export const CONFIG = {
   multi: { sendEvery: 1, sendPerPlayer: 0.25, sendMax: 8, heartbeat: 8, timeout: 25, presenceGrace: 5, maxRemote: 24, snapDist: 6, catchUp: 1.3, allyDmg: 0.5, allyUltMul: 0.5, allyUltRadius: 3, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.2,
     emotes: [ { k: 'hi', icon: '👋', say: '嗨！一起守！' }, { k: 'help', icon: '🆘', say: '這邊需要支援！' }, { k: 'mine', icon: '💪', say: '交給我！' }, { k: 'thx', icon: '🙏', say: '謝啦！' }, { k: 'yay', icon: '🎉', say: '守住了！' }, { k: 'love', icon: '❤️', say: '台北加油！' } ],
     five: { k: 'five', icon: '🙌', say: '擊掌！' } },
+  // 英雄模式：手動點島後自動找怪暫停幾秒；點的位置離步道多近就直接走到那一點
+  heroMode: { manualSeconds: 8, exactRadius: 0.9, storageKey: 'pi-hero-auto' },
   ui: { logMax: 30, leaderboardMax: 10, heroesQueryLimit: 1000 },
 };
 window.PI_CONFIG = CONFIG;
