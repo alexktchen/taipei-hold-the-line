@@ -110,10 +110,11 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   const hlFit = () => { if (!hlBusy) $('hlBody').style.height = hlSpan(0) + 'px'; };
   addEventListener('resize', hlFit); document.fonts?.ready.then(hlFit);
   let tkCount = 0; const narrowView = () => window.matchMedia('(max-width:900px)').matches;
-  function nextTicker() { tkCount++; let txt; const mixHot = narrowView() || tkCount % C.ticker.mixHotlineEvery === 0;
-    if (mixHot && tkCount % 2 === 0) { const [dist, who, ask, fix] = pickHotline(); txt = `📞 ${dist}${who}：「${ask}」　🎙 市長：${fix}`; }
+  const tkLabel = document.querySelector('#ticker .tk-label');
+  function nextTicker() { tkCount++; let txt, html = null; const mixHot = narrowView() || tkCount % C.ticker.mixHotlineEvery === 0;
+    if (mixHot && tkCount % 2 === 0) { const [dist, who, ask, fix] = pickHotline(); html = `<span class="tk-dist">${esc(dist)}</span>${esc(who)}：<b class="tk-ask">「${esc(ask)}」</b><span class="tk-arrow">→</span><span class="tk-fix">🎙 市長　${esc(fix)}</span><span class="tk-ok">已解決</span>`; }
     else { const n = nextNews(C.ticker.weights); txt = `${n.icon} ${n.text}`; }
-    const el = $('tkText'); const track = el.parentElement; el.style.animation = 'none'; el.textContent = txt; void el.offsetWidth;
+    const el = $('tkText'); const track = el.parentElement; el.style.animation = 'none'; if (html) el.innerHTML = html; else el.textContent = txt; $('ticker').classList.toggle('hot', !!html); tkLabel.textContent = html ? '📞 1999 熱線' : '城市快訊'; void el.offsetWidth;
     const dist2 = track.clientWidth + el.scrollWidth; const dur = Math.max(6, dist2 / C.ticker.pxPerSec);
     el.style.setProperty('--from', track.clientWidth + 'px'); el.style.setProperty('--to', -el.scrollWidth + 'px'); el.style.animation = `tk ${dur}s linear 1`; }
   $('tkText').addEventListener('animationend', nextTicker); requestAnimationFrame(nextTicker);

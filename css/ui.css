@@ -133,3 +133,9 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
   .brand .tag{display:inline-block;margin-top:4px;font-size:10px;padding:1px 8px;border-radius:999px;letter-spacing:.06em}
   .hud .btns{width:max-content;align-items:stretch} .hud .btns button{white-space:nowrap;font-size:12px;padding:8px 10px}
 }
+
+/* 城市快訊與 1999 市民熱線整合：輪到熱線時標籤換成黃底「📞 1999 熱線」，市民要求與市長解法分色（手機上熱線卡收起，只靠這條） */
+.tk-label{transition:background .3s,color .3s} .ticker.hot .tk-label{background:#fcea8b;color:#211d1d}
+.tk-text .tk-dist{background:#fff8f42e;border-radius:999px;padding:1px 7px;margin-right:6px;font-size:.88em;font-weight:700}
+.tk-text .tk-ask{font-weight:700;color:#fff8f4} .tk-text .tk-arrow{margin:0 8px;color:#fff8f480}
+.tk-text .tk-fix{color:#fcea8b;font-weight:700} .tk-text .tk-ok{margin-left:8px;border:1.5px solid #a9d48f;color:#a9d48f;border-radius:5px;padding:0 5px;font-size:.82em;font-weight:900}
