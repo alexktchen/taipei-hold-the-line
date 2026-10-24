@@ -23,7 +23,7 @@ export const CONFIG = {
   },
   // 市民熱線（右側卡片）與城市快訊（底部跑馬燈）
   ticker: { hotlineRows: 3, hotlineSeconds: 8, pxPerSec: 90, mixHotlineEvery: 3, hotlineGenShare: 0.45, weights: { opponent: 0.34, praise: 0.28, crisis: 0.14, city: 0.14, roast: 0.10 } }, // weights：酸對手／誇市長／經濟危機／城市快訊／酸市長的出現比例
-  // 正式網址：從其他網址（例如舊的 workers.dev）進來會自動轉到這裡
+  // 正式網址（Cloudflare Pages）
   canonicalHost: 'taipei-hold-the-line.pages.dev',
   // 跟隨鏡頭：lookUp = 看向對象頭部的高度；stiffness 越大跟得越緊
   follow: { lookUp: 0.35, stiffness: 5 },
