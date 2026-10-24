@@ -160,3 +160,15 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 .emotes{display:flex;gap:4px;margin:6px 0} .emotes button{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:4px 0;font-size:18px;line-height:1.2} .emotes button:active{transform:scale(.92)}
 @media (max-width:900px){ .hero{display:flex;flex-direction:column;align-items:stretch} .emotes{margin:0 0 6px;gap:3px} .emotes button{font-size:16px;padding:3px 0;border-radius:9px} }
 .hotline{max-height:calc(100vh - 200px - 44px - var(--hero-h,0px) - 14px)} .hl-body{flex:1 1 auto;min-height:0}
+
+/* 人物名牌：跟市長同款（黑框圓角＋下方黑色小三角＋左側徽章）。市長黃底、徽章「🎙 市長」只有市長有；玩家徽章是英雄職業 */
+.nameplate.person{display:flex;align-items:center;gap:6px;padding:2px 10px 2px 3px;border:2px solid #211d1d;font-size:13px;box-shadow:0 3px 8px #211d1d33}
+.nameplate.person .badge{color:#fff8f4;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:900;line-height:1.5}
+.nameplate.person::after{content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#211d1d;border-bottom:0}
+.nameplate.mayor{background:#fcea8b} .nameplate.me{background:#fff8f4;outline:2px solid #fcea8b;outline-offset:1px}
+@media (max-width:900px){ .nameplate.person{font-size:12px;padding:2px 8px 2px 3px} .nameplate.person .badge{font-size:10px;padding:0 6px} }
+.nameplate.person .say{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%);white-space:nowrap;background:#fff8f4;color:#211d1d;border:2px solid #211d1d;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:900;box-shadow:0 3px 8px #211d1d33}
+.nameplate.person .say::after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#211d1d;border-bottom:0}
+.nameplate.player .say,.nameplate.me .say{background:#fcea8b}
+.nameplate.person .say.pop{animation:sayPop .25s ease-out} @keyframes sayPop{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){ .nameplate.person .say.pop{animation:none} }

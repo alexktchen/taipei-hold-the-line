@@ -91,14 +91,25 @@ function refreshPolicyLabels() { for (const L of policyLabels) { L.el.remove(); 
   for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.st = st; L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
 labelsReady = true; refreshPolicyLabels();
 function updateLabels() { const w = stage.clientWidth, h = stage.clientHeight; const boxes = [];
-  for (const L of labels) { L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
+  for (const L of labels) { const f = L.follow; if (f) L.pos.set(f.pos.x, f.pos.y + (0.66 * f.plan.scale * 0.8 + (f.onBox ? 0.07 : 0)) * lastZoom + 0.03, f.pos.z); L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
   const order = labels.filter(L => L.vis).sort((a, b) => b.prio - a.prio || a.v.z - b.v.z);
   for (const L of labels) if (!L.vis) L.el.style.display = 'none';
   for (const L of order) { L.el.style.display = ''; if (!L.w) { L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; } const bx = { x0: L.sx - L.w / 2 - 2, x1: L.sx + L.w / 2 + 2, y0: L.sy - L.h - 2, y1: L.sy + 2 };
-    const hit = L.prio < 3 && boxes.some(o => bx.x0 < o.x1 && bx.x1 > o.x0 && bx.y0 < o.y1 && bx.y1 > o.y0); L.el.classList.toggle('hidden', hit); if (!hit) boxes.push(bx);
+    const over = o => bx.x0 < o.x1 && bx.x1 > o.x0 && bx.y0 < o.y1 && bx.y1 > o.y0;
+    // 人物名牌彼此不互相隱藏：疊到就移到擋住它的那張上方（最多 10 次），政策標籤再讓位
+    if (L.follow) { bx.y0 -= L.sayH || 0; for (let k = 0; k < 10; k++) { const o = boxes.find(q => q.person && over(q)); if (!o) break; const dy = bx.y1 - o.y0 + 1; bx.y0 -= dy; bx.y1 -= dy; L.sy -= dy; } bx.person = true; L.el.classList.remove('hidden'); boxes.push(bx); }
+    else { const hit = L.prio < 3 && boxes.some(over); L.el.classList.toggle('hidden', hit); if (!hit) boxes.push(bx); }
     L.el.style.transform = `translate(-50%,-100%) translate(${L.sx.toFixed(1)}px,${L.sy.toFixed(1)}px)`; } }
 // 遊戲
-const callbacks = {}; const game = createGame({ scene, graph, centers, people, animals, islands: C.islands, colors, callbacks });
+const callbacks = {};
+// 人物名牌（市長、自己、其他玩家）：DOM 標籤跟著人走，優先權高於政策標籤
+const personLabels = new Map();
+callbacks.tag = (op, w, t) => { const old = personLabels.get(w); if (old) { old.el.remove(); labels.splice(labels.indexOf(old), 1); personLabels.delete(w); } if (op !== 'add') return;
+  const el = document.createElement('div'); el.className = 'nameplate person ' + t.kind; const b = document.createElement('span'); b.className = 'badge'; b.textContent = t.badge; b.style.background = t.color; el.append(b, document.createTextNode(t.name)); labelLayer.appendChild(el);
+  const L = { el, pos: new THREE.Vector3(), v: new THREE.Vector3(), prio: t.kind === 'mayor' ? 2.8 : t.kind === 'me' ? 2.7 : 2.5, w: 0, h: 0, follow: w }; labels.push(L); personLabels.set(w, L); };
+// 說話泡泡：掛在名牌上方（市長的政績口號、玩家的表情短句）
+callbacks.say = (w, txt) => { const L = personLabels.get(w); if (!L) return; let s = L.el.querySelector('.say'); if (!txt) { if (s) s.remove(); L.sayH = 0; return; } if (!s) { s = document.createElement('span'); s.className = 'say'; L.el.appendChild(s); } s.textContent = txt; s.classList.remove('pop'); L.sayH = s.offsetHeight + 9; s.classList.add('pop'); };
+const game = createGame({ scene, graph, centers, people, animals, islands: C.islands, colors, callbacks });
 gameRef = game; game.setStops(policyStops); game.spawnMayor(); people.build([...game.spawnResidents(), game.G.mayor]);
 // 相機
 function fit() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
