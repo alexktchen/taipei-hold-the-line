@@ -139,3 +139,19 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 .tk-text .tk-dist{background:#fff8f42e;border-radius:999px;padding:1px 7px;margin-right:6px;font-size:.88em;font-weight:700}
 .tk-text .tk-ask{font-weight:700;color:#fff8f4} .tk-text .tk-arrow{margin:0 8px;color:#fff8f480}
 .tk-text .tk-fix{color:#fcea8b;font-weight:700} .tk-text .tk-ok{margin-left:8px;border:1.5px solid #a9d48f;color:#a9d48f;border-radius:5px;padding:0 5px;font-size:.82em;font-weight:900}
+
+/* Android 系統字級放大時版面不爆：寬度改成依內容、關鍵文字不換行；右側控制鈕改成圓形圖示鈕，少擋地圖 */
+.sm{display:none}
+.nameplate{-webkit-text-size-adjust:none;text-size-adjust:none}
+@media (pointer:coarse){ .nameplate.policy{pointer-events:none} }
+@media (max-width:900px){
+  .gstrip .lg{display:none} .gstrip .sm{display:inline} .gstrip{white-space:nowrap} .ult .kbd{display:none}
+  .brand{max-width:none;width:auto} .brand .future{white-space:nowrap;font-size:8px} .brand h1{white-space:nowrap}
+  .hud{width:auto} .hud .row{white-space:nowrap} .hud .k{width:auto;margin-right:8px}
+  .hud .btns{width:44px;gap:8px} .hud .btns button{width:44px;height:44px;padding:0;border-radius:50%;font-size:0;line-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap}
+  .hud .btns button::before{font-size:18px;line-height:1}
+  #btnPause::before{content:"❚❚";font-size:13px;letter-spacing:-2px} #btnPause[aria-pressed="true"]::before{content:"▶"}
+  #btnSpeed::before{content:"2×";font-size:14px;font-weight:900} #btnSpeed[aria-pressed="true"]{background:#db6a41;color:#fff8f4;border-color:#db6a41}
+  #btnFollow::before{content:"🎥"} #btnHome::before{content:"🧭"}
+  #btnFull::before{content:"⤢"} :root:fullscreen #btnFull::before{content:"⤡"}
+}

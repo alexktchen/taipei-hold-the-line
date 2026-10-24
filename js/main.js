@@ -18,6 +18,7 @@ stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.3, 320);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minPolarAngle = THREE.MathUtils.degToRad(25); controls.maxPolarAngle = THREE.MathUtils.degToRad(70); controls.minDistance = 4; controls.maxDistance = 70; controls.enablePan = true; controls.screenSpacePanning = false;
+const TOUCH_MAP = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }, TOUCH_FOLLOW = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }; controls.touches = { ...TOUCH_MAP }; // 手機：單指拖地圖、雙指縮放旋轉（跟地圖 App 一樣）
 const colors = C.palette;
 // 島與建築
 const kit = createKit(TOP);
@@ -87,7 +88,7 @@ for (const isl of C.islands) { const c = centers.get(isl.id); if (isl.goal) addL
 for (const l of Object.values(C.landings)) { const lc = centers.get(l.island); const away = lc.clone().sub(center).setY(0).normalize(); addLabel(`${l.name} →`, lc.clone().add(away.multiplyScalar(4.2)).setY(TOP + 0.3), 'river', '', 0); }
 let policyLabels = [];
 function refreshPolicyLabels() { for (const L of policyLabels) { L.el.remove(); const i = labels.indexOf(L); if (i >= 0) labels.splice(i, 1); } policyLabels = [];
-  for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
+  for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.st = st; L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
 labelsReady = true; refreshPolicyLabels();
 function updateLabels() { const w = stage.clientWidth, h = stage.clientHeight; const boxes = [];
   for (const L of labels) { L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
@@ -110,15 +111,18 @@ const FOLLOW = { target: null, kind: null, lastT: new THREE.Vector3() };
 function followGetter(kind) { const G = game.G; if (kind === 'mayor') return () => G.mayor && G.mayor.pos; if (kind === 'hero') return () => G.hero && G.hero.pos;
   if (kind === 'enemy') return () => { let best = null; for (const e of G.enemies) if (!e.dead && (!best || e.prog / e.route.total > best.prog / best.route.total)) best = e; return best && new THREE.Vector3(e2x(best), TOP, best.z); }; return () => null; }
 const e2x = e => e.x;
-function startFollow(kind) { const get = followGetter(kind); const p = get(); if (!p) return false; FOLLOW.kind = kind; FOLLOW.target = get; fly = null; controls.enablePan = false;
+function startFollow(kind) { const get = followGetter(kind); const p = get(); if (!p) return false; FOLLOW.kind = kind; FOLLOW.target = get; fly = null; controls.enablePan = false; controls.touches = { ...TOUCH_FOLLOW };
   const off = camera.position.clone().sub(controls.target); const want = narrow() ? 7.5 : 6; off.setLength(want); controls.target.copy(p).setY(p.y + C.follow.lookUp); camera.position.copy(controls.target).add(off); FOLLOW.lastT.copy(controls.target); return true; }
-function stopFollow() { FOLLOW.kind = null; FOLLOW.target = null; controls.enablePan = true; }
+function stopFollow() { FOLLOW.kind = null; FOLLOW.target = null; controls.enablePan = true; controls.touches = { ...TOUCH_MAP }; }
 function updateFollow(dt) { if (!FOLLOW.target) return; const p = FOLLOW.target(); if (!p) { if (FOLLOW.kind === 'enemy') { const n = followGetter('enemy')(); if (n) { FOLLOW.target = followGetter('enemy'); return; } } stopFollow(); callbacks.follow && callbacks.follow(null); return; }
   const want = p.clone(); want.y += C.follow.lookUp; const k = 1 - Math.exp(-dt * C.follow.stiffness); const next = controls.target.clone().lerp(want, k); const delta = next.clone().sub(controls.target); controls.target.copy(next); camera.position.add(delta); }
 // 點擊
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
 renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
-renderer.domElement.addEventListener('pointerup', e => { if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (moved > 6) return; const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); const eh = ray.intersectObjects(game.enemyHits, false); if (eh.length) return game.onPick({ enemy: eh[0].object.userData.enemy }); const M = game.G.mayor; if (M && ray.intersectObject(M.hit, false).length) { const st = M.current || policyStops[M.stop % policyStops.length]; if (st) callbacks.card(st.pol, st.island); return; } const ph = ray.intersectObjects(policyMeshes, false); if (ph.length && ph[0].object.userData.owners) { const id = ph[0].object.userData.owners[ph[0].instanceId]; if (id && policyById.has(id)) { callbacks.card && callbacks.card(policyById.get(id), policyIsland.get(id)); return; } } const th = ray.intersectObjects(tops, false); if (th.length) game.onPick({ island: th[0].object.userData.island, point: th[0].point }); });
+renderer.domElement.addEventListener('pointerup', e => { if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (moved > 6) return;
+  // 觸控裝置上政策標籤不吃指標事件（才能從標籤上開始拖地圖），點擊改在這裡用位置判斷
+  const lh = policyLabels.find(L => L.el.style.display !== 'none' && !L.el.classList.contains('hidden') && (b => e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom + 6)(L.el.getBoundingClientRect())); if (lh) { callbacks.card && callbacks.card(lh.st.pol, lh.st.island); return; }
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); const eh = ray.intersectObjects(game.enemyHits, false); if (eh.length) return game.onPick({ enemy: eh[0].object.userData.enemy }); const M = game.G.mayor; if (M && ray.intersectObject(M.hit, false).length) { const st = M.current || policyStops[M.stop % policyStops.length]; if (st) callbacks.card(st.pol, st.island); return; } const ph = ray.intersectObjects(policyMeshes, false); if (ph.length && ph[0].object.userData.owners) { const id = ph[0].object.userData.owners[ph[0].instanceId]; if (id && policyById.has(id)) { callbacks.card && callbacks.card(policyById.get(id), policyIsland.get(id)); return; } } const th = ray.intersectObjects(tops, false); if (th.length) game.onPick({ island: th[0].object.userData.island, point: th[0].point }); });
 // UI
 function flyTo(islandId) { const c = centers.get(islandId); if (!c) return; controls.target.copy(c); const pol = THREE.MathUtils.degToRad(48), d = narrow() ? 13 : 10; fly = { from: camera.position.clone(), to: new THREE.Vector3(c.x + Math.sin(0.3) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.3) * Math.sin(pol) * d), t: 0 }; }
 const ui = createUI({ game, callbacks, overview: () => { stopFollow(); overview(false); }, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, renderer, follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } } });
