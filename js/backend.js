@@ -4,7 +4,7 @@
    兩個都空著 = 本機模式（戰績只存在瀏覽器）。在 claude.ai artifact 裡會自動改用 artifact 的共享資料，不會用到這裡。 */
 window.PI_BACKEND = {
   supabaseUrl: 'https://sagvwzinlltlypxgxkre.supabase.co',
-  supabaseAnonKey: '',  // Project Settings → API → anon public
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ3Z3emlubGx0bHlweGd4a3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MTE0MjksImV4cCI6MjEwODM4NzQyOX0.fqiv83A6KCZzQWQFYGF_OxNfwDfoOyZWZO8q5KjQQuE', // anon public（公開金鑰，權限由 RLS 控制）
   supabaseJs: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm',
   heroesLimit: 1000,
 };
