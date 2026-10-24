@@ -85,8 +85,8 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
   .overlay{padding:10px} .overlay .box.lobby{padding:16px 14px 0}
   .overlay .box.lobby .lead{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px}
   .classes{grid-template-columns:1fr 1fr} .classes .cls{grid-template-columns:28px 1fr;padding:6px} .classes .cls .ic{font-size:18px} .classes small{display:none}
-  .overlay .box.lobby .go{position:sticky;bottom:0;margin:12px -14px 0;width:calc(100% + 28px);border-radius:0 0 22px 22px!important;padding:14px;box-shadow:0 -6px 16px #fff8f4}
-  .overlay .box.lobby .foot{margin-bottom:12px}
+  .overlay .box.lobby{padding-bottom:88px} /* 留位置給浮動的出戰按鈕，捲到底也不會蓋住免責聲明 */
+  .overlay .box.lobby .go{position:fixed;left:calc(22px + var(--sa-l));right:calc(22px + var(--sa-r));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:auto;margin:0;padding:14px;border-radius:999px!important;box-shadow:0 0 0 5px #fff8f4,0 12px 28px #db6a4170;z-index:6}
 }
 
 /* 跟隨鏡頭狀態列 */
