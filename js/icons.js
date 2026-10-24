@@ -43,3 +43,61 @@ ICONS.cheer = svg(`<path d="M16 1.8v3M9.6 3.4l1.3 2.4M22.4 3.4l-1.3 2.4" stroke=
   <g transform="translate(-1.2 7.4) scale(.66) rotate(-12 16 16)"><path d="${HAND}" fill="#f8d2ae" stroke="#211d1d" stroke-width="2.6" stroke-linejoin="round"/></g>
   <g transform="translate(33.2 7.4) scale(-.66 .66) rotate(-12 16 16)"><path d="${HAND}" fill="#f8d2ae" stroke="#211d1d" stroke-width="2.6" stroke-linejoin="round"/></g>`);
 ICONS.five = ICONS.hi;
+// 政策卡的分類圖示：依標籤（去掉 #）挑，沒有對應的用 fallback
+export const POLICY_ICONS = {
+  // 居住：珊瑚屋頂小屋＋黃門＋藍窗
+  居住: svg(`<path d="M7 14.5V27h18V14.5" fill="#fff8f4" ${S}/><path d="M3.8 15.6L16 5.2l12.2 10.4z" fill="#db6a41" ${S}/>
+    <rect x="13.4" y="19" width="5.2" height="8" rx="1" fill="#fcea8b" ${S}/><rect x="20" y="16.8" width="3.4" height="3.4" rx=".6" fill="#58a6a6" ${S} stroke-width="1.4"/>`),
+  // 育兒：奶瓶＋刻度
+  育兒: svg(`<path d="M13.6 4.4h4.8l.7 4.2h-6.2z" fill="#f2a1a1" ${S}/><rect x="10.8" y="8.4" width="10.4" height="3.2" rx="1.2" fill="#db6a41" ${S}/>
+    <rect x="10.6" y="11.6" width="10.8" height="16" rx="3.4" fill="#fff8f4"/><path d="M10.8 19.2h10.4v4.8a3.3 3.3 0 0 1-3.3 3.4h-3.8a3.3 3.3 0 0 1-3.3-3.4z" fill="#fcea8b"/>
+    <rect x="10.6" y="11.6" width="10.8" height="16" rx="3.4" fill="none" ${S}/><path d="M14 15.2h3M14 18h2" stroke="#211d1d" stroke-width="1.4" stroke-linecap="round"/>`),
+  // 敬老：黃色卡片＋愛心
+  敬老: svg(`<rect x="3.5" y="8" width="25" height="17" rx="3" fill="#fcea8b" ${S}/><path d="M3.5 12.6h25" stroke="#211d1d" stroke-width="1.8"/>
+    <path d="M10.5 22.6c-3-1.8-4.6-3.5-4.6-5.3a2.3 2.3 0 0 1 4.6-.4 2.3 2.3 0 0 1 4.6.4c0 1.8-1.6 3.5-4.6 5.3z" fill="#db6a41" ${S} stroke-width="1.4"/>
+    <path d="M18.4 17.4h6.6M18.4 20.8h4.2" stroke="#211d1d" stroke-width="1.6" stroke-linecap="round"/>`),
+  // 交通：正面公車
+  交通: svg(`<rect x="6" y="4.5" width="20" height="21" rx="4" fill="#58a6a6" ${S}/><rect x="9" y="8" width="14" height="7.6" rx="1.5" fill="#fff8f4" ${S}/>
+    <circle cx="11" cy="20.2" r="1.7" fill="#fcea8b" ${S} stroke-width="1.4"/><circle cx="21" cy="20.2" r="1.7" fill="#fcea8b" ${S} stroke-width="1.4"/>
+    <path d="M9.5 26v2.2M22.5 26v2.2" stroke="#211d1d" stroke-width="2.6" stroke-linecap="round"/>`),
+  // 運動：棒球
+  運動: svg(`<circle cx="16" cy="16" r="11.5" fill="#fff8f4" ${S}/>
+    <path d="M9.2 6.8c2.6 2.4 3.9 5.4 3.9 9.2s-1.3 6.8-3.9 9.2M22.8 6.8c-2.6 2.4-3.9 5.4-3.9 9.2s1.3 6.8 3.9 9.2" fill="none" stroke="#db6a41" stroke-width="1.8" stroke-dasharray="1.6 1.7"/>`),
+  // 產業：晶片
+  產業: svg(`<path d="M11 4v4M16 4v4M21 4v4M11 24v4M16 24v4M21 24v4M4 11h4M4 16h4M4 21h4M24 11h4M24 16h4M24 21h4" stroke="#211d1d" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="7.5" y="7.5" width="17" height="17" rx="3" fill="#4a3f8f" ${S}/><rect x="12" y="12" width="8" height="8" rx="1.5" fill="#fcea8b" ${S} stroke-width="1.4"/>`),
+  // 教育：翻開的書
+  教育: svg(`<path d="M16 9c-3-2.2-7-2.6-11-1.6v17c4-1 8-.6 11 1.6 3-2.2 7-2.6 11-1.6v-17c-4-1-8-.6-11 1.6z" fill="#fff8f4" ${S}/><path d="M16 9v17" stroke="#211d1d" stroke-width="1.8"/>
+    <path d="M8 12.6c2-.3 3.8 0 5 .7M8 16.6c2-.3 3.8 0 5 .7M19 13.3c1.2-.7 3-1 5-.7M19 17.3c1.2-.7 3-1 5-.7" stroke="#db6a41" stroke-width="1.6" stroke-linecap="round" fill="none"/>`),
+  // 智慧：手機＋訊號
+  智慧: svg(`<rect x="9" y="3.5" width="14" height="25" rx="3.2" fill="#fff8f4" ${S}/><rect x="11.2" y="7" width="9.6" height="15" rx="1.2" fill="#fcea8b" ${S} stroke-width="1.4"/>
+    <circle cx="16" cy="25.3" r="1.1" fill="#211d1d"/><path d="M12.8 13.4a4.5 4.5 0 0 1 6.4 0M14.5 15.6a2 2 0 0 1 3 0" fill="none" stroke="#db6a41" stroke-width="1.7" stroke-linecap="round"/><circle cx="16" cy="18" r="1" fill="#db6a41"/>`),
+  // 環境：圓樹冠
+  環境: svg(`<rect x="14.2" y="17" width="3.6" height="10.5" rx="1" fill="#b98a63" ${S}/><circle cx="16" cy="12.5" r="8.5" fill="#8fb37a" ${S}/>
+    <path d="M11.8 11.6a4.4 4.4 0 0 1 3.6-3.6" stroke="#fff8f4" stroke-width="1.8" stroke-linecap="round" opacity=".75" fill="none"/><path d="M8.5 28h15" stroke="#211d1d" stroke-width="1.8" stroke-linecap="round"/>`),
+  // 都更：吊車吊著新房子
+  都更: svg(`<rect x="7" y="5" width="3.4" height="23" rx="1" fill="#f2b530" ${S}/><rect x="4" y="5.4" width="23.5" height="3" rx="1" fill="#f2b530" ${S}/>
+    <path d="M22.5 8.4v4.4" stroke="#211d1d" stroke-width="1.4"/><path d="M17.5 27.6v-8.2l5-3.8 5 3.8v8.2z" fill="#fff8f4" ${S}/><rect x="21" y="22.4" width="3" height="5.2" rx=".6" fill="#db6a41" ${S} stroke-width="1.3"/>
+    <path d="M3.5 28h11" stroke="#211d1d" stroke-width="1.8" stroke-linecap="round"/>`),
+  // 青年：小火箭
+  青年: svg(`<path d="M10.6 16.2l-3.6 3.4.4 4.4 4.6-3.5M21.4 16.2l3.6 3.4-.4 4.4-4.6-3.5" fill="#db6a41" ${S}/>
+    <path d="M16 3.5c4.2 3 6 7.6 5.4 13.6L19 20.5h-6l-2.4-3.4C10 11.1 11.8 6.5 16 3.5z" fill="#fff8f4" ${S}/><circle cx="16" cy="11.5" r="2.3" fill="#58a6a6" ${S} stroke-width="1.4"/>
+    <path d="M14 21.5c-.4 2.2 0 4.2 2 6 2-1.8 2.4-3.8 2-6z" fill="#f2b530" ${S} stroke-width="1.4"/>`),
+  // 文化：拉開布幕的舞台＋星星
+  文化: svg(`<rect x="4" y="5" width="24" height="22" rx="2" fill="#fff8f4" ${S}/><path d="M5 8c2.5 1 5.2 4.3 5.9 12.6L5 22zM27 8c-2.5 1-5.2 4.3-5.9 12.6L27 22z" fill="#db6a41" ${S}/>
+    <rect x="4" y="5" width="24" height="3.4" rx="1" fill="#c9452f" ${S}/><path d="M16 12.6l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="#fcea8b" ${S} stroke-width="1.3"/>`),
+  // 安全：黃色三角警示牌＋走路小人
+  安全: svg(`<path d="M16 3.8l12.6 22H3.4z" fill="#fcea8b" ${S}/><circle cx="16.6" cy="11.6" r="1.9" fill="#211d1d"/>
+    <path d="M16.2 14.4l-1.1 4.4 2.4 1.8.9 3.2M15.1 18.8l-2 3.8M15.9 15l-2.5 1.9M16.4 15.2l2.7 1.5" stroke="#211d1d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`),
+  // 社子島：綠色小島＋旗子＋水波
+  社子島: svg(`<path d="M4 20.5c3-6.5 7-9.5 12-9.5s9 3 12 9.5z" fill="#8fb37a" ${S}/><path d="M14.2 11V4.6l6 2.3-6 2.3" fill="#db6a41" ${S} stroke-width="1.5"/>
+    <path d="M3 25c2.2-1.6 4.3-1.6 6.5 0s4.3 1.6 6.5 0 4.3-1.6 6.5 0 4.3 1.6 6.5 0" fill="none" stroke="#58a6a6" stroke-width="2.2" stroke-linecap="round"/>`),
+  // 觀光：燈籠
+  觀光: svg(`<path d="M16 2.8v3" stroke="#211d1d" stroke-width="1.8" stroke-linecap="round"/><ellipse cx="16" cy="15.5" rx="9" ry="8.3" fill="#db6a41" ${S}/>
+    <path d="M16 7.4v16.2M11.6 8.6c-1.6 4.4-1.6 9.4 0 13.8M20.4 8.6c1.6 4.4 1.6 9.4 0 13.8" stroke="#211d1d" stroke-width="1.3" fill="none" opacity=".5"/>
+    <rect x="12" y="5.6" width="8" height="2.6" rx="1" fill="#f2b530" ${S} stroke-width="1.5"/><rect x="12" y="22.6" width="8" height="2.6" rx="1" fill="#f2b530" ${S} stroke-width="1.5"/>
+    <path d="M14 25.4v3M16 25.4v3.6M18 25.4v3" stroke="#f2b530" stroke-width="1.6" stroke-linecap="round"/>`),
+  // 其他：珊瑚圓底＋黃星
+  fallback: svg(`<circle cx="16" cy="16" r="11.5" fill="#db6a41" ${S}/><path d="M16 8.6l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#fcea8b" ${S} stroke-width="1.5"/>`),
+};
+export const policyIcon = tag => POLICY_ICONS[String(tag || '').replace(/^#/, '')] || POLICY_ICONS.fallback;

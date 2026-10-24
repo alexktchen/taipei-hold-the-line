@@ -52,7 +52,10 @@ export function createGame(ctx) {
   // 名牌交給 main.js 畫成 DOM 標籤（清楚、不隨距離縮小）。「🎙 市長」徽章只給市長；玩家徽章是英雄圖示＋職業，用英雄代表色
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const tagAdd = (w, name, badge, color, kind) => emit('tag', 'add', w, { name, badge, color, kind }); const tagDel = w => emit('tag', 'remove', w);
-  function slogan(pol) { const first = String(pol.summary || '').split(/[，。、；]/)[0]; const t = `${pol.title}！${first}`; return t.length > MC.sloganMax ? t.slice(0, MC.sloganMax) + '…' : t; }
+  // 每次巡迴到同一棟輪流講摘要與各細項；標題加上去太長就只講那一句
+  const sayCount = new Map();
+  function slogan(pol) { const lines = [String(pol.summary || '').split(/[，。、；]/)[0], ...(pol.facts || [])].filter(Boolean); const n = sayCount.get(pol.id) || 0; sayCount.set(pol.id, n + 1); const line = lines.length ? lines[n % lines.length] : '';
+    let t = `${pol.title}！${line}`; if (t.length > MC.sloganMax) t = line; return t.length > MC.sloganMax ? t.slice(0, MC.sloganMax) + '…' : t; }
   function setBubble(m, txt) { emit('say', m, txt ? '📣 ' + txt : null); }
   function updateMayor(dt, zoom = 1) { const m = G.mayor; if (!m || !stops.length) return;
     if (m.state === 'walk') { if (!m.route) { m.wait -= dt; if (m.wait > 0) return; const st = stops[m.stop % stops.length]; const node = graph.nodeNear(st.island, st.pos); const np = graph.nodes[node].p; const front = np.clone().lerp(st.pos.clone().setY(np.y), MC.approach); m.route = makeRoute([m.pos.clone(), ...routeTo(m.pos, node).pts.slice(1), front]); m.s = 0; m.onBox = false; m.pose = null; }
@@ -167,5 +170,5 @@ export function createGame(ctx) {
     if (G.t >= RC.seconds || (!G.queue.length && !G.enemies.length && G.t > RC.bossAt + 4)) endRound();
   }
   function onPick(hit) { if (hit.remote) { emit('remote', hit.remote, remotes.get(hit.remote)); return; } if (G.phase !== 'round') return; if (hit.enemy && !hit.enemy.dead) { focusStrike(hit.enemy); return; } if (hit.island) heroGoTo(hit.island, hit.point); }
-  return { G, spawnResidents, spawnMayor, setStops, startRound, backToLobby, step, onPick, ultimate, setAuto, enemyHits, goalCenter, remoteHits, remotes, upsertRemote, removeRemote, pruneRemotes, remoteEmote, remoteUlt, myEmote, updateRemotes };
+  return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startRound, backToLobby, step, onPick, ultimate, setAuto, enemyHits, goalCenter, remoteHits, remotes, upsertRemote, removeRemote, pruneRemotes, remoteEmote, remoteUlt, myEmote, updateRemotes };
 }

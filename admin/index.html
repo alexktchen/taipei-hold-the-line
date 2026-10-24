@@ -68,7 +68,10 @@ input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9p
         <label>建築外型<select name="model" id="polModel"></select></label>
         <label class="two">行政區<select name="district" id="polDistrict"></select></label>
         <label class="wide">一句話摘要<input name="summary" maxlength="120"></label>
-        <label class="wide">重點（一行一條，最多 6 條）<textarea name="facts"></textarea></label>
+        <label class="wide">為什麼（一句話，選填）<input name="why" maxlength="60"></label>
+        <label class="wide">細項（一行一條，最多 8 條）<textarea name="facts"></textarea></label>
+        <label class="two">主責局處（逗號分隔）<input name="agencies" placeholder="都發局, 社會局"></label>
+        <label>相關議題<select name="issue" id="polIssue"></select></label>
         <div class="row"><button class="btn" type="submit">儲存政策</button><button class="btn ghost" type="reset" id="polReset">清空表單</button><span class="msg" id="polMsg"></span></div>
       </form>
     </div>

@@ -15,7 +15,9 @@ async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (session && !session.user.is_anonymous) await enter(session.user); 
 }
+const fillIssueOptions = list => { const el = $('polIssue'), cur = el.value; el.innerHTML = '<option value="">無</option>' + list.map(i => `<option value="${esc(i.id)}">${esc(i.tag || '')} ${esc(i.title || i.id)}</option>`).join(''); el.value = cur; };
 function fillSelects() {
+  fillIssueOptions(C.issues);
   $('polModel').innerHTML = MODELS.map(m => `<option>${m}</option>`).join('');
   $('polDistrict').innerHTML = '<option value="">不指定（隨機落島）</option>' + C.islands.map(i => `<option value="${i.id}">${esc(i.name)}</option>`).join('');
   $('issBoss').innerHTML = '<option value="">無</option>' + Object.entries(C.animals).filter(([, a]) => a.boss).map(([k, a]) => `<option value="${k}">${esc(a.name)}</option>`).join('');
@@ -44,7 +46,7 @@ function render() {
   $('polRows').innerHTML = pols.map(x => `<tr><td><b>${esc(x.title)}</b><br><small>${esc(x.id)}</small></td><td class="tag">${esc(x.tag || '')}</td><td>${esc(DISTRICT[x.district] || '隨機')}</td><td>${esc(x.model || '')}</td><td>${srcPill(x)}</td><td class="act"><button class="btn ghost sm" data-edit-pol="${esc(x.id)}">編輯</button> ${x.hidden ? `<button class="btn ghost sm" data-show-pol="${esc(x.id)}">恢復</button>` : x._src === 'db' ? `<button class="btn danger sm" data-del-pol="${esc(x.id)}">刪除</button>` : `<button class="btn danger sm" data-hide-pol="${esc(x.id)}">隱藏</button>`}</td></tr>`).join('');
   $('issRows').innerHTML = iss.map(x => `<tr><td><b>${esc(x.title)}</b><br><small>${esc(x.id)}</small></td><td class="tag">${esc(x.tag || '')}</td><td>${x.startsAt ? esc(x.startsAt) : x.id === C.election.finalIssueId ? '大選前夜' : '—'}</td><td class="num">${x.intensity || 1}</td><td>${srcPill(x)}</td><td class="act"><button class="btn ghost sm" data-edit-iss="${esc(x.id)}">編輯</button> ${x.hidden ? `<button class="btn ghost sm" data-show-iss="${esc(x.id)}">恢復</button>` : x._src === 'db' ? `<button class="btn danger sm" data-del-iss="${esc(x.id)}">刪除</button>` : `<button class="btn danger sm" data-hide-iss="${esc(x.id)}">隱藏</button>`}</td></tr>`).join('');
   $('heroRows').innerHTML = H.length ? H.map(h => `<tr><td>${esc(h.nick || '（未取名）')}</td><td>${esc((C.heroes[h.cls] || {}).name || h.cls)}</td><td class="num">${h.rounds}</td><td class="num">${h.kills}</td><td><small>${esc(new Date(h.last_at).toLocaleString('zh-TW', { timeZone: C.election.tz }))}</small></td><td class="act"><button class="btn danger sm" data-del-hero="${esc(h.id)}" data-nick="${esc(h.nick || '')}">刪除</button></td></tr>`).join('') : '<tr><td colspan="6">還沒有英雄資料。</td></tr>';
-  window.__merged = { pols, iss };
+  window.__merged = { pols, iss }; fillIssueOptions(iss);
 }
 async function save(table, id, data, msgEl) { const el = $(msgEl); el.className = 'msg'; el.textContent = '儲存中…'; const { error } = await sb.from(table).upsert({ id, data, updated_at: new Date().toISOString() });
   if (error) { el.className = 'msg bad'; el.textContent = '儲存失敗：' + error.message; return false; } el.className = 'msg ok'; el.textContent = '已儲存，遊戲重新整理後就會看到。'; await loadAll(); return true; }
@@ -52,7 +54,7 @@ const strip = x => { const o = { ...x }; delete o._src; delete o.id; return o; }
 document.addEventListener('click', async ev => { const t = ev.target.closest('button'); if (!t) return; const d = t.dataset;
   if (t.dataset.tab) { document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b === t))); document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== t.dataset.tab; }); return; }
   const { pols, iss } = window.__merged || { pols: [], iss: [] };
-  if (d.editPol) { const x = pols.find(p => p.id === d.editPol); const f = $('polForm'); f.id.value = x.id; f.title.value = x.title || ''; f.tag.value = x.tag || ''; f.model.value = x.model || 'kiosk'; f.district.value = x.district || ''; f.summary.value = x.summary || ''; f.facts.value = (x.facts || []).join('\n'); f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  if (d.editPol) { const x = pols.find(p => p.id === d.editPol); const f = $('polForm'); f.id.value = x.id; f.title.value = x.title || ''; f.tag.value = x.tag || ''; f.model.value = x.model || 'kiosk'; f.district.value = x.district || ''; f.summary.value = x.summary || ''; f.why.value = x.why || ''; f.facts.value = (x.facts || []).join('\n'); f.agencies.value = (x.agencies || []).join(', '); f.issue.value = x.issue || ''; f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
   if (d.hidePol || d.showPol) { const x = pols.find(p => p.id === (d.hidePol || d.showPol)); await save('policies', x.id, { ...strip(x), hidden: !!d.hidePol }, 'polMsg'); }
   if (d.delPol) { t.disabled = true; const { error } = await sb.from('policies').delete().eq('id', d.delPol); $('polMsg').className = error ? 'msg bad' : 'msg ok'; $('polMsg').textContent = error ? '刪除失敗：' + error.message : '已刪除。'; await loadAll(); }
   if (d.editIss) { const x = iss.find(p => p.id === d.editIss); const f = $('issForm'); f.id.value = x.id; f.title.value = x.title || ''; f.tag.value = x.tag || ''; f.startsAt.value = x.startsAt || ''; f.intensity.value = x.intensity || 1; f.boss.value = x.boss || ''; f.mix.value = Object.entries(x.mix || {}).map(([k, v]) => `${k}:${v}`).join(', '); f.chants.value = (x.chants || []).join('\n'); f.desc.value = x.desc || ''; f.querySelectorAll('input[name=routes]').forEach(cb => { cb.checked = (x.routes || []).includes(cb.value); }); f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -62,7 +64,7 @@ document.addEventListener('click', async ev => { const t = ev.target.closest('bu
 });
 const alertMsg = txt => { const m = document.querySelector('[data-panel="heroes"] .msg'); m.className = 'msg bad'; m.textContent = txt; };
 $('polForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const id = f.id.value.trim();
-  const data = { title: f.title.value.trim(), tag: f.tag.value.trim(), model: f.model.value, district: f.district.value || null, summary: f.summary.value.trim(), facts: f.facts.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6), hidden: false };
+  const data = { title: f.title.value.trim(), tag: f.tag.value.trim(), model: f.model.value, district: f.district.value || null, summary: f.summary.value.trim(), why: f.why.value.trim(), facts: f.facts.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8), agencies: f.agencies.value.split(/[,，、]/).map(s => s.trim()).filter(Boolean).slice(0, 4), issue: f.issue.value || null, hidden: false };
   if (await save('policies', id, data, 'polMsg')) f.reset(); });
 $('issForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const id = f.id.value.trim(); const mix = {}; for (const part of f.mix.value.split(',')) { const [k, v] = part.split(':').map(s => s.trim()); if (C.animals[k]) mix[k] = Number(v) || 1; }
   const routes = [...f.querySelectorAll('input[name=routes]:checked')].map(i => i.value); if (!routes.length) { $('issMsg').className = 'msg bad'; $('issMsg').textContent = '至少選一個登陸方向。'; return; }
