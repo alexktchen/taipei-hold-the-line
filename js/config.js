@@ -18,8 +18,8 @@ export const CONFIG = {
     raid: { minGap: 28, maxGap: 48, size: 5, chance: 0.7 },
     unitsPerSec: 0.9,          // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
     spawnGap: 1.2,             // 依序登陸：兩隻之間至少隔幾秒
-    // 頭上對話：每句顯示 chantOn 秒、同時最多 chantMax 句、新的一句至少隔 chantEvery 秒、講完休息 chantRest 秒；chantIssueShare = 講議題台詞（其餘講動物自己的）的比例；鸚鵡複製上一句的長度上限 chantCopyMax；chantSize = 對話框高度（世界單位）
-    chantOn: 2.6, chantMax: 2, chantEvery: 1.6, chantRest: 7, chantIssueShare: 0.65, chantCopyMax: 6, chantSize: 0.32,
+    // 頭上對話：每句顯示 chantOn 秒、同時最多 chantMax 句、新的一句至少隔 chantEvery 秒、講完休息 chantRest 秒；chantIssueShare = 講議題台詞（其餘講動物自己的）的比例；鸚鵡複製上一句的長度上限 chantCopyMax；chantSize = 對話框高度（世界單位）；chantSpace = 正在說話的兩隻至少要隔多遠
+    chantOn: 2.6, chantMax: 2, chantEvery: 1.6, chantRest: 7, chantIssueShare: 0.65, chantCopyMax: 6, chantSize: 0.32, chantSpace: 2.2, // chantSpace：說話的兩隻至少隔幾個世界單位
     focusDmgMul: 3, focusCooldown: 1.4, ultCooldown: 45, ultPct: 0.6, ultSlow: 0.6, ultSlowTime: 3,
     projSpeed: 9,
   },

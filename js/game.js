@@ -100,7 +100,8 @@ export function createGame(ctx) {
   function updateChants(dt) { let talking = 0; G.chantGap -= dt;
     for (const e of G.enemies) { if (e.chant) { e.chantT -= dt; if (e.chantT <= 0) { e.chant = null; e.restT = RC.chantRest; animals.setChant(e.obj, null); } else talking++; } else if (e.restT > 0) e.restT -= dt; }
     if (talking >= RC.chantMax || G.chantGap > 0) return;
-    let best = null, bestScore = -1; for (const e of G.enemies) { if (e.dead || e.chant || e.restT > 0) continue; const score = (e.spoke ? 0 : 2) + (C.animals[e.type].boss ? 3 : 0) + Math.random(); if (score > bestScore) { best = e; bestScore = score; } }
+    const talkers = G.enemies.filter(e => e.chant && !e.dead), crowded = e => talkers.some(o => (o.x - e.x) ** 2 + (o.z - e.z) ** 2 < RC.chantSpace ** 2); // 旁邊已經有人在講就先不講，對話框才不會疊在一起
+    let best = null, bestScore = -1; for (const e of G.enemies) { if (e.dead || e.chant || e.restT > 0 || crowded(e)) continue; const score = (e.spoke ? 0 : 2) + (C.animals[e.type].boss ? 3 : 0) + Math.random(); if (score > bestScore) { best = e; bestScore = score; } }
     if (!best) return; best.chant = lineFor(best); best.chantT = RC.chantOn; best.spoke = true; lastLine = best.chant; G.chantGap = RC.chantEvery; animals.setChant(best.obj, best.chant); }
   function damage(e, amt, by) { if (e.dead) return; e.hp -= amt; animals.setHp(e.obj, Math.max(0, e.hp / e.maxHp)); if (e.hp <= 0) { e.dead = true; G.kills++; floatText(by && by.role && !by.hero ? '勸退！' : '+1', e.x, TOP + 0.9, e.z, { bg: '#fcea8b' }); emit('hud'); } }
   function leak(e) { const A = C.animals[e.type]; G.leaked++; G.approval = Math.max(RC.approvalFloor, G.approval - A.leak); floatText(`−${A.leak}% 滿意度`, goalCenter.x, TOP + 2.4, goalCenter.z, { bg: '#c23b2a', fg: '#fff' }); if (A.boss) addLog(`${A.name}衝進市政府，滿意度 −${A.leak}%`, 'bad'); emit('hud'); }
