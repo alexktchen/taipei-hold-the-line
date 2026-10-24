@@ -5,7 +5,7 @@
 window.PIStore = (function () {
   const LS_HERO = 'pi.hero.v1';
   const state = { db: null, user: null, uid: null, canWrite: null, canEdit: false, me: { name: '', avatarUrl: '', color: '' },
-    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], sb: null, presenceCh: null, presence: {} };
+    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], visitors: null, visitorsToday: null, sb: null, presenceCh: null, presence: {} };
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const loadLocalHero = () => safe(() => JSON.parse(localStorage.getItem(LS_HERO) || 'null'), null);
   const saveLocalHero = (h) => safe(() => localStorage.setItem(LS_HERO, JSON.stringify(h)), null);
@@ -18,7 +18,7 @@ window.PIStore = (function () {
   }
   function totals() {
     const list = state.mode !== 'local' ? state.heroes : (state.hero ? [state.hero] : []);
-    return list.reduce((a, h) => ({ waves: a.waves + (h.rounds || 0), blocked: a.blocked + (h.kills || 0), heroes: a.heroes + 1, finals: a.finals + (h.finals || 0) }), { waves: 0, blocked: 0, heroes: 0, finals: 0 });
+    return list.reduce((a, h) => ({ ...a, waves: a.waves + (h.rounds || 0), blocked: a.blocked + (h.kills || 0), heroes: a.heroes + 1, finals: a.finals + (h.finals || 0) }), { waves: 0, blocked: 0, heroes: 0, finals: 0, visitors: state.visitors, visitorsToday: state.visitorsToday });
   }
   function leaderboard() {
     const list = state.mode !== 'local' ? state.heroes : (state.hero ? [state.hero] : []);
@@ -78,11 +78,13 @@ window.PIStore = (function () {
     if (error) { console.warn('[store] heroes', error.message); return; }
     if (state.noDistrict && state.hero) for (const h of data || []) if (h.id === state.uid) h.district = state.hero.district;
     state.heroes = data || []; const mine = state.heroes.find(h => h.id === state.uid); if (mine) { if (!mine.district && state.hero && state.hero.district) mine.district = state.hero.district; state.hero = { ...(state.hero || {}), ...mine }; saveLocalHero(state.hero); } emit('global'); emit('leaderboard'); }
+  // 累計來過的人數＝匿名帳號數（supabase/visitors.sql 的 visitor_stats）；函式還沒建就維持 null、畫面不顯示
+  async function refreshVisitors() { const { data, error } = await state.sb.rpc('visitor_stats'); if (error || !data) return; const n = v => Number.isFinite(Number(v)) ? Number(v) : null; state.visitors = n(data.total); state.visitorsToday = n(data.today); emit('global'); }
   async function initSupabase() { const B = window.PI_BACKEND || {}; if (!B.supabaseUrl || !B.supabaseAnonKey) return false;
     try { const { createClient } = await import(B.supabaseJs); const sb = createClient(B.supabaseUrl, B.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true } });
       let { data: { session } } = await sb.auth.getSession(); if (!session) { const r = await sb.auth.signInAnonymously(); if (r.error) throw r.error; session = r.data.session; }
       state.sb = sb; state.uid = session.user.id; state.mode = 'supabase'; state.canWrite = true; state.canEdit = false;
-      await refreshHeroes(); sb.channel('heroes-db').on('postgres_changes', { event: '*', schema: 'public', table: 'heroes' }, () => { clearTimeout(refreshT); refreshT = setTimeout(refreshHeroes, 1500); }).subscribe();
+      await refreshHeroes(); refreshVisitors(); setInterval(refreshVisitors, (B.visitorsEvery || 300) * 1000); sb.channel('heroes-db').on('postgres_changes', { event: '*', schema: 'public', table: 'heroes' }, () => { clearTimeout(refreshT); refreshT = setTimeout(refreshHeroes, 1500); }).subscribe();
       const [pol, iss] = await Promise.all([sb.from('policies').select('id,data'), sb.from('issues').select('id,data')]);
       state.policiesRemote = (pol.data || []).map(r => ({ ...(r.data || {}), id: r.id })); state.issuesRemote = (iss.data || []).map(r => ({ ...(r.data || {}), id: r.id })); emit('policies'); emit('issues');
       const ch = sb.channel('online', { config: { presence: { key: state.uid } } });

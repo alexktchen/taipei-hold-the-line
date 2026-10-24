@@ -254,3 +254,6 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
 .plist li.fly{cursor:pointer} .plist li.fly:hover,.plist li.fly:focus-visible{background:var(--navy-soft);outline:none} .plist li.fly small::after{content:" →";color:var(--coral)} .plist .empty{display:block;color:var(--muted)}
 #onlineList p{margin:0 0 4px} #onlineList .plist{max-height:220px;overflow:auto;background:#fff;border:1px solid #ece3dd;border-radius:10px;padding:2px 4px}
 @media (max-width:900px){ .players{left:max(10px,var(--sa-l));top:auto;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:none;width:min(300px,calc(100vw - 20px));max-height:50vh} }
+/* 累計來過的人數：桌機在上方戰績列；手機空間不夠，只放在大廳與在線名單標題 */
+.lobby-stats .vis{grid-column:1/-1}
+@media (max-width:900px){ .gstrip .vis{display:none!important} }
