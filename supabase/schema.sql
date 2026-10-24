@@ -10,8 +10,10 @@ create table if not exists public.heroes (
   kills       integer not null default 0 check (kills >= 0),
   finals      integer not null default 0 check (finals >= 0),
   last_issue  text,
+  district    text check (district is null or district in ('beitou','shilin','neihu','datong','zhongshan','songshan','nangang','wanhua','zhongzheng','daan','xinyi','wenshan')),
   last_at     timestamptz not null default now()
 );
+-- 已經建好表的專案：改跑 supabase/districts.sql 補上 district 欄位
 alter table public.heroes enable row level security;
 drop policy if exists "heroes are public" on public.heroes;
 drop policy if exists "insert own hero" on public.heroes;

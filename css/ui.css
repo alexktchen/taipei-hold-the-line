@@ -63,19 +63,20 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
   }
 @media (prefers-reduced-motion: reduce){ .banner,.card{transition:none} }
 
-/* 政策卡：圖示＋編號標題、摘要、為什麼、標籤列、編號細項、主責局處、遊戲裡的狀態（市長巡迴、相關議題）、相關政策 */
-.card{left:max(14px,var(--sa-l));top:150px;width:340px;max-width:calc(100vw - 28px);padding:16px 18px 14px;max-height:calc(100vh - 260px);overflow:auto;overscroll-behavior:contain}
-.card .close{position:absolute;right:8px;top:6px;border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted)} .card .grip{display:none}
-.card .c-head{display:flex;gap:12px;align-items:center;margin:0 0 10px;padding-right:22px} .card .c-ic{flex:none;width:52px;height:52px;border-radius:14px;background:var(--navy-soft);display:grid;place-items:center;font-size:34px;box-shadow:0 3px 10px #db6a4126}
-.card .eyebrow{margin:0 0 2px;color:var(--coral);font-weight:900;letter-spacing:.14em} .card .eyebrow span:first-child{font-family:var(--mono)} .card h2{margin:0;font-size:20px;font-weight:900;line-height:1.2}
-.card .lead{margin:0 0 8px;font-size:14px;font-weight:700} .card .why{margin:0 0 10px;padding:1px 0 1px 10px;border-left:3px solid var(--coral);font-size:13px;color:var(--muted)}
-.card .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px} .card .chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;color:var(--ink)}
-.card .chip i{width:7px;height:7px;border-radius:50%;background:var(--coral)} .card .chip.y{background:#fcea8b80;border-color:#e8c54780} .card .chip.y i{background:#c9a227} .card .chips.rel .chip{cursor:pointer} .card .chips.rel .chip:hover{background:var(--navy-soft)} .card .chips.rel .chip span{font-size:15px;line-height:1}
-.card .c-sec{border-top:1px dashed var(--line);padding-top:9px} .card h3{margin:0 0 7px;font-size:11px;letter-spacing:.16em;color:var(--muted);font-weight:700}
-.card ol.facts{list-style:none;margin:0 0 10px;padding:0;counter-reset:f;font-size:13px} .card ol.facts li{counter-increment:f;display:flex;gap:8px;align-items:flex-start;margin:0 0 6px}
-.card ol.facts li::before{content:counter(f);flex:none;width:20px;height:20px;border-radius:50%;background:var(--coral);color:#fff8f4;font-size:11px;font-weight:900;display:grid;place-items:center;box-shadow:0 0 0 2px var(--navy-soft)}
-.card ul.c-game{list-style:none;margin:0 0 10px;padding:0;font-size:12.5px} .card ul.c-game li{display:flex;gap:8px;align-items:baseline;margin:0 0 6px} .card ul.c-game .k{flex:none;font-size:11px;font-weight:900;color:var(--coral);background:var(--navy-soft);border-radius:6px;padding:1px 6px;white-space:nowrap}
-.card .c-btns{display:flex;gap:6px;margin-top:6px} .card .c-btns button{flex:1;border:1px solid var(--ink);background:transparent;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:700;white-space:nowrap} .card .c-btns #btnCardFly{background:var(--ink);color:var(--bg)}
+/* 政策卡（版型比照政策島的底部卡片）：白底大圓角、漸層圖示磚、等寬字距編號、大標題、珊瑚引線段落、白底小圓點標籤、編號圓章細項 */
+.card{left:max(14px,var(--sa-l));top:150px;width:360px;max-width:calc(100vw - 28px);padding:22px 22px 16px;max-height:calc(100vh - 260px);overflow:auto;overscroll-behavior:contain;background:#fffdfb;border-radius:26px;box-shadow:0 12px 40px #78685e33}
+.card .close{position:absolute;right:14px;top:12px;width:32px;height:32px;border:0;background:transparent;font-size:26px;font-weight:300;line-height:1;color:var(--ink)} .card .grip{display:none}
+.card .c-head{display:flex;gap:16px;align-items:center;margin:0 0 14px;padding-right:30px} .card .c-ic{flex:none;width:62px;height:62px;border-radius:18px;background:linear-gradient(150deg,#fff 0%,#fdeee6 55%,#fbe1d4 100%);display:grid;place-items:center;font-size:38px;box-shadow:0 8px 20px #db6a4124,inset 0 0 0 1px #ffffffcc}
+.card .eyebrow{margin:0 0 4px;color:var(--coral);font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:.24em;text-transform:uppercase} .card h2{margin:0;font-size:26px;font-weight:900;line-height:1.15;letter-spacing:.02em}
+.card .lead{margin:0 0 12px;font-size:15px;font-weight:500;line-height:1.6} .card .why{margin:0 0 14px;padding:2px 0 2px 14px;border-left:3px solid var(--coral);font-size:14px;line-height:1.75;color:#6b5e57}
+.card .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px} .card .chip{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border:1px solid #ece3dd;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:#4a403b;box-shadow:0 2px 6px #78685e14}
+.card .chip i{width:8px;height:8px;border-radius:50%;background:var(--coral)} .card .chip.c{color:#c2532f;border-color:#f3d3c4;background:#fff8f4} .card .chip.y{color:#8a7417;border-color:#efe2a6;background:#fffbea} .card .chip.y i{background:#c9a227}
+.card .chips.rel .chip{cursor:pointer;font-weight:700} .card .chips.rel .chip:hover{background:var(--navy-soft)} .card .chips.rel .chip span{font-size:17px;line-height:1}
+.card .c-sec{border-top:1px solid #f0e8e3;padding-top:12px} .card h3{margin:0 0 9px;font-size:11px;letter-spacing:.24em;color:var(--coral);font-family:var(--mono);font-weight:800}
+.card ol.facts{list-style:none;margin:0 0 12px;padding:0;counter-reset:f;font-size:14px;line-height:1.55} .card ol.facts li{counter-increment:f;display:flex;gap:10px;align-items:flex-start;margin:0 0 8px}
+.card ol.facts li::before{content:counter(f);flex:none;width:22px;height:22px;border-radius:50%;background:var(--coral);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 6px #db6a414d;margin-top:-1px}
+.card ul.c-game{list-style:none;margin:0 0 12px;padding:0;font-size:13px;line-height:1.55} .card ul.c-game li{display:flex;gap:8px;align-items:baseline;margin:0 0 7px} .card ul.c-game .k{flex:none;font-size:11px;font-weight:800;color:#c2532f;background:#fff8f4;border:1px solid #f3d3c4;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.card .note{color:#9a8b82} .card .c-btns{display:flex;gap:8px;margin-top:8px} .card .c-btns button{flex:1;border:1px solid #e4d9d2;background:#fff;border-radius:999px;padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px #78685e14} .card .c-btns #btnCardFly{background:var(--ink);border-color:var(--ink);color:#fff8f4}
 .issue-form .wide2{grid-column:span 2} .issue-form select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--bg);color:var(--ink)} .admin h3{margin:12px 0 4px;font-size:12px;letter-spacing:.1em;color:var(--muted)}
 
 .gstrip .online{gap:6px} .gstrip .online .dot{width:8px;height:8px;border-radius:50%;background:#7fa35e;box-shadow:0 0 0 3px #7fa35e33;display:inline-block;animation:pulse 2s infinite}
@@ -86,10 +87,10 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
 
 /* 手機：政策卡改成底部抽屜，左右各留 10px，一定在畫面內（放在桌機 .card 規則之後才不會被覆蓋） */
 @media (max-width:900px){
-  .card{top:auto;left:max(10px,var(--sa-l));right:max(10px,var(--sa-r));bottom:calc(64px + env(safe-area-inset-bottom,0px));width:auto;max-width:none;transform:none;max-height:52vh;padding:22px 16px 12px;border-radius:18px;overflow:auto;-webkit-overflow-scrolling:touch;z-index:5;transition:max-height .25s}
-  .card.full{max-height:calc(100vh - 180px)} .card .grip{display:block;position:absolute;left:50%;top:0;transform:translateX(-50%);width:72px;height:22px;border:0;background:transparent;padding:0;touch-action:none} .card .grip::before{content:"";display:block;width:40px;height:5px;margin:8px auto 0;border-radius:3px;background:#211d1d33}
-  .card .c-head{gap:10px;padding-right:30px;margin-bottom:8px} .card .c-ic{width:44px;height:44px;font-size:28px;border-radius:12px} .card h2{font-size:17px} .card .lead{font-size:13px} .card .why{font-size:12.5px} .card ol.facts{font-size:12.5px}
-  .card .close{right:6px;top:4px;width:36px;height:36px;font-size:22px}
+  .card{top:auto;left:max(10px,var(--sa-l));right:max(10px,var(--sa-r));bottom:calc(64px + env(safe-area-inset-bottom,0px));width:auto;max-width:none;transform:none;max-height:56vh;padding:28px 20px 14px;border-radius:28px;overflow:auto;-webkit-overflow-scrolling:touch;z-index:5;transition:max-height .25s}
+  .card.full{max-height:calc(100vh - 180px)} .card .grip{display:block;position:absolute;left:50%;top:0;transform:translateX(-50%);width:80px;height:24px;border:0;background:transparent;padding:0;touch-action:none} .card .grip::before{content:"";display:block;width:44px;height:5px;margin:10px auto 0;border-radius:3px;background:#d8cfc9}
+  .card .c-head{gap:14px;padding-right:34px;margin-bottom:12px} .card .c-ic{width:54px;height:54px;font-size:32px;border-radius:16px} .card h2{font-size:23px} .card .eyebrow{font-size:11px;letter-spacing:.2em} .card .lead{font-size:14px} .card .why{font-size:13px} .card ol.facts{font-size:13px} .card .chip{font-size:12px;padding:5px 12px}
+  .card .close{right:10px;top:10px;width:40px;height:40px;font-size:28px}
 }
 /* 手機大廳：介紹收成三行、英雄兩欄、出戰按鈕黏在底部 */
 @media (max-width:900px){
@@ -205,3 +206,23 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
 .auto .lbl{flex:1} .auto .st{font-size:11px;color:var(--muted)} .auto[aria-checked="true"] .st{color:var(--coral)}
 @media (prefers-reduced-motion: reduce){ .auto .sw,.auto .sw i{transition:none} }
 @media (max-width:900px){ .auto{margin:0 0 6px;padding:5px 8px;font-size:12px} .auto .sw{width:34px;height:20px} .auto .sw i{width:14px;height:14px} .auto[aria-checked="true"] .sw i{transform:translateX(14px)} }
+
+/* 大廳「怎麼玩」：編號卡片格，桌機三欄、手機一欄 */
+.howto{margin:12px 0 4px} .howto h3{margin:0 0 8px}
+.howto ol{list-style:none;margin:0;padding:0;counter-reset:h;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.howto li{counter-increment:h;position:relative;background:#fff;border:1px solid #ece3dd;border-radius:14px;padding:9px 12px 9px 40px;font-size:12px;line-height:1.5;color:#4a403b;box-shadow:0 2px 6px #78685e10}
+.howto li::before{content:counter(h);position:absolute;left:10px;top:9px;width:22px;height:22px;border-radius:50%;background:var(--coral);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 6px #db6a414d}
+.howto li b{display:block;font-size:13px;color:var(--ink);margin-bottom:1px}
+.field select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--bg);color:var(--ink);font-size:14px} .lobby-grid .col .field+.field{margin-top:8px}
+/* 12 區對抗排名：名次、區名、擋下數、人數，底下一條長條 */
+.dboard{list-style:none;margin:0;padding:0;font-size:12px} .dboard li{position:relative;display:grid;grid-template-columns:22px 1fr auto auto;gap:6px;align-items:baseline;padding:3px 4px 5px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:6px}
+.dboard li:hover{background:#fff} .dboard .rank{font-family:var(--mono);color:var(--muted)} .dboard b{font-variant-numeric:tabular-nums} .dboard small{color:var(--muted)} .dboard i{position:absolute;left:4px;bottom:1px;height:2px;border-radius:1px;background:var(--coral);opacity:.55;max-width:calc(100% - 8px)}
+.dboard li.mine{background:var(--navy-soft)} .dboard li.mine .who{color:var(--coral);font-weight:900} .dboard em{font-style:normal;font-size:10px;background:var(--coral);color:#fff8f4;border-radius:999px;padding:0 6px;margin-left:2px}
+.overlay .district{margin:6px 0;padding:8px 12px;border-radius:8px;background:#fffbea;border:1px solid #efe2a6;font-size:14px;font-weight:700}
+/* 地圖上的區名：12 區對抗名次、自己的區 */
+.nameplate.district .rk{margin-left:5px;padding:0 6px;border-radius:999px;background:#fff8f4;color:#78685e;font-size:10px;letter-spacing:0;text-shadow:none;box-shadow:0 1px 4px #78685e33} .nameplate.district .rk.top{background:var(--gold);color:#211d1d}
+.nameplate.district.mine{color:var(--coral);opacity:1;font-weight:900}
+/* 手機：怎麼玩改成左右滑的卡片列，不把英雄選單擠到很下面 */
+@media (max-width:900px){ .howto ol{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:8px;padding:2px 2px 8px;margin:0 -2px;scrollbar-width:none} .howto ol::-webkit-scrollbar{display:none}
+  .howto li{flex:0 0 78%;scroll-snap-align:start;padding:8px 10px 8px 38px} .howto h3::after{content:"・左右滑看全部";font-weight:400;letter-spacing:0;color:var(--muted)} }
+@media (min-width:901px) and (max-width:1100px){ .howto ol{grid-template-columns:repeat(2,1fr)} }

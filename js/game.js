@@ -52,9 +52,9 @@ export function createGame(ctx) {
   // 名牌交給 main.js 畫成 DOM 標籤（清楚、不隨距離縮小）。「🎙 市長」徽章只給市長；玩家徽章是英雄圖示＋職業，用英雄代表色
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const tagAdd = (w, name, badge, color, kind) => emit('tag', 'add', w, { name, badge, color, kind }); const tagDel = w => emit('tag', 'remove', w);
-  // 每次巡迴到同一棟輪流講摘要與各細項；標題加上去太長就只講那一句
+  // 每次巡迴到同一棟輪流講摘要與前幾條細項；標題加上去太長就只講那一句
   const sayCount = new Map();
-  function slogan(pol) { const lines = [String(pol.summary || '').split(/[，。、；]/)[0], ...(pol.facts || [])].filter(Boolean); const n = sayCount.get(pol.id) || 0; sayCount.set(pol.id, n + 1); const line = lines.length ? lines[n % lines.length] : '';
+  function slogan(pol) { const lines = [String(pol.summary || '').split(/[，。、；]/)[0], ...(pol.facts || []).slice(0, MC.sayFacts)].filter(Boolean); const n = sayCount.get(pol.id) || 0; sayCount.set(pol.id, n + 1); const line = lines.length ? lines[n % lines.length] : '';
     let t = `${pol.title}！${line}`; if (t.length > MC.sloganMax) t = line; return t.length > MC.sloganMax ? t.slice(0, MC.sloganMax) + '…' : t; }
   function setBubble(m, txt) { emit('say', m, txt ? '📣 ' + txt : null); }
   function updateMayor(dt, zoom = 1) { const m = G.mayor; if (!m || !stops.length) return;
@@ -69,7 +69,9 @@ export function createGame(ctx) {
   // ── 一場 ──
   function startRound(issue, hero, waveNo, isFinal) {
     clearRound(); Object.assign(G, { phase: 'round', t: 0, approval: RC.startApproval, issue, waveNo, final: !!isFinal, kills: 0, leaked: 0, raids: 0, surges: 0, spawnedTotal: 0, speed: 1, paused: false, windLeft: 0, surgeT: 0, log: [], ultCd: 0, focusCd: 0 });
-    const hw = people.makeWalker('citizen', goalCenter.clone().add(new THREE.Vector3(0, 0.03, 1.1)), hero.cls); hw.pose = 'wave'; hw.nick = hero.nick; hw.cfg = C.heroes[hero.cls]; hw.cls = hero.cls; hw.cd = 0; hw.route = null; hw.s = 0;
+    // 有選 12 區對抗的區就從那座島的步道出發，沒選就從市政府
+    const home = hero.district && centers.get(hero.district); const start = home ? graph.nodes[graph.nodeNear(hero.district, home)].p.clone().setY(goalCenter.y + 0.03) : goalCenter.clone().add(new THREE.Vector3(0, 0.03, 1.1));
+    const hw = people.makeWalker('citizen', start, hero.cls); hw.pose = 'wave'; hw.nick = hero.nick; hw.district = hero.district || null; hw.cfg = C.heroes[hero.cls]; hw.cls = hero.cls; hw.cd = 0; hw.route = null; hw.s = 0;
     tagAdd(hw, hero.nick || hw.cfg.name, `${hw.cfg.icon} 你`, hex(hw.cfg.color), 'me'); G.hero = hw;
     rebuildPeople();
     buildSchedule(issue); G.raidT = RC.raid.minGap + Math.random() * (RC.raid.maxGap - RC.raid.minGap); G.windT = RC.windShift.minGap + Math.random() * (RC.windShift.maxGap - RC.windShift.minGap);
@@ -81,7 +83,7 @@ export function createGame(ctx) {
     for (const b of RC.bursts) { const n = Math.round(total * b.share); for (let i = 0; i < n; i++) G.queue.push({ t: b.from + Math.random() * (b.to - b.from), type: pick(), path: route() }); }
     if (issue.boss) G.queue.push({ t: RC.bossAt, type: issue.boss, path: issue.routes[0] }); if (issue.boss2) G.queue.push({ t: RC.bossAt + 6, type: issue.boss2, path: issue.routes[issue.routes.length - 1] }); G.queue.sort((a, b) => a.t - b.t); }
   function clearRound() { for (const e of G.enemies) animals.remove(e.obj); for (const p of G.projs) scene.remove(p.obj); for (const b of G.beams) scene.remove(b.obj); for (const f of G.floats) scene.remove(f.obj); for (const r of G.rings) scene.remove(r.obj); if (G.hero) tagDel(G.hero); if (G.hero) G.hero.bubbleT = 0; G.enemies = []; G.projs = []; G.beams = []; G.floats = []; G.rings = []; G.queue = []; enemyHits.length = 0; for (const w of G.residents) { w.target = null; if (w.state !== 'idle') { w.state = 'home'; w.pose = null; w.route = null; } } }
-  function endRound() { G.phase = 'result'; const res = { waveNo: G.waveNo, kills: G.kills, leaked: G.leaked, approval: Math.round(G.approval), raids: G.raids, surges: G.surges, issueId: G.issue.id, issueTitle: G.issue.title, tag: G.issue.tag, final: G.final, hero: { nick: G.hero.nick, cls: G.hero.cls } }; addLog(`第 ${G.waveNo} 波守住了。擊退 ${G.kills} 隻，滿意度 ${res.approval}%`, 'good'); if (G.hero) G.hero.pose = 'wave'; emit('end', res); }
+  function endRound() { G.phase = 'result'; const res = { waveNo: G.waveNo, kills: G.kills, leaked: G.leaked, approval: Math.round(G.approval), raids: G.raids, surges: G.surges, issueId: G.issue.id, issueTitle: G.issue.title, tag: G.issue.tag, final: G.final, hero: { nick: G.hero.nick, cls: G.hero.cls, district: G.hero.district || null } }; addLog(`第 ${G.waveNo} 波守住了。擊退 ${G.kills} 隻，滿意度 ${res.approval}%`, 'good'); if (G.hero) G.hero.pose = 'wave'; emit('end', res); }
   function backToLobby() { clearRound(); G.phase = 'lobby'; G.hero = null; rebuildPeople(); emit('hud'); emit('hero'); }
   // ── 敵人 ──
   function landingRoute(routeId) { const land = C.landings[routeId]; const lc = centers.get(land.island); const away = lc.clone().sub(goalCenter).setY(0).normalize(); const ring = graph.ringIndex.get(land.island); let best = ring[0], bd = -1e9; for (const n of ring) { const d = graph.nodes[n].p.clone().sub(lc).dot(away); if (d > bd) { bd = d; best = n; } } const goalNode = graph.nodeNear(goalIsland.id, graph.nodes[best].p); const ids = graph.shortest(best, goalNode); const start = graph.nodes[best].p.clone().add(away.clone().multiplyScalar(2.6)); start.y = TOP + 0.03; return makeRoute([start, ...ids.map(n => graph.nodes[n].p.clone()), goalCenter.clone().setY(TOP + 0.03)]); }

@@ -24,6 +24,15 @@ window.PIStore = (function () {
     const list = state.mode !== 'local' ? state.heroes : (state.hero ? [state.hero] : []);
     return [...list].sort((a, b) => (b.kills || 0) - (a.kills || 0)).slice(0, PI_CONFIG.ui.leaderboardMax);
   }
+  // 12 區對抗：每位英雄選一個行政區，該區分數 = 選這區的英雄擋下的總數（換區會把自己的戰績一起帶過去）
+  function districtBoard() {
+    // 自己那列用本機最新的（剛打完的這波還沒從伺服器刷回來）
+    const me = state.hero && state.uid ? { ...state.hero, id: state.uid } : state.hero; let list = state.mode !== 'local' ? state.heroes.map(h => me && h.id === me.id ? { ...h, ...me } : h) : (me ? [me] : []);
+    if (me && state.mode !== 'local' && !list.some(h => h.id === me.id)) list = [...list, me];
+    const rows = new Map(PI_CONFIG.islands.filter(i => !i.detached).map(i => [i.id, { id: i.id, name: i.name, kills: 0, rounds: 0, heroes: 0 }]));
+    for (const h of list) { const r = rows.get(h.district); if (r) { r.kills += h.kills || 0; r.rounds += h.rounds || 0; r.heroes += 1; } }
+    return [...rows.values()].sort((a, b) => b.kills - a.kills || b.heroes - a.heroes || PI_CONFIG.islands.findIndex(i => i.id === a.id) - PI_CONFIG.islands.findIndex(i => i.id === b.id));
+  }
   function listIssues() {
     const byId = new Map(PI_CONFIG.issues.map(i => [i.id, i]));
     for (const i of state.issuesRemote) byId.set(i.id, { ...byId.get(i.id), ...i });
@@ -60,8 +69,13 @@ window.PIStore = (function () {
   }
   // ── Supabase（靜態站用）：匿名登入取得每位訪客的 uid；heroes 每人一列；presence 頻道算線上人數 ──
   let refreshT = 0;
-  async function refreshHeroes() { const B = window.PI_BACKEND; const { data, error } = await state.sb.from('heroes').select('id,nick,cls,rounds,kills,finals').limit(B.heroesLimit || 1000); if (error) { console.warn('[store] heroes', error.message); return; }
-    state.heroes = data || []; const mine = state.heroes.find(h => h.id === state.uid); if (mine) { state.hero = { ...(state.hero || {}), ...mine }; saveLocalHero(state.hero); } emit('global'); emit('leaderboard'); }
+  // heroes.district 欄位要先跑 supabase/districts.sql；還沒加的話自動退回不含 district 的讀寫，戰績照存
+  const noDistrictCol = err => err && /district/.test(err.message || '');
+  async function refreshHeroes() { const B = window.PI_BACKEND; const cols = 'id,nick,cls,rounds,kills,finals'; let { data, error } = await state.sb.from('heroes').select(state.noDistrict ? cols : cols + ',district').limit(B.heroesLimit || 1000);
+    if (noDistrictCol(error)) { state.noDistrict = true; console.warn('[store] heroes 沒有 district 欄位，請執行 supabase/districts.sql'); ({ data, error } = await state.sb.from('heroes').select(cols).limit(B.heroesLimit || 1000)); }
+    if (error) { console.warn('[store] heroes', error.message); return; }
+    if (state.noDistrict && state.hero) for (const h of data || []) if (h.id === state.uid) h.district = state.hero.district;
+    state.heroes = data || []; const mine = state.heroes.find(h => h.id === state.uid); if (mine) { if (!mine.district && state.hero && state.hero.district) mine.district = state.hero.district; state.hero = { ...(state.hero || {}), ...mine }; saveLocalHero(state.hero); } emit('global'); emit('leaderboard'); }
   async function initSupabase() { const B = window.PI_BACKEND || {}; if (!B.supabaseUrl || !B.supabaseAnonKey) return false;
     try { const { createClient } = await import(B.supabaseJs); const sb = createClient(B.supabaseUrl, B.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true } });
       let { data: { session } } = await sb.auth.getSession(); if (!session) { const r = await sb.auth.signInAnonymously(); if (r.error) throw r.error; session = r.data.session; }
@@ -88,9 +102,12 @@ window.PIStore = (function () {
     emit('global'); emit('leaderboard');
   }
   async function pushHero() {
-    if (state.sb && state.uid && state.hero) { const h = state.hero; const { error } = await state.sb.from('heroes').upsert({ id: state.uid, nick: String(h.nick || '').slice(0, 24), cls: h.cls || 'chief', rounds: h.rounds || 0, kills: h.kills || 0, finals: h.finals || 0, last_issue: h.lastIssue || null, last_at: new Date().toISOString() }); if (error) { console.warn('[store] hero upsert', error.message); return false; } return true; }
+    if (state.sb && state.uid && state.hero) { const h = state.hero; const row = { id: state.uid, nick: String(h.nick || '').slice(0, 24), cls: h.cls || 'chief', rounds: h.rounds || 0, kills: h.kills || 0, finals: h.finals || 0, last_issue: h.lastIssue || null, last_at: new Date().toISOString() };
+      let { error } = await state.sb.from('heroes').upsert(state.noDistrict ? row : { ...row, district: h.district || null });
+      if (noDistrictCol(error)) { state.noDistrict = true; ({ error } = await state.sb.from('heroes').upsert(row)); }
+      if (error) { console.warn('[store] hero upsert', error.message); return false; } return true; }
     if (!(state.db && state.uid && state.hero)) return false;
-    const body = { nick: String(state.hero.nick || '').slice(0, 24), cls: state.hero.cls || 'chief', rounds: state.hero.rounds || 0, kills: state.hero.kills || 0, finals: state.hero.finals || 0, lastAt: new Date().toISOString(), lastIssue: state.hero.lastIssue || null };
+    const body = { nick: String(state.hero.nick || '').slice(0, 24), cls: state.hero.cls || 'chief', district: state.hero.district || null, rounds: state.hero.rounds || 0, kills: state.hero.kills || 0, finals: state.hero.finals || 0, lastAt: new Date().toISOString(), lastIssue: state.hero.lastIssue || null };
     try { await state.db.doc('heroes/' + state.uid).set(body); return true; }
     catch (e) { console.warn('[store] write refused', e && e.code); state.canWrite = false; return false; }
   }
@@ -106,7 +123,7 @@ window.PIStore = (function () {
     if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增議題');
     await state.db.doc('issues/' + issue.id).set(issue);
   }
-  return { init, hero, saveHero, recordRound, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard,
+  return { init, hero, saveHero, recordRound, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
     onPolicies: fn => { state.subs.policies.push(fn); fn(listPolicies()); },
     onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames); }, setPresence, send,
     onNet: fn => { state.subs.net.push(fn); },

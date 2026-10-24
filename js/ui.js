@@ -4,7 +4,7 @@ import { HOTLINE } from './hotline.js';
 import { nextNews, genHotline } from './news.js';
 import { ICONS, policyIcon } from './icons.js';
 const RC = C.round, $ = id => document.getElementById(id);
-export function createUI({ game, callbacks, overview, flyTo, placePolicies, islandOf, renderer, follow }) {
+export function createUI({ game, callbacks, overview, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const todayTPE = () => new Date().toLocaleDateString('en-CA', { timeZone: C.election.tz }); const dayNum = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const eveDate = () => new Date((dayNum(C.election.date) - 1) * 86400000).toISOString().slice(0, 10); const isFinalNow = () => dayNum(todayTPE()) >= dayNum(eveDate()); const daysToEve = () => dayNum(eveDate()) - dayNum(todayTPE());
@@ -14,8 +14,34 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   function todaysIssue(list) { if (isFinalNow()) return list.find(i => i.id === C.election.finalIssueId) || list[0]; const today = todayTPE(); const open = list.filter(i => i.startsAt && i.startsAt <= today).sort((a, b) => a.startsAt < b.startsAt ? 1 : -1); return open[0] || list[0]; }
   let issues = [], policies = [], chosenIssue = null, nextTimer = 0, online = 1, onlineNames = [], chosenCls = 'chief', globals = { waves: 0, blocked: 0, heroes: 0 }; const districtName = id => (C.islands.find(i => i.id === id) || {}).name || '';
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
-  let clsPicked = false;
-  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls) chosenCls = h.cls; /* 已存的英雄只當預設值，使用者點選過就以點選為準 */
+  let clsPicked = false, districtPicked = false; const DISTRICTS = C.islands.filter(i => !i.detached);
+  $('homeDistrict').innerHTML = '<option value="">還沒選（不計入區對抗）</option>' + DISTRICTS.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+  $('homeDistrict').addEventListener('change', () => { districtPicked = true; renderDistricts(); });
+  // 怎麼玩：數字都從 config 帶，改參數不用改文案
+  const HOWTO = () => [
+    ['選英雄、選你的區', `${Object.keys(C.heroes).length} 種職業各有專長。選一個行政區，你擋下的網軍都算進那一區，英雄也會從那座島出發。`],
+    ['守住市政府', `一場約 ${Math.round(RC.seconds / 60)} 分鐘。網軍依當天議題從${Object.values(C.landings).map(l => l.name).join('、')}登陸，沿步道和橋走向信義區市政府；擠進門口滿意度就會掉。`],
+    ['英雄怎麼打', `自動攻擊開著時，英雄自己找最前面的網軍開火。點島嶼＝走過去（${C.heroMode.manualSeconds} 秒內聽你的），點網軍＝重擊（傷害 ×${RC.focusDmgMul}）。`],
+    ['大招', `「台北人站出來」：全地圖網軍扣 ${Math.round(RC.ultPct * 100)}% 血並減速，冷卻 ${RC.ultCooldown} 秒。按大招鈕或 Q。`],
+    ['快捷鍵與手勢', '電腦：A 自動攻擊開關、空白鍵暫停、H 全景、F 跟隨鏡頭、Esc 關政策卡。手機：單指拖地圖、雙指縮放旋轉。'],
+    ['居民與市長', `每區居民平常在步道散步，網軍一來就圍上去勸退。${C.mayor.name} NPC 依序巡迴每棟政策建築，回合中每講一次滿意度 +${C.mayor.approvalPerSpeech}%。`],
+    ['政策建築', '每棟建築是一項政策，點了看摘要、細項、主責局處，還有市長幾站後到、相關議題哪天開打。'],
+    ['議題輪替', `不用選，每波自動換議題，新議題依日期開放；大選前一晚（${eveDate()}）所有網軍一起來總攻擊。`],
+    ['12 區對抗', '各區擋下的網軍加總排名，地圖上的區名後面會掛名次。拉同區的朋友一起守，把你的區推上第一。'],
+    ['一起守', '其他線上玩家的英雄會出現在你的地圖上幫忙打。用表情列打招呼、點別人的英雄擊掌，大招大家都看得到。'],
+    ['一定守得住', `第 ${RC.surgeAt} 秒起全民護城，${RC.wipeAt} 秒清場。二創惡搞，每一波都守得下來。`],
+  ];
+  $('howto').innerHTML = HOWTO().map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('');
+  // 12 區對抗：大廳排名、地圖區名掛名次
+  const myDistrict = () => $('homeDistrict').value || null;
+  function renderDistricts() { const board = S.districtBoard(), mine = myDistrict(), top = Math.max(1, board[0] ? board[0].kills : 0);
+    $('dboard').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}" data-id="${r.id}"><span class="rank">${r.kills ? i + 1 : '–'}</span><span class="who">${esc(r.name)}${r.id === mine ? ' <em>你的區</em>' : ''}</span><b>${fmt(r.kills)}</b><small>${r.heroes} 人</small><i style="width:${(r.kills / top * 100).toFixed(1)}%"></i></li>`).join('');
+    setDistrictRanks(board, mine); }
+  $('dboard').addEventListener('click', e => { const li = e.target.closest('li[data-id]'); if (!li) return; $('homeDistrict').value = li.dataset.id; districtPicked = true; renderDistricts(); });
+  function districtLine(res) { const id = res.hero.district; if (!id) return '這波沒有算進 12 區對抗：回大廳選一個行政區，下一波起就會替那區記分。'; const board = S.districtBoard(), i = board.findIndex(r => r.id === id), me = board[i], name = districtName(id);
+    if (i === 0) { const gap = me.kills - (board[1] ? board[1].kills : 0); return `你替${name}擋下 ${fmt(res.kills)} 隻。${name}暫居 12 區第 1 名，領先第 2 名 ${fmt(gap)} 隻。`; }
+    const up = board[i - 1]; return `你替${name}擋下 ${fmt(res.kills)} 隻。${name}目前第 ${i + 1} 名，再 ${fmt(up.kills - me.kills + 1)} 隻就超過${up.name}。`; }
+  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls) chosenCls = h.cls; if (!districtPicked && h.district) $('homeDistrict').value = h.district; /* 已存的英雄只當預設值，使用者點選過就以點選為準 */
     $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}</b><small>${H.desc}</small></span></button>`).join('');
     $('classes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { chosenCls = b.dataset.id; clsPicked = true; renderLobby(); }));
     if (issues.length) { if (!chosenIssue || !issues.find(i => i.id === chosenIssue.id)) chosenIssue = pickNext(null);
@@ -35,7 +61,7 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   function renderLog(log) { $('log').innerHTML = log.map(l => `<li class="${l.cls}"><time>${l.t}</time><span>${esc(l.txt)}</span></li>`).join(''); }
   let bannerT = 0; function banner(txt, secs) { const b = $('banner'); b.textContent = txt; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), secs * 1000); }
   let hintT = 0; function hint(txt, bad) { const h = $('hint'); h.textContent = txt || '點島嶼讓英雄走過去；點敵人重擊；拖曳旋轉、滾輪縮放。'; h.classList.toggle('bad', !!bad); clearTimeout(hintT); hintT = setTimeout(() => hint(''), bad ? 1500 : 4000); }
-  async function onEnd(res) { await S.recordRound(res); globals = S.totals(); renderStrip(); $('endTitle').textContent = res.final ? `總攻擊擋下了！第 ${res.waveNo} 波` : `第 ${res.waveNo} 波已阻擋！`; $('endText').textContent = `${res.tag}「${res.issueTitle}」的攻勢結束。${res.hero.nick || '英雄'}和居民們擊退 ${fmt(res.kills)} 隻，滿意度守在 ${res.approval}%${res.leaked ? `，有 ${res.leaked} 隻擠進市政府門口` : '，一隻都沒進門'}。`; $('endGlobal').innerHTML = `我們已經阻擋了 <b>${fmt(globals.waves)}</b> ${C.site.waveWord}，擋下 <b>${fmt(globals.blocked)}</b> 隻網軍。`; $('endStats').textContent = `突襲 ${res.raids} 次・全民護城 ${res.surges} 次`; $('endOverlay').hidden = false;
+  async function onEnd(res) { await S.recordRound(res); globals = S.totals(); renderStrip(); $('endTitle').textContent = res.final ? `總攻擊擋下了！第 ${res.waveNo} 波` : `第 ${res.waveNo} 波已阻擋！`; $('endText').textContent = `${res.tag}「${res.issueTitle}」的攻勢結束。${res.hero.nick || '英雄'}和居民們擊退 ${fmt(res.kills)} 隻，滿意度守在 ${res.approval}%${res.leaked ? `，有 ${res.leaked} 隻擠進市政府門口` : '，一隻都沒進門'}。`; $('endGlobal').innerHTML = `我們已經阻擋了 <b>${fmt(globals.waves)}</b> ${C.site.waveWord}，擋下 <b>${fmt(globals.blocked)}</b> 隻網軍。`; $('endDistrict').textContent = districtLine(res); renderDistricts(); $('endStats').textContent = `突襲 ${res.raids} 次・全民護城 ${res.surges} 次`; $('endOverlay').hidden = false;
     chosenIssue = pickNext(res.issueId); let deadline = Date.now() + C.round.autoNextSeconds * 1000; const tick = () => { const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)); $('endNext').innerHTML = `下一波：<b>${esc(chosenIssue.tag)} ${esc(chosenIssue.title)}</b>・${left} 秒後自動開始`; return left; };
     tick(); clearInterval(nextTimer); nextTimer = setInterval(() => { if ($('endOverlay').hidden) { clearInterval(nextTimer); return; } if (document.hidden) { deadline += 250; return; } if (tick() <= 0) { clearInterval(nextTimer); startRound(); } }, 250); }
   // ── 政策卡：編號標題、摘要、為什麼、細項、主責局處、遊戲裡的狀態（市長巡迴、相關議題）、相關政策 ──
@@ -53,7 +79,7 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   function showCard(pol, islandId) { if (!pol) return; cardPol = pol; cardIsl = islandId; const c = $('card'); if (c.hidden) setCardFull(false); c.hidden = false; c.scrollTop = 0; const facts = pol.facts || [], ags = pol.agencies || [], iss = pol.issue && issues.find(i => i.id === pol.issue), no = policies.findIndex(p => p.id === pol.id) + 1;
     $('cardIcon').innerHTML = policyIcon(pol.tag); $('cardNo').textContent = `POLICY ${String(no).padStart(2, '0')}`; $('cardTag').textContent = pol.tag || '政策'; $('cardTitle').textContent = pol.title;
     $('cardSummary').textContent = pol.summary || ''; $('cardWhy').textContent = pol.why || ''; $('cardWhy').hidden = !pol.why;
-    $('cardChips').innerHTML = [`<span class="chip"><i></i>${esc(districtName(islandId))}${pol.district ? '' : '・隨機落島'}</span>`, facts.length && `<span class="chip">${facts.length} 個細項</span>`, ags.length && `<span class="chip">${ags.length} 個主責局處</span>`, iss && `<span class="chip y"><i></i>議題 ${esc(iss.tag)}</span>`].filter(Boolean).join('');
+    $('cardChips').innerHTML = [`<span class="chip c"><i></i>${esc(districtName(islandId))}${pol.district ? '' : '・隨機落島'}</span>`, facts.length && `<span class="chip">${facts.length} 個細項</span>`, ags.length && `<span class="chip">${ags.length} 個主責局處</span>`, iss && `<span class="chip y"><i></i>議題 ${esc(iss.tag)}</span>`].filter(Boolean).join('');
     $('cardFacts').innerHTML = facts.map(f => `<li>${esc(f)}</li>`).join(''); $('cardFacts').parentElement.hidden = !facts.length;
     $('cardAgencies').innerHTML = ags.map(a => `<span class="chip">${esc(a)}</span>`).join(''); $('cardAgSec').hidden = !ags.length;
     const rel = related(pol, islandId); $('cardRelated').innerHTML = rel.map(p => `<button type="button" class="chip" data-pol="${esc(p.id)}"><span>${policyIcon(p.tag)}</span>${esc(p.title)}</button>`).join(''); $('cardRelSec').hidden = !rel.length;
@@ -75,8 +101,8 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   $('iSel').addEventListener('change', ev => { const f = $('issueForm'); const i = issues.find(x => x.id === ev.target.value); f.reset(); if (!i) return; f.iid.value = i.id; f.title.value = i.title || ''; f.tag.value = i.tag || ''; f.startsAt.value = i.startsAt || ''; f.intensity.value = i.intensity || 1; f.boss.value = i.boss || ''; f.mix.value = Object.entries(i.mix || {}).map(([k, v]) => `${k}:${v}`).join(', '); f.chants.value = (i.chants || []).join(', '); f.desc.value = i.desc || ''; f.querySelectorAll('input[name=routes]').forEach(cb => { cb.checked = (i.routes || []).includes(cb.value); }); });
   $('policyForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const pol = { id: f.pid.value.trim().replace(/[^a-z0-9_-]/gi, '').slice(0, 32), title: f.ptitle.value.trim().slice(0, 20), tag: f.ptag.value.trim().slice(0, 16), model: f.pModel.value, district: f.pDistrict.value || null, summary: f.psummary.value.trim().slice(0, 120), why: f.pwhy.value.trim().slice(0, 60), facts: f.pfacts.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8), agencies: f.pagencies.value.split(/[,，、]/).map(s => s.trim()).filter(Boolean).slice(0, 4), issue: f.pIssue.value || null };
     if (!pol.id || !pol.title) { $('pMsg').textContent = '需要代號與標題。'; return; } try { await S.addPolicy(pol); $('pMsg').textContent = `已儲存「${pol.title}」${pol.district ? '，放在' + districtName(pol.district) : '，隨機落島'}。`; f.reset(); } catch (e) { $('pMsg').textContent = '儲存失敗：' + (e.message || e.code || e); } });
-  function heroFromForm() { const nick = $('nick').value.trim().slice(0, 24); return { nick: nick || C.heroes[chosenCls].name, cls: chosenCls }; }
-  async function startRound() { clearInterval(nextTimer); const hero = heroFromForm(); S.setPresence({ nick: hero.nick, cls: hero.cls, phase: 'round' }); await S.saveHero({ nick: hero.nick, cls: hero.cls }); const final = isFinalNow() || chosenIssue.id === C.election.finalIssueId; const waveNo = (S.totals().waves || 0) + 1; $('lobby').hidden = true; $('endOverlay').hidden = true; game.startRound(chosenIssue, hero, waveNo, final); game.setAuto(loadAuto()); renderHero(); hint(''); overview(); }
+  function heroFromForm() { const nick = $('nick').value.trim().slice(0, 24); return { nick: nick || C.heroes[chosenCls].name, cls: chosenCls, district: myDistrict() }; }
+  async function startRound() { clearInterval(nextTimer); const hero = heroFromForm(); S.setPresence({ nick: hero.nick, cls: hero.cls, phase: 'round' }); await S.saveHero({ nick: hero.nick, cls: hero.cls, district: hero.district }); const final = isFinalNow() || chosenIssue.id === C.election.finalIssueId; const waveNo = (S.totals().waves || 0) + 1; $('lobby').hidden = true; $('endOverlay').hidden = true; game.startRound(chosenIssue, hero, waveNo, final); game.setAuto(loadAuto()); renderHero(); hint(''); overview(); }
   // ── 跟隨鏡頭 ──
   const FOLLOW_NAME = { mayor: () => C.mayor.name, hero: () => (G.hero && (G.hero.nick || G.hero.cfg.name)) || '我的英雄', enemy: () => '最前線的敵人' };
   function renderFollow() { const k = follow.kind; $('followBar').hidden = !k; $('btnFollow').setAttribute('aria-pressed', String(!!k)); if (!k) return;
@@ -130,10 +156,10 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   $('issueForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const mix = {}; for (const t of f.mix.value.split(',')) { const [k, v] = t.split(':').map(s => s.trim()); if (C.animals[k]) mix[k] = Number(v) || 1; }
     const issue = { id: f.iid.value.trim().replace(/[^a-z0-9_-]/gi, '').slice(0, 32), title: f.title.value.trim().slice(0, 20), tag: f.tag.value.trim().slice(0, 16), startsAt: f.startsAt.value || null, intensity: Number(f.intensity.value) || 1, routes: [...f.querySelectorAll('input[name=routes]:checked')].map(i => i.value), boss: f.boss.value || null, mix: Object.keys(mix).length ? mix : { bird: 1 }, chants: f.chants.value.split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 12), desc: f.desc.value.trim().slice(0, 60) };
     if (!issue.id || !issue.title || !issue.routes.length) { $('issueMsg').textContent = '需要代號、標題、至少一條路線。'; return; } try { await S.addIssue(issue); $('issueMsg').textContent = `已儲存「${issue.title}」。`; f.reset(); } catch (e) { $('issueMsg').textContent = '新增失敗：' + (e.message || e.code || e); } });
-  document.addEventListener('keydown', ev => { if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return; if (ev.key === ' ' && G.phase === 'round') { ev.preventDefault(); $('btnPause').click(); } else if (ev.key.toLowerCase() === 'q') doUlt(); else if (ev.key.toLowerCase() === 'a' && G.hero) toggleAuto(); else if (ev.key.toLowerCase() === 'h') { overview(); renderFollow(); } else if (ev.key.toLowerCase() === 'f') $('btnFollow').click(); else if (ev.key === 'Escape') $('card').hidden = true; });
+  document.addEventListener('keydown', ev => { if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return; if (ev.key === ' ' && G.phase === 'round') { ev.preventDefault(); $('btnPause').click(); } else if (ev.key.toLowerCase() === 'q') doUlt(); else if (ev.key.toLowerCase() === 'a' && G.hero) toggleAuto(); else if (ev.key.toLowerCase() === 'h') { overview(); renderFollow(); } else if (ev.key.toLowerCase() === 'f') $('btnFollow').click(); else if (ev.key === 'Escape') closeCard(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && G.phase === 'round' && !G.paused) $('btnPause').click(); });
   $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
-  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(renderBoard); S.onIssues(list => { issues = list; fillIssueSelect(); if (!$('lobby').hidden) renderLobby(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
+  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); }); S.onIssues(list => { issues = list; fillIssueSelect(); if (!$('lobby').hidden) renderLobby(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
   S.onOnline((n, names) => { online = n; onlineNames = names; renderStrip(); if (!$('lobby').hidden) renderLobby(); });
   S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', phase: 'lobby' }); renderLobby(); }); renderHud(); renderHero(); hint('');
   // ── 市民熱線（右側卡片輪播）與城市快訊（底部跑馬燈）──

@@ -86,13 +86,14 @@
       <div class="lobby-head">
         <div class="eyebrow">LOBBY・出戰大廳</div>
         <h2>一格政見，守一座城。</h2>
-        <p class="lead">十二座島就是台北十二個行政區，政策散落在各島上，點建築可以看內容；蔣萬安市長 NPC 會在各島巡迴宣傳政績，點他也能看他正在講的政策。每一場約 3 分鐘：青鳥、青蛙、鸚鵡、毛蟲、變色龍、鍵盤鼠依當天的議題，從淡水河、關渡、基隆河、景美溪登陸，沿著步道和橋走向信義區市政府。島上的居民會自己跑去擋，你是登入的英雄，點島嶼就能帶著居民一起守。其他上線的玩家也會出現在地圖上一起守，點他們的英雄可以擊掌。</p>
+        <p class="lead">十二座島就是台北十二個行政區。網軍每一波都會從河口登陸、衝向信義區市政府，你和島上的居民、市長 NPC、其他線上玩家一起守住它。</p>
         <p class="count" id="countdown"></p>
       </div>
+      <section class="howto" aria-labelledby="howtoTitle"><h3 id="howtoTitle">怎麼玩</h3><ol id="howto"></ol></section>
       <div class="lobby-grid">
-        <div class="col"><h3>1・你的英雄</h3><label class="field">暱稱<input id="nick" type="text" maxlength="24" placeholder="會顯示在排行榜" autocomplete="nickname"></label><div class="classes" id="classes"></div><p class="note" id="mine"></p><p class="note" id="modeNote"></p></div>
+        <div class="col"><h3>1・你的英雄</h3><label class="field">暱稱<input id="nick" type="text" maxlength="24" placeholder="會顯示在排行榜" autocomplete="nickname"></label><label class="field">替哪一區守（12 區對抗）<select id="homeDistrict"></select></label><div class="classes" id="classes"></div><p class="note" id="mine"></p><p class="note" id="modeNote"></p></div>
         <div class="col"><h3>2・下一波來襲</h3><div class="issues" id="issues"></div><p class="note">議題自動輪替，每一波都不一樣，不用選。</p></div>
-        <div class="col"><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div><h3>現在在線</h3><p class="note" id="onlineList"></p><h3>英雄榜</h3><ol class="board" id="board"></ol></div>
+        <div class="col"><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div><h3>現在在線</h3><p class="note" id="onlineList"></p><h3>12 區對抗</h3><ol class="dboard" id="dboard"></ol><h3>英雄榜</h3><ol class="board" id="board"></ol></div>
       </div>
       <button id="btnGo" class="go" type="button">出戰！守住這一波</button>
       <details class="admin" id="adminBox" hidden>
@@ -125,6 +126,7 @@
       <h2 id="endTitle">第 1 波已阻擋！</h2>
       <p class="lead" id="endText"></p>
       <p class="global" id="endGlobal"></p>
+      <p class="district" id="endDistrict"></p>
       <p class="note" id="endStats"></p>
       <p class="next" id="endNext"></p>
       <div class="btns2"><button id="btnAgain" type="button" class="go">再守一波</button><button id="btnLobby" type="button">回大廳</button></div>
