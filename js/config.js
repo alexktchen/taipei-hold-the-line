@@ -101,6 +101,11 @@ export const CONFIG = {
   ],
   raidTags: ['#護樹','#拆圓環','#出來面對','#台北不順','#洗版中'],
   palette: { coral: 0xdb6a41, ink: 0x211d1d, cream: 0xfff8f4, yellow: 0xfcea8b, green: 0x8fb37a, stone: 0xd9cbb4, accent: 0xdb6a41 },
+  // 多人同框：其他玩家的英雄透過 Supabase Realtime broadcast 出現在你的地圖上，一起打你畫面上的網軍。
+  // 位置傳送間隔隨在線人數拉長（人數 × sendPerPlayer 秒，介於 sendEvery 與 sendMax），控制免費方案的訊息量。只有預設表情與短句，不開放自由輸入。
+  multi: { sendEvery: 1, sendPerPlayer: 0.25, sendMax: 8, heartbeat: 8, timeout: 25, presenceGrace: 5, maxRemote: 24, snapDist: 6, catchUp: 1.3, allyDmg: 0.5, allyUltMul: 0.5, allyUltRadius: 3, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.2,
+    emotes: [ { k: 'hi', icon: '👋', say: '嗨！一起守！' }, { k: 'help', icon: '🆘', say: '這邊需要支援！' }, { k: 'mine', icon: '💪', say: '交給我！' }, { k: 'thx', icon: '🙏', say: '謝啦！' }, { k: 'yay', icon: '🎉', say: '守住了！' }, { k: 'love', icon: '❤️', say: '台北加油！' } ],
+    five: { k: 'five', icon: '🙌', say: '擊掌！' } },
   ui: { logMax: 30, leaderboardMax: 10, heroesQueryLimit: 1000 },
 };
 window.PI_CONFIG = CONFIG;

@@ -5,7 +5,7 @@
 window.PIStore = (function () {
   const LS_HERO = 'pi.hero.v1';
   const state = { db: null, user: null, uid: null, canWrite: null, canEdit: false, me: { name: '', avatarUrl: '', color: '' },
-    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [] }, mode: 'local', room: null, online: 1, onlineNames: [], sb: null, presenceCh: null, presence: {} };
+    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], sb: null, presenceCh: null, presence: {} };
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const loadLocalHero = () => safe(() => JSON.parse(localStorage.getItem(LS_HERO) || 'null'), null);
   const saveLocalHero = (h) => safe(() => localStorage.setItem(LS_HERO, JSON.stringify(h)), null);
@@ -70,11 +70,16 @@ window.PIStore = (function () {
       const [pol, iss] = await Promise.all([sb.from('policies').select('id,data'), sb.from('issues').select('id,data')]);
       state.policiesRemote = (pol.data || []).map(r => ({ ...(r.data || {}), id: r.id })); state.issuesRemote = (iss.data || []).map(r => ({ ...(r.data || {}), id: r.id })); emit('policies'); emit('issues');
       const ch = sb.channel('online', { config: { presence: { key: state.uid } } });
-      ch.on('presence', { event: 'sync' }, () => { const list = Object.values(ch.presenceState()).map(a => a[0] || {}); state.online = Math.max(1, list.length); state.onlineNames = list.map(p => typeof p.nick === 'string' ? p.nick.slice(0, 24) : '').filter(Boolean); emit('online'); });
+      ch.on('presence', { event: 'sync' }, () => { const ps = ch.presenceState(); state.onlineIds = Object.keys(ps); const list = Object.values(ps).map(a => a[0] || {}); state.online = Math.max(1, list.length); state.onlineNames = list.map(p => typeof p.nick === 'string' ? p.nick.slice(0, 24) : '').filter(Boolean); emit('online'); });
       ch.subscribe(st => { if (st === 'SUBSCRIBED') { state.presenceCh = ch; ch.track(state.presence).catch(() => {}); } });
+      // 多人同框：英雄位置、表情、大招走 broadcast（不寫資料庫、不保留），收到的內容一律當不可信資料，由 UI 驗證
+      const play = sb.channel('play', { config: { broadcast: { self: false } } });
+      play.on('broadcast', { event: 'm' }, ({ payload }) => { for (const fn of state.subs.net) fn(payload); });
+      play.subscribe(st => { if (st === 'SUBSCRIBED') state.playCh = play; });
       return true; } catch (e) { console.warn('[store] supabase 連線失敗，改用本機模式', e); state.mode = 'local'; return false; } }
   function finishInit() { emit('global'); emit('leaderboard'); emit('issues'); emit('policies'); emit('online'); return state; }
   function setPresence(patch) { state.presence = { ...state.presence, ...patch }; if (state.room) state.room.presence(patch).catch(e => console.warn('[store] presence', e && e.code)); if (state.presenceCh) state.presenceCh.track(state.presence).catch(() => {}); }
+  function send(msg) { if (!state.playCh || !state.uid) return false; state.playCh.send({ type: 'broadcast', event: 'm', payload: { ...msg, id: state.uid } }).catch(() => {}); return true; }
   function hero() { return state.hero; }
   async function saveHero(patch) {
     state.hero = { ...(state.hero || { rounds: 0, kills: 0, finals: 0 }), ...patch };
@@ -103,7 +108,8 @@ window.PIStore = (function () {
   }
   return { init, hero, saveHero, recordRound, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard,
     onPolicies: fn => { state.subs.policies.push(fn); fn(listPolicies()); },
-    onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames); }, setPresence,
+    onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames); }, setPresence, send,
+    onNet: fn => { state.subs.net.push(fn); },
     onGlobal: fn => { state.subs.global.push(fn); fn(totals()); },
     onLeaderboard: fn => { state.subs.leaderboard.push(fn); fn(leaderboard()); },
     onIssues: fn => { state.subs.issues.push(fn); fn(listIssues()); },

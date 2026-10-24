@@ -60,17 +60,43 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   $('btnUnfollow').addEventListener('click', () => { follow.stop(); renderFollow(); });
   Object.assign(callbacks, { follow: () => renderFollow() });
   Object.assign(callbacks, { hud: renderHud, log: renderLog, banner, hint, end: onEnd, hero: renderHero, card: showCard });
+  // ── 多人同框：送自己的英雄位置、收別人的英雄、表情與擊掌 ──
+  const MP = C.multi, EM = new Map([...MP.emotes, MP.five].map(e => [e.k, e])); let lastSent = null, lastSentAt = 0, lastEmoteAt = 0; const rxAt = new Map(), rxEmoteAt = new Map();
+  const myId = () => S.state.uid;
+  function sendPos() { const H = G.hero; if (!H) return; const now = Date.now(); const inRound = G.phase === 'round'; const every = Math.min(MP.sendMax, Math.max(MP.sendEvery, online * MP.sendPerPlayer)) * 1000;
+    const moved = !lastSent || Math.hypot(H.pos.x - lastSent.x, H.pos.z - lastSent.z) > 0.08 || lastSent.r !== inRound; if (now - lastSentAt < every || (!moved && now - lastSentAt < MP.heartbeat * 1000)) return;
+    lastSent = { x: H.pos.x, z: H.pos.z, r: inRound }; lastSentAt = now; S.send({ t: 'p', n: H.nick || H.cfg.name, c: H.cls, x: Math.round(H.pos.x * 100) / 100, z: Math.round(H.pos.z * 100) / 100, r: inRound ? 1 : 0, f: H.pose === 'fight' ? 1 : 0 }); }
+  setInterval(() => { if (!document.hidden) sendPos(); game.pruneRemotes(S.state.onlineIds ? new Set(S.state.onlineIds) : null, performance.now()); }, 250);
+  const sayBye = () => { lastSent = null; S.send({ t: 'bye' }); };
+  addEventListener('pagehide', sayBye);
+  // 收到的一切都是其他訪客送的：驗證型別、範圍、長度，限制頻率，名字只畫在畫布上不進 HTML
+  const okNum = v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 40;
+  S.onNet(m => { if (!m || typeof m.id !== 'string' || m.id.length > 64 || m.id === myId()) return; const now = performance.now();
+    if (m.t === 'p') { if ((now - (rxAt.get(m.id) || 0)) < MP.rxMinGap * 1000) return; rxAt.set(m.id, now); if (!Object.hasOwn(C.heroes, m.c) || !okNum(m.x) || !okNum(m.z)) return;
+      const nick = (typeof m.n === 'string' ? m.n : '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 24) || C.heroes[m.c].name; game.upsertRemote({ id: m.id, n: nick, c: m.c, x: m.x, z: m.z, r: !!m.r, f: !!m.f }); return; }
+    if (m.t === 'bye') { game.removeRemote(m.id); return; }
+    if ((now - (rxEmoteAt.get(m.id) || 0)) < 800) return; rxEmoteAt.set(m.id, now);
+    if (m.t === 'e') { const em = typeof m.k === 'string' && EM.get(m.k); if (!em) return; const nick = game.remoteEmote(m.id, em); if (!nick) return;
+      if (em.k === 'five' && m.to === myId()) { banner(`${nick} 跟你擊掌 🙌`, 2.5); game.myEmote(MP.five); } else if (em.k === 'help') hint(`${nick}：這邊需要支援！`); return; }
+    if (m.t === 'u') { const nick = game.remoteUlt(m.id); if (nick) banner(`🙌 ${nick} 喊「台北人站出來」！`, 2.5); } });
+  function emote(k) { const em = EM.get(k); const now = Date.now(); if (!em || now - lastEmoteAt < MP.emoteCooldown * 1000) return; if (!game.myEmote(em)) { hint('出戰後才能跟其他玩家打招呼', true); return; } lastEmoteAt = now; S.send({ t: 'e', k }); }
+  $('emotes').innerHTML = MP.emotes.map(e => `<button type="button" data-k="${esc(e.k)}" title="說：${esc(e.say)}" aria-label="${esc(e.say)}">${e.icon}</button>`).join('');
+  $('emotes').addEventListener('click', ev => { const b = ev.target.closest('button[data-k]'); if (b) emote(b.dataset.k); });
+  callbacks.remote = (id, w) => { if (!w) return; const now = Date.now(); if (now - lastEmoteAt < MP.emoteCooldown * 1000) return; lastEmoteAt = now; if (G.hero) game.myEmote(MP.five); S.send({ t: 'e', k: 'five', to: id }); hint(`你跟 ${w.nick} 擊掌 🙌`); };
+  // 英雄面板變高時（表情列），右側熱線卡讓出空間，不疊在一起
+  if (window.ResizeObserver) new ResizeObserver(() => { const h = $('heroPanel').hidden ? 0 : $('heroPanel').offsetHeight; document.documentElement.style.setProperty('--hero-h', h + 'px'); }).observe($('heroPanel'));
+  function doUlt() { const before = G.ultCd; game.ultimate(); if (G.ultCd > before) S.send({ t: 'u' }); }
   $('btnGo').addEventListener('click', startRound); $('btnAgain').addEventListener('click', () => { $('endOverlay').hidden = true; startRound(); });
-  $('btnLobby').addEventListener('click', () => { clearInterval(nextTimer); S.setPresence({ phase: 'lobby' }); $('endOverlay').hidden = true; game.backToLobby(); renderLobby(); $('lobby').hidden = false; renderHero(); });
+  $('btnLobby').addEventListener('click', () => { clearInterval(nextTimer); S.setPresence({ phase: 'lobby' }); $('endOverlay').hidden = true; sayBye(); game.backToLobby(); renderLobby(); $('lobby').hidden = false; renderHero(); });
   $('btnPause').addEventListener('click', () => { G.paused = !G.paused; $('btnPause').textContent = G.paused ? '繼續' : '暫停'; $('btnPause').setAttribute('aria-pressed', String(G.paused)); });
   $('btnSpeed').addEventListener('click', () => { G.speed = G.speed === 1 ? 2 : 1; $('btnSpeed').setAttribute('aria-pressed', String(G.speed === 2)); });
-  $('btnUlt').addEventListener('click', () => game.ultimate()); $('btnHome').addEventListener('click', () => { overview(); renderFollow(); });
+  $('btnUlt').addEventListener('click', doUlt); $('btnHome').addEventListener('click', () => { overview(); renderFollow(); });
   const fsBtn = $('btnFull'); if (!document.fullscreenEnabled) fsBtn.hidden = true; fsBtn.addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => { hint('這個環境不允許全螢幕', true); }); }); document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? '⤡ 離開全螢幕' : '⤢ 全螢幕'; });
   $('btnLogToggle').addEventListener('click', () => { const p = $('logPanel'); p.classList.toggle('open'); });
   $('issueForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const mix = {}; for (const t of f.mix.value.split(',')) { const [k, v] = t.split(':').map(s => s.trim()); if (C.animals[k]) mix[k] = Number(v) || 1; }
     const issue = { id: f.iid.value.trim().replace(/[^a-z0-9_-]/gi, '').slice(0, 32), title: f.title.value.trim().slice(0, 20), tag: f.tag.value.trim().slice(0, 16), startsAt: f.startsAt.value || null, intensity: Number(f.intensity.value) || 1, routes: [...f.querySelectorAll('input[name=routes]:checked')].map(i => i.value), boss: f.boss.value || null, mix: Object.keys(mix).length ? mix : { bird: 1 }, chants: f.chants.value.split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 12), desc: f.desc.value.trim().slice(0, 60) };
     if (!issue.id || !issue.title || !issue.routes.length) { $('issueMsg').textContent = '需要代號、標題、至少一條路線。'; return; } try { await S.addIssue(issue); $('issueMsg').textContent = `已儲存「${issue.title}」。`; f.reset(); } catch (e) { $('issueMsg').textContent = '新增失敗：' + (e.message || e.code || e); } });
-  document.addEventListener('keydown', ev => { if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return; if (ev.key === ' ' && G.phase === 'round') { ev.preventDefault(); $('btnPause').click(); } else if (ev.key.toLowerCase() === 'q') game.ultimate(); else if (ev.key.toLowerCase() === 'h') { overview(); renderFollow(); } else if (ev.key.toLowerCase() === 'f') $('btnFollow').click(); else if (ev.key === 'Escape') $('card').hidden = true; });
+  document.addEventListener('keydown', ev => { if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return; if (ev.key === ' ' && G.phase === 'round') { ev.preventDefault(); $('btnPause').click(); } else if (ev.key.toLowerCase() === 'q') doUlt(); else if (ev.key.toLowerCase() === 'h') { overview(); renderFollow(); } else if (ev.key.toLowerCase() === 'f') $('btnFollow').click(); else if (ev.key === 'Escape') $('card').hidden = true; });
   document.addEventListener('visibilitychange', () => { if (document.hidden && G.phase === 'round' && !G.paused) $('btnPause').click(); });
   $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
   S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(renderBoard); S.onIssues(list => { issues = list; fillIssueSelect(); if (!$('lobby').hidden) renderLobby(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
