@@ -1,10 +1,12 @@
-# Cloudflare Pages 快取設定：three.js 版本固定，可長快取；自己的程式改了要立刻生效，所以短快取。
+# Cloudflare Pages 快取設定：three.js 版本固定，可長快取。
+# 自己的 js/css 用 no-cache：瀏覽器仍會留副本，但每次載入都用 ETag 問伺服器（沒改就回 304，很省），
+# 避免剛部署完 HTML 是新的、CSS/JS 還是舊的，造成新功能沒樣式（例如自動攻擊開關只剩一行字）。
 /vendor/*
   Cache-Control: public, max-age=31536000, immutable
 /js/*
-  Cache-Control: public, max-age=300
+  Cache-Control: no-cache
 /css/*
-  Cache-Control: public, max-age=300
+  Cache-Control: no-cache
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
