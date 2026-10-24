@@ -242,3 +242,9 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
 .dpanel .r{font-family:var(--mono);color:var(--muted);font-size:11px} .dpanel b{font-variant-numeric:tabular-nums;font-size:12px} .dpanel i{position:absolute;left:24px;bottom:0;height:2px;border-radius:1px;background:var(--coral);opacity:.4;max-width:calc(100% - 24px)}
 .dpanel li.mine{color:var(--coral);font-weight:900} .dpanel li.mine i{opacity:.9} .dpanel li:first-child .r{color:#211d1d;background:var(--gold);border-radius:999px;text-align:center}
 @media (max-width:900px){ .dpanel{left:max(10px,var(--sa-l));top:88px;width:190px;padding:6px 10px;border-radius:14px} .dpanel li{font-size:11px;padding:1px 0 2px} .wave-toast{top:150px} }
+/* 打字聊天：英雄面板表情列下面一排輸入框；頭上泡泡可換行 */
+.chat{display:flex;gap:4px;margin:0 0 6px} .chat input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#fff;font-size:13px}
+.chat button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700;white-space:nowrap} .chat button[type=submit]{background:var(--ink);color:#fff8f4;border-color:var(--ink)} .chat #btnMute[aria-pressed="true"]{background:var(--gold);border-color:var(--gold)}
+.nameplate.person .say.chat{white-space:normal;width:max-content;max-width:200px;font-weight:700;line-height:1.35;text-align:left;word-break:break-word}
+.log li.chat span{color:#4a403b}
+@media (max-width:900px){ .chat input{font-size:16px;padding:5px 10px} .chat button{padding:5px 8px} }

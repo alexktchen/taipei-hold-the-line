@@ -107,7 +107,12 @@ export const CONFIG = {
   // 位置傳送間隔隨在線人數拉長（人數 × sendPerPlayer 秒，介於 sendEvery 與 sendMax），控制免費方案的訊息量。只有預設表情與短句，不開放自由輸入。
   multi: { sendEvery: 1, sendPerPlayer: 0.25, sendMax: 8, heartbeat: 8, timeout: 25, presenceGrace: 5, maxRemote: 24, snapDist: 6, catchUp: 1.3, allyDmg: 0.5, allyUltMul: 0.5, allyUltRadius: 3, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.2,
     emotes: [ { k: 'hi', icon: '👋', say: '嗨！一起守！' }, { k: 'help', icon: '🆘', say: '這邊需要支援！' }, { k: 'mine', icon: '💪', say: '交給我！' }, { k: 'thx', icon: '🙏', say: '謝啦！' }, { k: 'yay', icon: '🎉', say: '守住了！' }, { k: 'love', icon: '❤️', say: '台北加油！' } ],
-    five: { k: 'five', icon: '🙌', say: '擊掌！' } },
+    five: { k: 'five', icon: '🙌', say: '擊掌！' },
+    // 打字聊天：只走 broadcast、不存資料庫。max 字數上限、cooldown 自己送出的間隔、rxGap 收同一人的最小間隔、seconds 泡泡停留秒數；
+    // 收發兩端都過濾：block 裡的字換成＊；含網址、電話、LINE ID 的整句不顯示（擋廣告與詐騙）。muteKey = 靜音狀態存在裝置上的 key
+    chat: { max: 30, cooldown: 4, rxGap: 3, seconds: 6, muteKey: 'pi-chat-mute',
+      block: ['幹你娘','幹您娘','幹林娘','操你','肏','雞掰','機掰','雞巴','靠北','靠杯','王八蛋','去死','死全家','三小','智障','白癡','白痴','腦殘','低能','婊子','賤人','支那','台巴子','綠蛆','藍蛆','白蛆','柯糞','fuck','shit','bitch','cunt'],
+      drop: '(https?:\\/\\/|www\\.|\\.(com|tw|net|org|cc|io|me|ly|xyz|top)\\b|line\\.me|lin\\.ee|加賴|加line|line\\s*id|@[a-z0-9_.]{3,}|\\d[\\d\\s-]{7,}\\d)' } },
   // 英雄模式：手動點島後自動找怪暫停幾秒；點的位置離步道多近就直接走到那一點
   heroMode: { manualSeconds: 8, exactRadius: 0.9, storageKey: 'pi-hero-auto' },
   ui: { logMax: 30, leaderboardMax: 10, heroesQueryLimit: 1000, districtPanelKey: 'pi-dpanel' }, // districtPanelKey：左上 12 區對抗面板收合狀態存在裝置上的 key
