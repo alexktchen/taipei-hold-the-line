@@ -126,3 +126,10 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
 @media (max-height:700px){ .hotline{display:none} }
 @media (max-width:900px){ .hotline{display:none} .ticker{height:28px;font-size:12px} .tk-label{padding:0 8px;font-size:11px}
   .gstrip{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .hero{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .followbar{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .card{bottom:calc(92px + env(safe-area-inset-bottom,0px))} }
+
+/* 手機修正：浮動「二創惡搞」徽章同時被 top 與 bottom 撐成整條直條，改成收進左上品牌框；右側按鈕不換行、等寬 */
+@media (max-width:900px){
+  .parody-badge{display:none}
+  .brand .tag{display:inline-block;margin-top:4px;font-size:10px;padding:1px 8px;border-radius:999px;letter-spacing:.06em}
+  .hud .btns{width:max-content;align-items:stretch} .hud .btns button{white-space:nowrap;font-size:12px;padding:8px 10px}
+}
