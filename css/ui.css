@@ -88,3 +88,41 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} button:fo
   .overlay .box.lobby .go{position:sticky;bottom:0;margin:12px -14px 0;width:calc(100% + 28px);border-radius:0 0 22px 22px!important;padding:14px;box-shadow:0 -6px 16px #fff8f4}
   .overlay .box.lobby .foot{margin-bottom:12px}
 }
+
+/* 跟隨鏡頭狀態列 */
+.followbar{left:50%;top:64px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:6px 8px 6px 14px;border-radius:999px;max-width:calc(100vw - 28px);flex-wrap:wrap;justify-content:center}
+.followbar .rec{width:9px;height:9px;border-radius:50%;background:#db6a41;animation:pulse 1.6s infinite;flex:0 0 auto} #followText{font-size:13px;font-weight:700;min-width:0}
+.fb-btns{display:flex;gap:4px} .fb-btns button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700} .fb-btns button[aria-pressed="true"]{background:#fbe4d8;border-color:#db6a41;color:#db6a41} .fb-btns button.stop{background:#211d1d;color:#fff8f4;border-color:#211d1d} .fb-btns button:disabled{opacity:.4;cursor:default}
+.hud .btns button#btnFollow[aria-pressed="true"]{background:#db6a41;color:#fff8f4;border-color:#db6a41}
+.banner{top:110px}
+@media (max-width:900px){ .followbar{top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));border-radius:18px;padding:8px 10px} #followText{font-size:12px;width:100%;text-align:center} .fb-btns button{padding:6px 10px} .banner{top:76px} }
+
+/* 二創惡搞警語：大廳頂部醒目框、底部免責框、地圖上常駐徽章 */
+.parody{display:flex;flex-direction:column;gap:2px;background:#fcea8b;border:2px solid #211d1d;border-radius:14px;padding:10px 14px;margin:-4px 0 12px}
+.parody b{font-size:15px;font-weight:900;color:#211d1d;letter-spacing:.06em} .parody span{font-size:13px;color:#211d1d;line-height:1.5}
+.overlay .foot{background:#f3e7de;border-radius:12px;padding:10px 14px;margin-top:14px;max-width:none;font-size:12px;color:var(--ink);border:0} .overlay .foot b{display:block;font-size:12px;margin-bottom:2px} .overlay .foot p{margin:0;color:var(--muted)}
+.brand .tag{background:#fcea8b;color:#211d1d;border:1.5px solid #211d1d;font-weight:900}
+.parody-badge{position:absolute;z-index:2;left:50%;bottom:14px;transform:translateX(-50%) translateY(-34px);background:#fcea8b;color:#211d1d;border:1.5px solid #211d1d;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.1em;pointer-events:none}
+.fb-btns button{white-space:nowrap}
+@media (max-width:900px){ .parody-badge{left:auto;right:max(10px,var(--sa-r));bottom:auto;top:84px;transform:none;font-size:10px} .brand{padding-bottom:8px}
+  .parody{padding:8px 12px} .parody b{font-size:14px} .parody span{font-size:12px}
+  .fb-btns{flex-wrap:nowrap;width:100%} .fb-btns button{flex:1;padding:6px 4px;font-size:11px} }
+
+/* 1999 市民熱線卡（右側）與城市快訊跑馬燈（底部） */
+.hotline{right:max(14px,var(--sa-r));top:172px;width:280px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px}
+.hl-head{display:flex;align-items:center;gap:6px;font-size:13px} .hl-head b{font-weight:900;color:var(--coral)} .hl-count{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hl-body{position:relative;min-height:132px} .hl-body.in{animation:hlIn .45s ease-out} @keyframes hlIn{from{opacity:.55;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hl-who{font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:6px} .hl-dist{background:#f3e7de;color:var(--ink);border-radius:999px;padding:1px 8px;font-size:11px}
+.hl-ask{margin:6px 0 8px;font-size:14px;font-weight:700;line-height:1.5;text-wrap:pretty}
+.hl-fix{background:#fbe4d8;border-radius:12px;padding:8px 10px;font-size:13px;line-height:1.5} .hl-fix b{display:block;color:var(--coral);font-size:11px;letter-spacing:.08em;margin-bottom:2px}
+.hl-stamp{position:absolute;right:-2px;top:22px;transform:rotate(12deg);border:2px solid #4f8a3f;color:#4f8a3f;font-weight:900;font-size:12px;padding:1px 8px;border-radius:6px;background:#fff8f4cc}
+.hl-foot{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)} .hl-foot button{border:0;background:transparent;color:var(--coral);font-weight:700;font-size:12px;padding:2px 0}
+.ticker{position:absolute;z-index:2;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;background:#211d1d;color:#fff8f4;font-size:13px;padding-left:max(0px,var(--sa-l));padding-right:max(0px,var(--sa-r));padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:content-box}
+.tk-label{flex:0 0 auto;background:var(--coral);height:100%;display:flex;align-items:center;padding:0 12px;font-weight:900;letter-spacing:.08em;font-size:12px}
+.tk-track{position:relative;flex:1;overflow:hidden;height:100%} .tk-text{position:absolute;left:0;top:50%;white-space:nowrap;transform:translate(var(--from,100vw),-50%);will-change:transform}
+@keyframes tk{from{transform:translate(var(--from),-50%)}to{transform:translate(var(--to),-50%)}}
+@media (prefers-reduced-motion: reduce){ .hl-body.in{animation:none} }
+.logp{bottom:44px} .hero{bottom:44px} .hint{bottom:44px} .parody-badge{bottom:44px}
+@media (max-height:760px){ .hotline{display:none} }
+@media (max-width:900px){ .hotline{display:none} .ticker{height:28px;font-size:12px} .tk-label{padding:0 8px;font-size:11px}
+  .gstrip{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .hero{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .followbar{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .card{bottom:calc(92px + env(safe-area-inset-bottom,0px))} }

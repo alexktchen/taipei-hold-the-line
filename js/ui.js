@@ -1,7 +1,9 @@
 /* 全版 UI：浮動面板（品牌、全體戰績、HUD、英雄、日誌）、大廳與結算。 */
 import { CONFIG as C } from './config.js';
+import { HOTLINE } from './hotline.js';
+import { nextNews, genHotline } from './news.js';
 const RC = C.round, $ = id => document.getElementById(id);
-export function createUI({ game, callbacks, overview, flyTo, placePolicies, renderer }) {
+export function createUI({ game, callbacks, overview, flyTo, placePolicies, renderer, follow }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const todayTPE = () => new Date().toLocaleDateString('en-CA', { timeZone: C.election.tz }); const dayNum = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const eveDate = () => new Date((dayNum(C.election.date) - 1) * 86400000).toISOString().slice(0, 10); const isFinalNow = () => dayNum(todayTPE()) >= dayNum(eveDate()); const daysToEve = () => dayNum(eveDate()) - dayNum(todayTPE());
@@ -34,10 +36,10 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
   async function onEnd(res) { await S.recordRound(res); globals = S.totals(); renderStrip(); $('endTitle').textContent = res.final ? `總攻擊擋下了！第 ${res.waveNo} 波` : `第 ${res.waveNo} 波已阻擋！`; $('endText').textContent = `${res.tag}「${res.issueTitle}」的攻勢結束。${res.hero.nick || '英雄'}和居民們擊退 ${fmt(res.kills)} 隻，滿意度守在 ${res.approval}%${res.leaked ? `，有 ${res.leaked} 隻擠進市政府門口` : '，一隻都沒進門'}。`; $('endGlobal').innerHTML = `我們已經阻擋了 <b>${fmt(globals.waves)}</b> ${C.site.waveWord}，擋下 <b>${fmt(globals.blocked)}</b> 隻網軍。`; $('endStats').textContent = `突襲 ${res.raids} 次・全民護城 ${res.surges} 次`; $('endOverlay').hidden = false;
     chosenIssue = pickNext(res.issueId); let deadline = Date.now() + C.round.autoNextSeconds * 1000; const tick = () => { const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)); $('endNext').innerHTML = `下一波：<b>${esc(chosenIssue.tag)} ${esc(chosenIssue.title)}</b>・${left} 秒後自動開始`; return left; };
     tick(); clearInterval(nextTimer); nextTimer = setInterval(() => { if ($('endOverlay').hidden) { clearInterval(nextTimer); return; } if (document.hidden) { deadline += 250; return; } if (tick() <= 0) { clearInterval(nextTimer); startRound(); } }, 250); }
-  function showCard(pol, islandId) { const c = $('card'); c.hidden = false; $('cardTag').textContent = pol.tag || ''; $('cardTitle').textContent = pol.title; $('cardWhere').textContent = `${districtName(islandId)}${pol.district ? '・指定行政區' : '・隨機落島'}`; $('cardSummary').textContent = pol.summary || ''; $('cardFacts').innerHTML = (pol.facts || []).map(f => `<li>${esc(f)}</li>`).join(''); $('cardStatus').textContent = pol.status || '政策摘要・以官方資訊為準'; $('btnCardFly').onclick = () => flyTo(islandId); }
+  function showCard(pol, islandId) { const c = $('card'); c.hidden = false; $('cardTag').textContent = pol.tag || ''; $('cardTitle').textContent = pol.title; $('cardWhere').textContent = `${districtName(islandId)}${pol.district ? '・指定行政區' : '・隨機落島'}`; $('cardSummary').textContent = pol.summary || ''; $('cardFacts').innerHTML = (pol.facts || []).map(f => `<li>${esc(f)}</li>`).join(''); $('cardStatus').textContent = pol.status || '二創惡搞遊戲・政策摘要僅供參考，以官方資訊為準'; $('btnCardFly').onclick = () => flyTo(islandId); }
   $('btnCardClose').addEventListener('click', () => { $('card').hidden = true; });
   // ── 後台：政策 / 議題（編輯者）──
-  function fillPolicySelect() { const sel = $('pSel'); sel.innerHTML = '<option value="">＋ 新增政策</option>' + policies.map(p => `<option value="${esc(p.id)}">${esc(p.title)}（${esc(p.id)}）</option>`).join(''); const d = $('pDistrict'); d.innerHTML = '<option value="">不指定（隨機落島）</option>' + C.islands.map(i => `<option value="${i.id}">${i.name}</option>`).join(''); const mdl = $('pModel'); if (!mdl.children.length) mdl.innerHTML = ['housing','nursery','elderhome','busstop','dome','techcampus','school','smartpole','garden','crane','containers','theater','kiosk','station','crossing','nightmarket','hub','card','court','bigtree'].map(k => `<option>${k}</option>`).join(''); }
+  function fillPolicySelect() { const sel = $('pSel'); sel.innerHTML = '<option value="">＋ 新增政策</option>' + policies.map(p => `<option value="${esc(p.id)}">${esc(p.title)}（${esc(p.id)}）</option>`).join(''); const d = $('pDistrict'); d.innerHTML = '<option value="">不指定（隨機落島）</option>' + C.islands.map(i => `<option value="${i.id}">${i.name}</option>`).join(''); const mdl = $('pModel'); if (!mdl.children.length) mdl.innerHTML = ['housing','nursery','elderhome','busstop','dome','techcampus','school','smartpole','garden','crane','containers','theater','kiosk','station','crossing','nightmarket','hub','card','court','bigtree','levee'].map(k => `<option>${k}</option>`).join(''); }
   function fillIssueSelect() { const sel = $('iSel'); sel.innerHTML = '<option value="">＋ 新增議題</option>' + issues.map(i => `<option value="${esc(i.id)}">${esc(i.title)}（${esc(i.id)}）</option>`).join(''); }
   $('pSel').addEventListener('change', ev => { const f = $('policyForm'); const p = policies.find(x => x.id === ev.target.value); f.reset(); if (!p) return; f.pid.value = p.id; f.ptitle.value = p.title || ''; f.ptag.value = p.tag || ''; f.pModel.value = p.model || 'kiosk'; f.pDistrict.value = p.district || ''; f.psummary.value = p.summary || ''; f.pfacts.value = (p.facts || []).join(', '); });
   $('iSel').addEventListener('change', ev => { const f = $('issueForm'); const i = issues.find(x => x.id === ev.target.value); f.reset(); if (!i) return; f.iid.value = i.id; f.title.value = i.title || ''; f.tag.value = i.tag || ''; f.startsAt.value = i.startsAt || ''; f.intensity.value = i.intensity || 1; f.boss.value = i.boss || ''; f.mix.value = Object.entries(i.mix || {}).map(([k, v]) => `${k}:${v}`).join(', '); f.chants.value = (i.chants || []).join(', '); f.desc.value = i.desc || ''; f.querySelectorAll('input[name=routes]').forEach(cb => { cb.checked = (i.routes || []).includes(cb.value); }); });
@@ -45,22 +47,54 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, rend
     if (!pol.id || !pol.title) { $('pMsg').textContent = '需要代號與標題。'; return; } try { await S.addPolicy(pol); $('pMsg').textContent = `已儲存「${pol.title}」${pol.district ? '，放在' + districtName(pol.district) : '，隨機落島'}。`; f.reset(); } catch (e) { $('pMsg').textContent = '儲存失敗：' + (e.message || e.code || e); } });
   function heroFromForm() { const nick = $('nick').value.trim().slice(0, 24); return { nick: nick || C.heroes[chosenCls].name, cls: chosenCls }; }
   async function startRound() { clearInterval(nextTimer); const hero = heroFromForm(); S.setPresence({ nick: hero.nick, cls: hero.cls, phase: 'round' }); await S.saveHero({ nick: hero.nick, cls: hero.cls }); const final = isFinalNow() || chosenIssue.id === C.election.finalIssueId; const waveNo = (S.totals().waves || 0) + 1; $('lobby').hidden = true; $('endOverlay').hidden = true; game.startRound(chosenIssue, hero, waveNo, final); renderHero(); hint(''); overview(); }
+  // ── 跟隨鏡頭 ──
+  const FOLLOW_NAME = { mayor: () => C.mayor.name, hero: () => (G.hero && (G.hero.nick || G.hero.cfg.name)) || '我的英雄', enemy: () => '最前線的敵人' };
+  function renderFollow() { const k = follow.kind; $('followBar').hidden = !k; $('btnFollow').setAttribute('aria-pressed', String(!!k)); if (!k) return;
+    let txt = `跟隨中：${FOLLOW_NAME[k]()}`; if (k === 'mayor' && G.mayor) { const M = G.mayor; txt += M.state === 'speech' && M.current ? `・正在宣傳「${M.current.pol.title}」` : M.current ? '・前往下一個政策' : '・出發巡迴'; }
+    if (k === 'enemy') { let best = null; for (const e of G.enemies) if (!e.dead && (!best || e.prog / e.route.total > best.prog / best.route.total)) best = e; if (best) txt += `・${C.animals[best.type].name}`; }
+    $('followText').textContent = txt; $('btnFollowHero').disabled = !G.hero; $('btnFollowEnemy').disabled = !G.enemies.length; for (const [id, kk] of [['btnFollowMayor', 'mayor'], ['btnFollowHero', 'hero'], ['btnFollowEnemy', 'enemy']]) $(id).setAttribute('aria-pressed', String(k === kk)); }
+  const doFollow = kind => { if (!follow.start(kind)) { hint(kind === 'enemy' ? '現在沒有敵人' : '還沒有可以跟隨的對象', true); return; } $('card').hidden = true; renderFollow(); };
+  $('btnFollow').addEventListener('click', () => { if (follow.kind) { follow.stop(); renderFollow(); } else doFollow('mayor'); });
+  $('btnFollowMayor').addEventListener('click', () => doFollow('mayor')); $('btnFollowHero').addEventListener('click', () => doFollow('hero')); $('btnFollowEnemy').addEventListener('click', () => doFollow('enemy'));
+  $('btnUnfollow').addEventListener('click', () => { follow.stop(); renderFollow(); });
+  Object.assign(callbacks, { follow: () => renderFollow() });
   Object.assign(callbacks, { hud: renderHud, log: renderLog, banner, hint, end: onEnd, hero: renderHero, card: showCard });
   $('btnGo').addEventListener('click', startRound); $('btnAgain').addEventListener('click', () => { $('endOverlay').hidden = true; startRound(); });
   $('btnLobby').addEventListener('click', () => { clearInterval(nextTimer); S.setPresence({ phase: 'lobby' }); $('endOverlay').hidden = true; game.backToLobby(); renderLobby(); $('lobby').hidden = false; renderHero(); });
   $('btnPause').addEventListener('click', () => { G.paused = !G.paused; $('btnPause').textContent = G.paused ? '繼續' : '暫停'; $('btnPause').setAttribute('aria-pressed', String(G.paused)); });
   $('btnSpeed').addEventListener('click', () => { G.speed = G.speed === 1 ? 2 : 1; $('btnSpeed').setAttribute('aria-pressed', String(G.speed === 2)); });
-  $('btnUlt').addEventListener('click', () => game.ultimate()); $('btnHome').addEventListener('click', () => overview());
+  $('btnUlt').addEventListener('click', () => game.ultimate()); $('btnHome').addEventListener('click', () => { overview(); renderFollow(); });
   const fsBtn = $('btnFull'); if (!document.fullscreenEnabled) fsBtn.hidden = true; fsBtn.addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => { hint('這個環境不允許全螢幕', true); }); }); document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? '⤡ 離開全螢幕' : '⤢ 全螢幕'; });
   $('btnLogToggle').addEventListener('click', () => { const p = $('logPanel'); p.classList.toggle('open'); });
   $('issueForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const mix = {}; for (const t of f.mix.value.split(',')) { const [k, v] = t.split(':').map(s => s.trim()); if (C.animals[k]) mix[k] = Number(v) || 1; }
     const issue = { id: f.iid.value.trim().replace(/[^a-z0-9_-]/gi, '').slice(0, 32), title: f.title.value.trim().slice(0, 20), tag: f.tag.value.trim().slice(0, 16), startsAt: f.startsAt.value || null, intensity: Number(f.intensity.value) || 1, routes: [...f.querySelectorAll('input[name=routes]:checked')].map(i => i.value), boss: f.boss.value || null, mix: Object.keys(mix).length ? mix : { bird: 1 }, chants: f.chants.value.split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 12), desc: f.desc.value.trim().slice(0, 60) };
     if (!issue.id || !issue.title || !issue.routes.length) { $('issueMsg').textContent = '需要代號、標題、至少一條路線。'; return; } try { await S.addIssue(issue); $('issueMsg').textContent = `已儲存「${issue.title}」。`; f.reset(); } catch (e) { $('issueMsg').textContent = '新增失敗：' + (e.message || e.code || e); } });
-  document.addEventListener('keydown', ev => { if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return; if (ev.key === ' ' && G.phase === 'round') { ev.preventDefault(); $('btnPause').click(); } else if (ev.key.toLowerCase() === 'q') game.ultimate(); else if (ev.key.toLowerCase() === 'h') overview(); else if (ev.key === 'Escape') $('card').hidden = true; });
+  document.addEventListener('keydown', ev => { if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return; if (ev.key === ' ' && G.phase === 'round') { ev.preventDefault(); $('btnPause').click(); } else if (ev.key.toLowerCase() === 'q') game.ultimate(); else if (ev.key.toLowerCase() === 'h') { overview(); renderFollow(); } else if (ev.key.toLowerCase() === 'f') $('btnFollow').click(); else if (ev.key === 'Escape') $('card').hidden = true; });
   document.addEventListener('visibilitychange', () => { if (document.hidden && G.phase === 'round' && !G.paused) $('btnPause').click(); });
-  $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteTag').textContent = C.site.tag; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit;
+  $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
   S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(renderBoard); S.onIssues(list => { issues = list; fillIssueSelect(); if (!$('lobby').hidden) renderLobby(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
   S.onOnline((n, names) => { online = n; onlineNames = names; renderStrip(); if (!$('lobby').hidden) renderLobby(); });
   S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', phase: 'lobby' }); renderLobby(); }); renderHud(); renderHero(); hint('');
-  return { tick() { renderHud(); renderHero(); } };
+  // ── 市民熱線（右側卡片輪播）與城市快訊（底部跑馬燈）──
+  const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+  let hlQueue = [], hlDone = 0, hlTimer = 0, hlPaused = false;
+  function pickHotline() { if (!hlQueue.length) hlQueue = shuffle(HOTLINE); return Math.random() < C.ticker.hotlineGenShare ? genHotline() : hlQueue.shift(); }
+  function nextHotline() { const [dist, who, ask, fix] = pickHotline(); hlDone++;
+    const body = $('hlBody'); body.classList.remove('in'); void body.offsetWidth;
+    body.innerHTML = `<div class="hl-who"><span class="hl-dist">${esc(dist)}</span>${esc(who)}</div><p class="hl-ask">「${esc(ask)}」</p><div class="hl-fix"><b>🎙 市長</b>${esc(fix)}</div><span class="hl-stamp">已解決</span>`;
+    body.classList.add('in'); $('hlCount').textContent = `今日已解決 ${fmt(1287 + hlDone)} 件`; }
+  function scheduleHotline() { clearInterval(hlTimer); hlTimer = setInterval(() => { if (!hlPaused && !document.hidden) nextHotline(); }, C.ticker.hotlineSeconds * 1000); }
+  $('hotline').addEventListener('mouseenter', () => { hlPaused = true; }); $('hotline').addEventListener('mouseleave', () => { hlPaused = false; });
+  $('hlNext').addEventListener('click', () => { nextHotline(); scheduleHotline(); });
+  nextHotline(); scheduleHotline();
+  let tkCount = 0; const narrowView = () => window.matchMedia('(max-width:900px)').matches;
+  function nextTicker() { tkCount++; let txt; const mixHot = narrowView() || tkCount % C.ticker.mixHotlineEvery === 0;
+    if (mixHot && tkCount % 2 === 0) { const [dist, who, ask, fix] = pickHotline(); txt = `📞 ${dist}${who}：「${ask}」　🎙 市長：${fix}`; }
+    else { const n = nextNews(C.ticker.weights); txt = `${n.icon} ${n.text}`; }
+    const el = $('tkText'); const track = el.parentElement; el.style.animation = 'none'; el.textContent = txt; void el.offsetWidth;
+    const dist2 = track.clientWidth + el.scrollWidth; const dur = Math.max(6, dist2 / C.ticker.pxPerSec);
+    el.style.setProperty('--from', track.clientWidth + 'px'); el.style.setProperty('--to', -el.scrollWidth + 'px'); el.style.animation = `tk ${dur}s linear 1`; }
+  $('tkText').addEventListener('animationend', nextTicker); requestAnimationFrame(nextTicker);
+  $('nick').addEventListener('input', () => S.setPresence({ nick: $('nick').value.trim().slice(0, 24) }));
+  return { tick() { renderHud(); renderHero(); if (follow.kind) renderFollow(); } };
 }

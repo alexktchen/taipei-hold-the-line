@@ -2,9 +2,11 @@
    新增議題：ISSUES 加一筆（或編輯者在大廳表單新增）。新增動物：ANIMALS 加一筆，model 指到 animals.js 的外型。 */
 export const CONFIG = {
   site: {
-    name: '萬安政策島', sub: 'TD・守住市政府', tag: '非官方・網友自製', waveWord: '波攻擊',
+    name: '萬安政策島', sub: 'TD・守住市政府', tag: '二創惡搞・非官方', waveWord: '波攻擊',
     credit: '島嶼、人物與場景的做法參考 puma.taipei 的「HEART 政策島」互動頁，重新實作。',
-    disclaimer: '這是網友自製的塔防小遊戲，不是台北市政府或任何競選團隊的官方內容。政策摘要整理自公開報導、僅供遊戲參考，細節以官方資訊為準；地標與建築只是象徵性迷你模型，議題、數值、動物與路線純屬遊戲設定。市長角色是 Q 版遊戲 NPC，台詞取自政策摘要，不代表本人發言。',
+    parody: '二創惡搞作品｜非官方',
+    parodyLong: '這是網友自製的二創惡搞塔防遊戲，不是台北市政府、蔣萬安本人或任何政黨、競選團隊的官方內容，也沒有收到任何委託或贊助。',
+    disclaimer: '政策摘要整理自公開報導、僅供遊戲參考，細節以官方資訊為準。地標與建築是象徵性的迷你模型；議題、數值、動物與路線都是遊戲設定，攻擊方動物是虛構角色，不指涉任何真實人物或團體。市長角色是 Q 版遊戲 NPC，台詞取自政策摘要，不代表本人發言。',
   },
   election: { date: '2026-11-28', tz: 'Asia/Taipei', finalIssueId: 'final' },
   round: {
@@ -19,6 +21,12 @@ export const CONFIG = {
     focusDmgMul: 3, focusCooldown: 1.4, ultCooldown: 45, ultPct: 0.6, ultSlow: 0.6, ultSlowTime: 3,
     projSpeed: 9,
   },
+  // 市民熱線（右側卡片）與城市快訊（底部跑馬燈）
+  ticker: { hotlineSeconds: 8, pxPerSec: 90, mixHotlineEvery: 3, hotlineGenShare: 0.45, weights: { opponent: 0.34, praise: 0.28, crisis: 0.14, city: 0.14, roast: 0.10 } }, // weights：酸對手／誇市長／經濟危機／城市快訊／酸市長的出現比例
+  // 正式網址：從其他網址（例如舊的 workers.dev）進來會自動轉到這裡
+  canonicalHost: 'taipei-hold-the-line.pages.dev',
+  // 跟隨鏡頭：lookUp = 看向對象頭部的高度；stiffness 越大跟得越緊
+  follow: { lookUp: 0.35, stiffness: 5 },
   // 市長 NPC：依行政區順序巡迴每棟政策建築宣傳；回合中每次演講 +滿意度，附近居民會停下來揮手
   mayor: { name: '蔣萬安市長', speed: 0.5, speechSeconds: 5.5, pauseSeconds: 0.8, approach: 0.45, sloganMax: 22, approvalPerSpeech: 2, cheerRadius: 2.2 },
   // 居民（原本就住在島上的人）：平常在步道上散步，有敵人時會走過去勸退。
@@ -79,6 +87,8 @@ export const CONFIG = {
     { id: 'culture',   title: '藝文場館',       tag: '#文化',  model: 'theater',    summary: '表演藝術中心與藝文補助。', facts: ['藝文活動補助', '場館營運'] },
     { id: 'metro',     title: '捷運路網延伸',   tag: '#交通',  model: 'station',    summary: '環狀線與東環段持續推進。', facts: ['東環段規劃', '站體周邊開發'] },
     { id: 'safety',    title: '通學與交通安全', tag: '#安全',  model: 'crossing',   summary: '校園周邊行人優先與路口改善。', facts: ['行穿線退縮與庇護島', '通學巷'] },
+    { id: 'shezi-dev',   title: '生態社子島開發', tag: '#社子島', model: 'crane', district: 'shezi', summary: '推動社子島開發，兼顧防洪、居民安置與濕地生態。', facts: ['依都市計畫分區推動開發', '原地安置與安置住宅', '保留濕地與島頭公園'] },
+    { id: 'shezi-flood', title: '社子島防洪',     tag: '#社子島', model: 'levee', district: 'shezi', summary: '堤防與抽水站改善，讓社子島少淹水。', facts: ['堤防與防洪設施改善', '抽水站與排水系統', '工程進度以官方公告為準'] },
     { id: 'tourism',   title: '夜市與觀光',     tag: '#觀光',  model: 'nightmarket',summary: '夜市環境改善與國際行銷。', facts: ['夜市品質認證', '燈節與大型活動'] },
   ],
   issues: [

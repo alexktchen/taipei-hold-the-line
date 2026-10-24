@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>萬安政策島</title>
+  <!-- 原創圖示：遊戲的六角形政策島＋101 剪影＋太陽 -->
+  <polygon points="32,10 54.5,23 54.5,49 32,62 9.5,49 9.5,23" fill="#b9552f"/>
+  <polygon points="32,4 54.5,17 54.5,43 32,56 9.5,43 9.5,17" fill="#db6a41" stroke="#211d1d" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="32,10 49,20 49,40 32,50 15,40 15,20" fill="#fff3e6"/>
+  <ellipse cx="22" cy="40" rx="7" ry="4.5" fill="#a9c98a"/>
+  <circle cx="19.5" cy="35" r="3.6" fill="#7fa35e"/>
+  <rect x="19" y="37.5" width="1.6" height="4" fill="#7a5a3a"/>
+  <circle cx="44" cy="22" r="4.2" fill="#fcea8b" stroke="#211d1d" stroke-width="1.4"/>
+  <g fill="#211d1d">
+    <polygon points="27,46 37,46 36,41 28,41"/>
+    <polygon points="28.2,41 35.8,41 35,36 29,36"/>
+    <polygon points="28.8,36 35.2,36 34.4,31 29.6,31"/>
+    <polygon points="29.4,31 34.6,31 33.8,26 30.2,26"/>
+    <polygon points="30,26 34,26 33.3,21.5 30.7,21.5"/>
+    <rect x="31.2" y="15" width="1.6" height="7"/>
+  </g>
+</svg>

@@ -6,7 +6,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const title = (html.match(/<title>[\s\S]*?<\/title>/) || [''])[0];
 const head = html.match(/<head>([\s\S]*?)<\/head>/)[1];
-const links = [...head.matchAll(/<link[^>]+>/g)].map(m => m[0]).join('\n');
+const links = [...head.matchAll(/<link[^>]+>/g)].map(m => m[0]).filter(l => !/rel="(icon|apple-touch-icon|manifest)"/.test(l)).join('\n');
 const metaFit = (head.match(/<meta name="claude:viewport-fit-sides"[^>]*>/) || [''])[0];
 const body = html.match(/<!-- artifact:body:start -->([\s\S]*?)<!-- artifact:body:end -->/)[1];
 const out = process.argv[2]; if (!out) { console.error('need output path'); process.exit(1); }

@@ -27,12 +27,12 @@ window.PIStore = (function () {
   function listIssues() {
     const byId = new Map(PI_CONFIG.issues.map(i => [i.id, i]));
     for (const i of state.issuesRemote) byId.set(i.id, { ...byId.get(i.id), ...i });
-    return [...byId.values()];
+    return [...byId.values()].filter(i => !i.hidden);
   }
   function listPolicies() {
     const byId = new Map(PI_CONFIG.policies.map(i => [i.id, i]));
     for (const i of state.policiesRemote) byId.set(i.id, { ...byId.get(i.id), ...i });
-    return [...byId.values()];
+    return [...byId.values()].filter(i => !i.hidden);
   }
   async function init() {
     state.hero = loadLocalHero();
