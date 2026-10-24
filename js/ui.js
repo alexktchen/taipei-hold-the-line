@@ -45,11 +45,14 @@ export function createUI({ game, callbacks, overview, flyTo, placePolicies, isla
   function liveBoard() { const board = S.districtBoard(), mine = (G.phase === 'round' && G.hero && G.hero.district) || myDistrict(); if (G.phase === 'round' && G.kills) { const r = board.find(x => x.id === mine); if (r) r.kills += G.kills; board.sort((a, b) => b.kills - a.kills || b.heroes - a.heroes); } return { board, mine }; }
   function renderDistricts() { const { board, mine } = liveBoard(), top = Math.max(1, board[0] ? board[0].kills : 0);
     $('dboard').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}" data-id="${r.id}"><span class="rank">${r.kills ? i + 1 : '–'}</span><span class="who">${esc(r.name)}${r.id === mine ? ' <em>你的區</em>' : ''}</span><b>${fmt(r.kills)}</b><small>${r.heroes} 人</small><i style="width:${(r.kills / top * 100).toFixed(1)}%"></i></li>`).join('');
-    // 左上 12 區對抗面板：桌機列全部；手機收合時只列前 3 名＋自己的區
-    const mi = board.findIndex(r => r.id === mine); $('dpMine').textContent = mi >= 0 && board[mi].kills ? `你的區第 ${mi + 1}` : '';
-    $('dpList').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}${i < 3 || r.id === mine ? ' keep' : ''}"><span class="r">${r.kills ? i + 1 : '–'}</span><span class="n">${esc(r.name)}</span><b>${fmt(r.kills)}</b><i style="width:${(r.kills / top * 100).toFixed(1)}%"></i></li>`).join('');
+    // 左上 12 區對抗面板：展開列全部 12 區，收合只留第 1 名（標題列寫自己的區第幾、擋下幾隻）
+    const mi = board.findIndex(r => r.id === mine); $('dpMine').innerHTML = mi >= 0 && board[mi].kills ? `你的區第 ${mi + 1}<em>・${fmt(board[mi].kills)}</em>` : '';
+    $('dpList').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}"><span class="r">${r.kills ? i + 1 : '–'}</span><span class="n">${esc(r.name)}</span><b>${fmt(r.kills)}</b><i style="width:${(r.kills / top * 100).toFixed(1)}%"></i></li>`).join('');
     const sig = mine + '|' + board.map(r => r.id + (r.kills > 0 ? 1 : 0)).join(','); if (sig !== rankSig) { rankSig = sig; setDistrictRanks(board, mine); } }
-  $('dpHead').addEventListener('click', () => { const p = $('dPanel'), open = !p.classList.contains('open'); p.classList.toggle('open', open); $('dpHead').setAttribute('aria-expanded', String(open)); });
+  // 收合狀態記在裝置上；沒記過的話桌機預設展開、手機預設收合
+  const setDpOpen = open => { $('dPanel').classList.toggle('open', open); $('dpHead').setAttribute('aria-expanded', String(open)); };
+  setDpOpen((() => { try { const v = localStorage.getItem(C.ui.districtPanelKey); if (v) return v === 'open'; } catch (e) {} return !matchMedia('(max-width:900px)').matches; })());
+  $('dpHead').addEventListener('click', () => { const open = !$('dPanel').classList.contains('open'); setDpOpen(open); try { localStorage.setItem(C.ui.districtPanelKey, open ? 'open' : 'closed'); } catch (e) {} });
   $('dboard').addEventListener('click', e => { const li = e.target.closest('li[data-id]'); if (!li) return; $('homeDistrict').value = li.dataset.id; districtPicked = true; renderDistricts(); });
   function districtLine(res) { const id = res.hero.district; if (!id) return '這波沒有算進 12 區對抗：回大廳選一個行政區，下一波起就會替那區記分。'; const board = S.districtBoard(), i = board.findIndex(r => r.id === id), me = board[i], name = districtName(id);
     if (i === 0) { const gap = me.kills - (board[1] ? board[1].kills : 0); return `你替${name}擋下 ${fmt(res.kills)} 隻。${name}暫居 12 區第 1 名，領先第 2 名 ${fmt(gap)} 隻。`; }

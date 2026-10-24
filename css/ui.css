@@ -235,10 +235,10 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
 @media (max-width:900px){ .quick{grid-template-columns:1fr;padding:12px;gap:8px} .quick .classes{grid-template-columns:1fr 1fr} .howto ol,.howto-list{grid-template-columns:1fr} .howto .lead{display:block;-webkit-line-clamp:unset}
   .wave-toast{top:124px;left:10px;right:64px;transform:none;width:auto;max-width:none;padding:8px 12px} .wave-toast b{font-size:15px} .wave-toast span{font-size:12px} }
 /* 左上：12 區對抗即時排名（對齊品牌框，寬度一樣） */
-.dpanel{left:max(14px,var(--sa-l));top:134px;width:260px;padding:8px 12px 8px} .dp-head{display:flex;justify-content:space-between;align-items:baseline;width:100%;border:0;background:transparent;padding:0 0 4px;cursor:default}
+.dpanel{left:max(14px,var(--sa-l));top:134px;width:260px;padding:8px 12px 8px} .dp-head{display:flex;justify-content:space-between;align-items:baseline;width:100%;border:0;background:transparent;padding:0 0 4px;cursor:pointer}
+.dp-head b::after{content:" ▾";letter-spacing:0} .dpanel.open .dp-head b::after{content:" ▴"} .dp-head em{font-style:normal} .dpanel.open .dp-head em{display:none} .dpanel:not(.open) li:not(:first-child){display:none}
 .dp-head b{font-size:11px;letter-spacing:.16em;color:var(--coral);font-weight:900} .dp-head span{font-size:11px;font-weight:700;color:var(--coral)}
 .dpanel ol{list-style:none;margin:0;padding:0;font-size:12px} .dpanel li{position:relative;display:grid;grid-template-columns:18px 1fr auto;gap:6px;align-items:baseline;padding:2px 0 3px}
 .dpanel .r{font-family:var(--mono);color:var(--muted);font-size:11px} .dpanel b{font-variant-numeric:tabular-nums;font-size:12px} .dpanel i{position:absolute;left:24px;bottom:0;height:2px;border-radius:1px;background:var(--coral);opacity:.4;max-width:calc(100% - 24px)}
 .dpanel li.mine{color:var(--coral);font-weight:900} .dpanel li.mine i{opacity:.9} .dpanel li:first-child .r{color:#211d1d;background:var(--gold);border-radius:999px;text-align:center}
-@media (max-width:900px){ .dpanel{left:max(10px,var(--sa-l));top:88px;width:190px;padding:6px 10px;border-radius:14px} .dp-head{cursor:pointer} .dp-head b::after{content:" ▾";letter-spacing:0} .dpanel.open .dp-head b::after{content:" ▴"}
-  .dpanel li{font-size:11px;padding:1px 0 2px} .dpanel:not(.open) li:not(.keep){display:none} .wave-toast{top:200px} }
+@media (max-width:900px){ .dpanel{left:max(10px,var(--sa-l));top:88px;width:190px;padding:6px 10px;border-radius:14px} .dpanel li{font-size:11px;padding:1px 0 2px} .wave-toast{top:150px} }

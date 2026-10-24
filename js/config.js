@@ -110,6 +110,6 @@ export const CONFIG = {
     five: { k: 'five', icon: '🙌', say: '擊掌！' } },
   // 英雄模式：手動點島後自動找怪暫停幾秒；點的位置離步道多近就直接走到那一點
   heroMode: { manualSeconds: 8, exactRadius: 0.9, storageKey: 'pi-hero-auto' },
-  ui: { logMax: 30, leaderboardMax: 10, heroesQueryLimit: 1000 },
+  ui: { logMax: 30, leaderboardMax: 10, heroesQueryLimit: 1000, districtPanelKey: 'pi-dpanel' }, // districtPanelKey：左上 12 區對抗面板收合狀態存在裝置上的 key
 };
 window.PI_CONFIG = CONFIG;
