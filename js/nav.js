@@ -61,7 +61,7 @@ export function createNav({ islands, centers, bridges, links, graph }) {
   function nearFree(i, j) { if (isFree(i, j)) return [i, j]; for (let r = 1; r < 12; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; if (isFree(i + di, j + dj)) return [i + di, j + dj]; } return null; }
   function gridLos(ax, az, bx, bz) { const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / (CELL * 0.5)); for (let k = 1; k < n; k++) { const t = k / n; const [i, j] = cellOf(ax + (bx - ax) * t, az + (bz - az) * t); if (!isFree(i, j)) return false; } return true; }
   // 回傳從 (fx,fz) 到 (tx,tz) 的路線點（不含起點），找不到就回傳 null
-  function gridPath(fx, fz, tx, tz, maxNodes = 9000) { if (gridDirty) buildGrid(); const s = nearFree(...cellOf(fx, fz)), g = nearFree(...cellOf(tx, tz)); if (!s || !g) return null;
+  function gridPath(fx, fz, tx, tz, maxNodes = 20000) { if (gridDirty) buildGrid(); const s = nearFree(...cellOf(fx, fz)), g = nearFree(...cellOf(tx, tz)); if (!s || !g) return null;
     const S = s[1] * GW + s[0], T = g[1] * GW + g[0]; if (S === T) return [[tx, tz]];
     const gs = new Map([[S, 0]]), came = new Map(), open = [[0, S]], closed = new Set(); const hcost = c => { const i = c % GW, j = (c / GW) | 0, dx = Math.abs(i - g[0]), dz = Math.abs(j - g[1]); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
     const pushH = (f, c) => { open.push([f, c]); let k = open.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (open[p][0] <= open[k][0]) break; [open[p], open[k]] = [open[k], open[p]]; k = p; } };

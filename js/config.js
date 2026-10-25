@@ -50,6 +50,8 @@ export const CONFIG = {
     { id: 'zhongshan',  name: '中山圓山',     basket: 'zhongshan',  islands: ['zhongshan', 'datong', 'shilin', 'neihu', 'songshan'] },
     { id: 'shilin',     name: '士林社子島',   basket: 'shilin',     islands: ['shilin', 'beitou', 'neihu', 'shezi'] },
   ],
+  // 島的大小與整張地圖的間距（相對最早的版本）：島放大 islandK 倍、地圖攤開 mapK 倍
+  world: { islandK: 1.15, mapK: 1.25 },
   plaza: { z: 0.5, len: 1.1, r: 0.5, basketZ: 0.62 }, // 金蛋籃廣場：島中心往前 z 開始、長 len、半寬 r 的走道不放建築；籃子在中心往前 basketZ
   // 打工職級：點數 0～100，滿 100 升一級（從 promoteTo 點開始），低於 0 降一級（從 demoteTo 點開始）；最高級的點數可以一直累積
   grades: {
@@ -154,7 +156,7 @@ export const CONFIG = {
   ],
   // ═══ 逛城市：自己的角色（穿著金蛋買的衣服）在政策島上散步；服飾店買衣服、工地投金蛋蓋城市、找市長捐政治獻金。其他正在逛的人也看得到 ═══
   explore: {
-    speed: 1.2, radius: 0.14, pathNodes: 40000,   // 走路速度（每秒幾個世界單位）、碰撞半徑、跨島找路最多展開幾格
+    speed: 1.2, radius: 0.14, pathNodes: 70000,   // 走路速度（每秒幾個世界單位）、碰撞半徑、跨島找路最多展開幾格
     // 服飾店：[島, 第幾棟小房子 0～2]（一律畫成商店）。要選鏡頭看得到的位置：廣場島的 1、2 號在地標兩側，會被大地標（例如市政府）擋住
     boutiques: [['datong', 0], ['daan', 0], ['zhongshan', 0], ['beitou', 0], ['wanhua', 0], ['songshan', 0], ['wenshan', 0]],
     near: { boutique: 1.0, site: 1.05, mayor: 0.9 }, // 走到幾格內出現「進去」按鈕

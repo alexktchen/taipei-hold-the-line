@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CONFIG } from './config.js';
+const MAP_K = CONFIG.world.mapK;
 export const WATER_Y = -0.18;
 export function mulberry(a) { return function () { let t = (a += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -35,7 +37,7 @@ export function createEnvironment(scene, { center, quality = 'medium' }) {
   scene.fog = new THREE.Fog(0xf4eee3, 42, 150);
   const hemi = new THREE.HemisphereLight(0xeef6fa, 0x8f8270, 1.3); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1de, 2.8); sun.castShadow = true; const sm = quality === 'high' ? 2048 : 1024; sun.shadow.mapSize.set(sm, sm);
-  Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 22, bottom: -22, near: 1, far: 90 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.045; sun.shadow.radius = 3;
+  Object.assign(sun.shadow.camera, { left: -20 * MAP_K, right: 20 * MAP_K, top: 22 * MAP_K, bottom: -22 * MAP_K, near: 1, far: 90 * MAP_K }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.045; sun.shadow.radius = 3;
   sun.target.position.set(cx, 0, cz); scene.add(sun, sun.target);
   const fill = new THREE.DirectionalLight(0xbfd6ff, 0.35); fill.position.set(cx + 20, 18, cz - 25); scene.add(fill);
   // 水
@@ -58,7 +60,7 @@ export function createEnvironment(scene, { center, quality = 'medium' }) {
   const water = new THREE.Mesh(new THREE.CircleGeometry(160, 64), waterMat); water.rotation.x = -Math.PI / 2; water.position.set(cx, WATER_Y, cz); scene.add(water);
   // 盆地地形
   const features = [ { x: cx - 12, z: cz - 42, r: 13, h: 8, shape: 'dome' }, { x: cx + 6, z: cz - 42, r: 16, h: 7, shape: 'ridge' }, { x: cx - 26, z: cz - 32, r: 12, h: 8, shape: 'ridge' }, { x: cx - 37, z: cz - 6, r: 9, h: 8.5, shape: 'dome' }, { x: cx - 40, z: cz + 3, r: 8, h: 7, shape: 'dome' }, { x: cx - 35, z: cz + 11, r: 7, h: 5.5, shape: 'dome' }, { x: cx + 31, z: cz - 13, r: 11, h: 6, shape: 'ridge' }, { x: cx + 36, z: cz + 5, r: 10, h: 5, shape: 'ridge' }, { x: cx + 27, z: cz + 26, r: 14, h: 5.5, shape: 'terrace' }, { x: cx - 5, z: cz + 46, r: 18, h: 5, shape: 'ridge' } ];
-  const size = 170, seg = quality === 'low' ? 110 : 160, K = 2 / 3;
+  const size = 170, seg = quality === 'low' ? 110 : 160, K = 2 / 3 * MAP_K; // 地圖攤開多少，盆地就跟著放大多少
   const heightAt = (wx, wz) => { const x = cx + (wx - cx) / K, z = cz + (wz - cz) / K; const d = Math.hypot(x - cx, (z - cz) * 0.92); const rim = smooth(25, 50, d);
     let h = -1.6 + rim * (3.5 + 6 * fbm(noise, x * 0.03, z * 0.03, 4) + 2.2 * Math.abs(noise.noise(x * 0.07, z * 0.07)));
     for (const f of features) { const fd = Math.hypot(x - f.x, (z - f.z) * (f.shape === 'ridge' ? 1.6 : 1)); if (fd > f.r * 1.6) continue; let k = Math.max(0, 1 - fd / f.r); k = f.shape === 'dome' ? Math.pow(k, 1.25) : k * k * (3 - 2 * k); let fh = f.h * k * (0.85 + 0.25 * noise.noise(x * 0.11, z * 0.11)); if (f.shape === 'terrace') fh = Math.floor(fh / 0.55) * 0.55; h += fh; }
@@ -79,7 +81,7 @@ export function createEnvironment(scene, { center, quality = 'medium' }) {
   const leafGeo = (() => { const parts = [new THREE.CylinderGeometry(0.07, 0.09, 0.6, 6).translate(0, 0.3, 0)]; const jr = mulberry(31); for (const [x, y, z, s] of [[0, 0.95, 0, 0.42], [0.22, 0.78, 0.08, 0.3], [-0.2, 0.8, -0.06, 0.32], [0.04, 1.2, -0.04, 0.3]]) { const g = new THREE.IcosahedronGeometry(s, 0); const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) pp.setXYZ(i, pp.getX(i) * (1 + (jr() - 0.5) * 0.18), pp.getY(i) * (1 + (jr() - 0.5) * 0.18), pp.getZ(i) * (1 + (jr() - 0.5) * 0.18)); parts.push(g.translate(x, y, z)); } return mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g)); })();
   const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), treeMax); const broad = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), treeMax); const dummy = new THREE.Object3D(); let nt = 0, nb = 0;
   const treeCols = [0x6f8a62, 0x7f9a6a, 0x88a173, 0x6a8460, 0x93aa7a].map(h => new THREE.Color(h));
-  for (let k = 0; k < treeMax * 30 && nt + nb < treeMax; k++) { const x = cx + (rnd() - 0.5) * size * 0.9, z = cz + (rnd() - 0.5) * size * 0.9; const d = Math.hypot(x - cx, (z - cz) * 0.92); if (d < 16 || d > 52) continue; const y = heightAt(x, z); if (y < 0.5 || y > 12.5) continue;
+  for (let k = 0; k < treeMax * 30 && nt + nb < treeMax; k++) { const x = cx + (rnd() - 0.5) * size * 0.9, z = cz + (rnd() - 0.5) * size * 0.9; const d = Math.hypot(x - cx, (z - cz) * 0.92); if (d < 16 * MAP_K || d > 52 * MAP_K) continue; const y = heightAt(x, z); if (y < 0.5 || y > 12.5) continue;
     const grove = noise.noise(x * 0.09, z * 0.09); if (rnd() > smooth(0.5, 2.0, y) * (grove > 0 ? 1 : grove > -0.3 ? 0.5 : 0.14)) continue; const s = 0.3 + rnd() * 0.32;
     dummy.position.set(x, y - 0.12, z); dummy.scale.set(s, s * (0.8 + rnd() * 0.5), s); dummy.rotation.set(0, rnd() * 6.28, 0); dummy.updateMatrix(); const col2 = treeCols[Math.floor(rnd() * treeCols.length)];
     if (y < 6 && noise.noise(x * 0.05 + 7, z * 0.05) > -0.1 && rnd() < 0.55) { broad.setMatrixAt(nb, dummy.matrix); broad.setColorAt(nb++, col2.clone().offsetHSL(0.02, 0.04, 0.03)); } else { trees.setMatrixAt(nt, dummy.matrix); trees.setColorAt(nt++, col2); } } // 低處多闊葉、高處多針葉

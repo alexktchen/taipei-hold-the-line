@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG as C } from './config.js';
 import { createEnvironment } from './env.js';
-import { buildIslands, buildGraph, slotLayout, TOP, INNER, R, RING_R, hexVertex, dirOf } from './islands.js';
+import { buildIslands, buildGraph, slotLayout, TOP, INNER, R, RING_R, MAP_K, ISLAND_K, hexVertex, dirOf } from './islands.js';
 import { createKit, createModels, GLOW, GLOW_GHOST, CUT, setCutVisible } from './buildings.js';
 import { createPeople } from './people.js';
 import { createAnimals } from './animals.js';
@@ -20,7 +20,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'high' ? 1.75
 stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.3, 320);
-const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minPolarAngle = THREE.MathUtils.degToRad(25); controls.maxPolarAngle = THREE.MathUtils.degToRad(70); controls.minDistance = 4; controls.maxDistance = 70; controls.enablePan = true; controls.screenSpacePanning = false;
+const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minPolarAngle = THREE.MathUtils.degToRad(25); controls.maxPolarAngle = THREE.MathUtils.degToRad(70); controls.minDistance = 4; controls.maxDistance = 70 * MAP_K; controls.enablePan = true; controls.screenSpacePanning = false;
 const TOUCH_MAP = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }, TOUCH_FOLLOW = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }; controls.touches = { ...TOUCH_MAP }; // 手機：單指拖地圖、雙指縮放旋轉（跟地圖 App 一樣）
 const colors = C.palette;
 // 島與建築
@@ -33,9 +33,9 @@ const POLICY_SLOTS = 5, LAYOUT = new Map(), STATIC_OBST = [], CITY_POS = new Map
 const PZ = C.plaza, inPlaza = (x, z, h) => Math.abs(x) < PZ.r + h && z + h > PZ.z - PZ.r && z - h < PZ.z + PZ.len; // 金蛋籃廣場：島中央前方一條走道不放建築
 const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'topiary', boardwalk: 'palm', rubber: 'palm', street: 'poplar', courtyard: 'blossom', meadow: 'willow', lawn: 'round', granite: 'topiary', terracotta: 'round', schoolyard: 'round', gravel: 'round' };
 const TRIM = { granite: 'bollard', lawn: 'hedge', gravel: 'hoarding', street: 'bollard', schoolyard: 'railing', forest: 'logs', softpad: 'picket', terracotta: 'wall', garden: 'hedge', meadow: 'railing', boardwalk: 'rope', rubber: 'picket', courtyard: 'wall' };
-for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
+for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95 * ISLAND_K], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
   const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
-  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42]);
+  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18 * ISLAND_K, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42 * ISLAND_K]);
   lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { const bq = C.explore.boutiques.some(([id, h]) => id === isl.id && h === i), kind = bq ? 'shop' : ['shop', 'house', 'house2'][i % 3], cp = C.econ.city.find(p => p.island === isl.id && p.house === i); // 蓋城市的位置先空著，由 placeCity 決定放小房子、工地或蓋好的建築
     if (cp) CITY_POS.set(cp.id, { x: c.x + sx, z: c.z + sz, size: lay.size, kind, seed: isl.number * 3 + i }); else model(kind, c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.38]);
     if (bq && !cp) BOUTIQUES.push({ x: c.x + sx, z: c.z + sz, island: isl.id }); });
@@ -55,7 +55,7 @@ for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLa
     else if (trim === 'hoarding') kit.hbox(c.x + mx, TOP + 0.12, c.z + mz, 0.03, 0.24, len * 0.84, k % 2 ? 0xdb6a41 : 0xf2efe8, null, [0, yaw, 0]); }
   // 散景：樹、灌木、花、長椅（有人坐）、單車架、垃圾桶、花盆、鵝卵石、小攤
   const MIX = ['tree', 'bush', 'flowers', 'bench', 'umbrella', 'tree', 'pot', 'vending', 'bikerack', 'cone', 'flowers', 'hedge', 'tree', 'signpost', 'pebble', 'stand', 'bush', 'bin'];
-  let placed = 0; for (let tries = 0; tries < 220 && placed < 20; tries++) { const lx = (rnd() - 0.5) * 2.7, lz = (rnd() - 0.5) * 2.3; const t = MIX[placed % MIX.length]; const r = t === 'tree' ? 0.22 : t === 'bench' || t === 'stand' || t === 'umbrella' ? 0.2 : t === 'vending' || t === 'signpost' ? 0.13 : 0.1; if (Math.hypot(lx, lz) > INNER - 0.12 || Math.abs(lx) * 0.5 + Math.abs(lz) * 0.866 > INNER - 0.12 || !free(lx, lz, r)) continue; occ.push([lx, lz, r]);
+  let placed = 0; for (let tries = 0; tries < 220 && placed < 20; tries++) { const lx = (rnd() - 0.5) * INNER * 1.93, lz = (rnd() - 0.5) * INNER * 1.64; const t = MIX[placed % MIX.length]; const r = t === 'tree' ? 0.22 : t === 'bench' || t === 'stand' || t === 'umbrella' ? 0.2 : t === 'vending' || t === 'signpost' ? 0.13 : 0.1; if (Math.hypot(lx, lz) > INNER - 0.12 || Math.abs(lx) * 0.5 + Math.abs(lz) * 0.866 > INNER - 0.12 || !free(lx, lz, r)) continue; occ.push([lx, lz, r]);
     if (t === 'tree') kit.tree(c.x + lx, c.z + lz, 0.3 + rnd() * 0.22, placed + isl.number, style); else model(t, c.x + lx, c.z + lz, 0.5, placed + isl.number); placed++; }
   // 彩旗：夜市與老街風格的島，在路燈間掛旗
   if (['boardwalk', 'courtyard', 'rubber'].includes(isl.ground)) for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(c.x, c.z, RING_R + 0.3, k), [bx, bz] = hexVertex(c.x, c.z, RING_R + 0.3, k + 1); for (let s = 1; s < 9; s++) { const t = s / 9; kit.hbox(ax + (bx - ax) * t, TOP + 0.5 - Math.sin(t * Math.PI) * 0.06, az + (bz - az) * t, 0.05, 0.07, 0.01, [0xdb6a41, 0xe8c547, 0x58a6a6, 0xf2a1a1][s % 4], null, [0, Math.atan2(bx - ax, bz - az), 0]); } kit.hbox((ax + bx) / 2, TOP + 0.47, (az + bz) / 2, 0.008, 0.008, Math.hypot(bx - ax, bz - az), 0x211d1d, null, [0, Math.atan2(bx - ax, bz - az), 0]); } }
@@ -63,11 +63,11 @@ for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLa
 // ── 海上裝飾：小樹島、梯田小丘、沙洲陽傘、消波塊、小船、浮標、燈塔（避開島與登陸航線）──
 { const srnd = mulberry(77); const placed = []; const W0 = WATER_Y; const lanes = Object.values(C.landings).map(l => { const lc = centers.get(l.island); const d = lc.clone().sub(center).setY(0).normalize(); return { a: lc, d }; });
   const nearLane = (x, z) => lanes.some(({ a, d }) => { const vx = x - a.x, vz = z - a.z; const t = vx * d.x + vz * d.z; if (t < -1 || t > 12) return false; return Math.hypot(vx - d.x * t, vz - d.z * t) < 2.4; });
-  const ok = (x, z, r) => [...centers.values()].every(c => Math.hypot(x - c.x, z - c.z) > 3.2 + r) && placed.every(([px, pz, pr]) => Math.hypot(x - px, z - pz) > pr + r + 1.2) && !nearLane(x, z);
+  const ok = (x, z, r) => [...centers.values()].every(c => Math.hypot(x - c.x, z - c.z) > R + 1.2 + r) && placed.every(([px, pz, pr]) => Math.hypot(x - px, z - pz) > pr + r + 1.2) && !nearLane(x, z);
   const pav = (x, y, z, s, roof) => { for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) kit.cyl(x + dx * 0.18 * s, y + 0.18 * s, z + dz * 0.18 * s, 0.035 * s, 0.36 * s, 0xfff8f4); kit.part('hip', [x, y + 0.44 * s, z], [0.6 * s, 0.2 * s, 0.6 * s], roof); kit.part('rbox', [x, y + 0.03 * s, z], [0.5 * s, 0.06 * s, 0.5 * s], 0xd9cbb4); };
   const KINDS = ['islet', 'breakwater', 'terrace', 'sandbar', 'boat', 'buoys', 'lighthouse', 'islet', 'boat', 'breakwater', 'buoys', 'sandbar'];
   let made = 0;
-  for (let tries = 0; tries < 900 && made < KINDS.length; tries++) { const a = srnd() * Math.PI * 2, rad = 8 + srnd() * 11; const x = center.x + Math.cos(a) * rad * 1.1, z = center.z + Math.sin(a) * rad * 0.95; const kind = KINDS[made]; const r = { islet: 1.6, terrace: 1.4, sandbar: 1.2, breakwater: 2.0, boat: 0.6, buoys: 0.6, lighthouse: 1.0 }[kind]; if (!ok(x, z, r)) continue; placed.push([x, z, r]); made++;
+  for (let tries = 0; tries < 900 && made < KINDS.length; tries++) { const a = srnd() * Math.PI * 2, rad = (8 + srnd() * 11) * MAP_K; const x = center.x + Math.cos(a) * rad * 1.1, z = center.z + Math.sin(a) * rad * 0.95; const kind = KINDS[made]; const r = { islet: 1.6, terrace: 1.4, sandbar: 1.2, breakwater: 2.0, boat: 0.6, buoys: 0.6, lighthouse: 1.0 }[kind]; if (!ok(x, z, r)) continue; placed.push([x, z, r]); made++;
     if (kind === 'islet') { kit.cyl(x, W0 + 0.08, z, 3.0, 0.22, 0xe6d6b8); kit.part('dome', [x, W0 + 0.18, z], [2.6, 0.5, 2.6], 0xa9c98a); for (let k = 0; k < 5; k++) { const aa = k * 1.25 + srnd(), rr = 0.35 + srnd() * 0.6; kit.tree(x + Math.cos(aa) * rr, z + Math.sin(aa) * rr, 0.38 + srnd() * 0.18, k, 'round', W0 + 0.33); } pav(x + 0.45, W0 + 0.38, z + 0.4, 1.2, 0xdb6a41); }
     else if (kind === 'terrace') { for (let k = 0; k < 4; k++) { kit.cyl(x, W0 + 0.12 + k * 0.22, z, 2.6 - k * 0.55, 0.22, [0x9cc27a, 0xb3cf8e][k % 2]); kit.part('torus', [x, W0 + 0.23 + k * 0.22, z], [(2.6 - k * 0.55) / 2, (2.6 - k * 0.55) / 2, 0.6], 0x86ad6a, [Math.PI / 2, 0, 0]); } kit.cyl(x, W0 + 0.04, z, 2.9, 0.1, 0xe6d6b8); kit.tree(x, z, 0.4, 3, 'round', W0 + 1.0); }
     else if (kind === 'sandbar') { kit.cyl(x, W0 + 0.04, z, 2.4, 0.1, 0xf0e2c4); kit.part('ico', [x + 0.5, W0 + 0.06, z - 0.3], [0.9, 0.12, 0.6], 0xe9d9b6); for (let k = 0; k < 3; k++) { const ux = x - 0.6 + k * 0.6, uz = z + (k % 2) * 0.3; kit.cyl(ux, W0 + 0.35, uz, 0.02, 0.6, 0x6a665f); kit.part('cone', [ux, W0 + 0.66, uz], [0.6, 0.18, 0.6], [0xdb6a41, 0xe8c547, 0x58a6a6][k]); kit.hbox(ux + 0.15, W0 + 0.1, uz + 0.2, 0.3, 0.01, 0.16, [0xf2a1a1, 0xfff8f4, 0x9fc4e6][k]); } }
@@ -96,7 +96,7 @@ for (const isl of C.islands) { const c = centers.get(isl.id); if (isl.goal) addL
 // 12 區對抗：地上的區名後面掛名次（有戰績才掛），自己選的區換珊瑚色
 function setDistrictRanks(board, mine) { const rank = new Map(board.filter(r => r.kills > 0).map((r, i) => [r.id, i + 1]));
   for (const [id, L] of districtLabels) { const isl = C.islands.find(i => i.id === id), n = rank.get(id); L.el.textContent = isl.name; if (n) { const b = document.createElement('span'); b.className = 'rk' + (n === 1 ? ' top' : ''); b.textContent = `第${n}`; L.el.appendChild(b); } L.el.classList.toggle('mine', id === mine); L.w = 0; } }
-for (const l of Object.values(C.landings)) { const lc = centers.get(l.island); const away = lc.clone().sub(center).setY(0).normalize(); addLabel(`${l.name} →`, lc.clone().add(away.multiplyScalar(4.2)).setY(TOP + 0.3), 'river', '', 0); }
+for (const l of Object.values(C.landings)) { const lc = centers.get(l.island); const away = lc.clone().sub(center).setY(0).normalize(); addLabel(`${l.name} →`, lc.clone().add(away.multiplyScalar(4.2 * MAP_K)).setY(TOP + 0.3), 'river', '', 0); }
 let policyLabels = [];
 function refreshPolicyLabels() { for (const L of policyLabels) { L.el.remove(); const i = labels.indexOf(L); if (i >= 0) labels.splice(i, 1); } policyLabels = [];
   for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.st = st; L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
@@ -156,7 +156,7 @@ callbacks.speech = m => { if (callbacks.mayorExtra) callbacks.mayorExtra(m); };
 function fit() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 fit(); window.addEventListener('resize', fit);
 const narrow = () => stage.clientWidth < 700;
-function overview(instant) { controls.target.copy(center); const d = narrow() ? 44 : 32; const pol = THREE.MathUtils.degToRad(50); const to = new THREE.Vector3(center.x + Math.sin(0.08) * Math.sin(pol) * d, center.y + Math.cos(pol) * d, center.z + Math.cos(0.08) * Math.sin(pol) * d); if (instant) camera.position.copy(to); else fly = { from: camera.position.clone(), to, t: 0 }; }
+function overview(instant) { controls.target.copy(center); const d = (narrow() ? 44 : 32) * MAP_K; const pol = THREE.MathUtils.degToRad(50); const to = new THREE.Vector3(center.x + Math.sin(0.08) * Math.sin(pol) * d, center.y + Math.cos(pol) * d, center.z + Math.cos(0.08) * Math.sin(pol) * d); if (instant) camera.position.copy(to); else fly = { from: camera.position.clone(), to, t: 0 }; }
 let fly = null; overview(true);
 // 打工場全景：把這個場用到的島都框進畫面
 function stageView() { const st = game.G.stage; if (!st) { overview(false); return; } stopFollow(); const c = new THREE.Vector3(); for (const id of st.islands) c.add(centers.get(id)); c.divideScalar(st.islands.length); c.y = TOP; let r = 0; for (const id of st.islands) r = Math.max(r, centers.get(id).distanceTo(c)); const d = (r + R + 1) * (narrow() ? 3.1 : 2.3), pol = THREE.MathUtils.degToRad(52);
@@ -173,9 +173,9 @@ function startPull(from, to, tilt, dur) { const off = camera.position.clone().su
 function stepPull(raw) { if (!pull) return; pull.t = Math.min(1, pull.t + raw / pull.dur); const k = pull.t * pull.t * (3 - 2 * pull.t), len = pull.from + (pull.to - pull.from) * k, tl = pull.tilt > 0 ? pull.tilt * k : -pull.tilt * (1 - k);
   const dir = pull.dir.clone().lerp(UP, tl).normalize(); camera.position.copy(controls.target).addScaledVector(dir, len); if (pull.t >= 1) pull = null; }
 async function warp(label, fn, opt = {}) { if (warping) return false; warping = true; document.getElementById('cwText').textContent = label; cw.hidden = false;
-  try { if (!opt.covered) { cw.className = 'cloudwipe in'; fly = null; const L = camera.position.distanceTo(controls.target); if (!still()) startPull(L, Math.min(66, L * 2.6), 0.45, 0.9); await wait(still() ? 250 : 950); } else cw.className = 'cloudwipe cover';
+  try { if (!opt.covered) { cw.className = 'cloudwipe in'; fly = null; const L = camera.position.distanceTo(controls.target); if (!still()) startPull(L, Math.min(80, L * 2.6), 0.45, 0.9); await wait(still() ? 250 : 950); } else cw.className = 'cloudwipe cover';
     await fn(); fly = null; const L = camera.position.distanceTo(controls.target), sky = !!opt.sky; // sky：重新整理後從更高的雲端降落
-    if (!still()) startPull(Math.min(66, L * (sky ? 4.5 : 2.6)), L, sky ? -0.75 : -0.45, sky ? 1.9 : 1.1);
+    if (!still()) startPull(Math.min(80, L * (sky ? 4.5 : 2.6)), L, sky ? -0.75 : -0.45, sky ? 1.9 : 1.1);
     cw.className = 'cloudwipe out'; await wait(still() ? 250 : sky ? 1700 : 1100); } finally { cw.className = 'cloudwipe'; cw.hidden = true; warping = false; } return true; }
 // 跟隨鏡頭：鏡頭目標平順追著對象走，保留玩家自己轉的角度與遠近；跟隨中關掉平移，避免和追蹤打架
 const FOLLOW = { target: null, kind: null };

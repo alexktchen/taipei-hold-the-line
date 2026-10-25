@@ -1,7 +1,10 @@
 /* 六邊形政策島：島面材質、步道環、路緣、島側、淺灘與浪花、橋、行人路網。做法參考原站 world.js，重新實作。 */
 import * as THREE from 'three';
 import { WATER_Y, mulberry } from './env.js';
-export const R = 2.02, SPACING = 2.28, TOP = 0.65, RING_R = 1.8, INNER = 1.4;
+import { CONFIG } from './config.js';
+// 島的大小與間距（config.world：島放大 islandK 倍、整張地圖攤開 mapK 倍，島與島之間的水道約 0.9）；環境、鏡頭、海上裝飾跟著 mapK 放大
+export const ISLAND_K = CONFIG.world.islandK, MAP_K = CONFIG.world.mapK;
+export const R = 2.02 * ISLAND_K, SPACING = 2.28 * MAP_K, TOP = 0.65, RING_R = 1.8 * ISLAND_K, INNER = 1.4 * ISLAND_K;
 const SQ3 = Math.sqrt(3);
 export const NEIGHBORS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
 export function axialToWorld(q, r) { return new THREE.Vector3(SQ3 * SPACING * (q + r / 2) - 2, TOP, 1.5 * SPACING * r - 10.26); }
@@ -58,7 +61,7 @@ function hexRing(rOut, rIn) { const s = new THREE.Shape(), h = new THREE.Path();
 export function buildIslands(scene, islands, kit, colors) {
   const centers = new Map(), axialMap = new Map(), views = new Map(), tops = [];
   const detached = new Set(islands.filter(i => i.detached).map(i => i.id));
-  for (const i of islands) { const w = axialToWorld(...i.axial); if (i.offset) { w.x += i.offset[0]; w.z += i.offset[1]; } centers.set(i.id, w); if (!i.detached) axialMap.set(i.axial.join(','), i.id); }
+  for (const i of islands) { const w = axialToWorld(...i.axial); if (i.offset) { w.x += i.offset[0] * MAP_K; w.z += i.offset[1] * MAP_K; } centers.set(i.id, w); if (!i.detached) axialMap.set(i.axial.join(','), i.id); }
   const topMats = {}; for (const i of islands) if (!topMats[i.ground]) topMats[i.ground] = new THREE.MeshStandardMaterial({ map: groundTexture(i.ground), roughness: 0.92 });
   const cliffMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   const ringTex = groundTexture('ringtile'); const curbMat = new THREE.MeshStandardMaterial({ color: 0xe4d6c3, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
@@ -134,9 +137,11 @@ export function buildGraph(islands, centers, neighbors, links = []) {
 export function makeRoute(pts) { const lens = [0]; for (let k = 1; k < pts.length; k++) lens.push(lens[k - 1] + pts[k].distanceTo(pts[k - 1])); return { pts, lens, total: lens[lens.length - 1] }; }
 export function sampleRoute(route, s) { if (route.total < 0.001) return { p: route.pts[0].clone(), dir: new THREE.Vector3(0, 0, 1) }; let k = 1; while (k < route.lens.length - 1 && route.lens[k] < s) k++; const a = route.pts[k - 1], b = route.pts[k], seg = route.lens[k] - route.lens[k - 1] || 1; const t = Math.min(1, Math.max(0, (s - route.lens[k - 1]) / seg)); return { p: a.clone().lerp(b, t), dir: new THREE.Vector3().subVectors(b, a).setY(0).normalize() }; }
 // 島內建築槽位
-export function slotLayout(n, heroSize, avoid = null) { const hh = heroSize / 2, heroZ = -0.58; // avoid(x, z, 半寬)：回傳 true 的位置不放建築（金蛋籃廣場）
+// 先照原本大小的島排好（島內半徑 INNER÷ISLAND_K），再整組乘上 ISLAND_K：島變大但建築、走道的比例跟原本一樣，不會變成擠滿大房子
+export function slotLayout(n, heroSize, avoid = null) { const K = ISLAND_K, I0 = INNER / K, hh = heroSize / 2, heroZ = -0.58; // avoid(x, z, 半寬)：回傳 true 的位置不放建築（金蛋籃廣場；用放大後的座標判斷）
+  const scaled = (size, slots) => ({ size: size * K, slots: slots.map(([x, z]) => [x * K, z * K]), heroZ: heroZ * K });
   for (let s = n <= 4 ? 0.62 : 0.56; s > 0.3; s -= 0.03) { const h = s / 2, gapX = s + 0.1, gapZ = s + 0.08, out = [];
-    for (let zi = -4; zi <= 4; zi++) for (let xi = -5; xi <= 5; xi++) { const z = 0.2 + zi * gapZ, x = (xi + (Math.abs(zi) % 2 ? 0.5 : 0)) * gapX; if (![[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h]].every(([px, pz]) => insideHex(px, pz, INNER - 0.04))) continue; if (Math.abs(x) < hh + h + 0.06 && Math.abs(z - heroZ) < hh + h + 0.06) continue; if (avoid && avoid(x, z, h)) continue; out.push([x, z]); }
-    if (out.length >= n) { out.sort((a, b) => Math.hypot(a[0], a[1] - 0.25) - Math.hypot(b[0], b[1] - 0.25)); return { size: s, slots: out.slice(0, n), heroZ }; } }
-  return { size: 0.3, slots: [], heroZ: -0.58 };
+    for (let zi = -4; zi <= 4; zi++) for (let xi = -5; xi <= 5; xi++) { const z = 0.2 + zi * gapZ, x = (xi + (Math.abs(zi) % 2 ? 0.5 : 0)) * gapX; if (![[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h]].every(([px, pz]) => insideHex(px, pz, I0 - 0.04))) continue; if (Math.abs(x) < hh + h + 0.06 && Math.abs(z - heroZ) < hh + h + 0.06) continue; if (avoid && avoid(x * K, z * K, h * K)) continue; out.push([x, z]); }
+    if (out.length >= n) { out.sort((a, b) => Math.hypot(a[0], a[1] - 0.25) - Math.hypot(b[0], b[1] - 0.25)); return scaled(s, out.slice(0, n)); } }
+  return scaled(0.3, []);
 }
