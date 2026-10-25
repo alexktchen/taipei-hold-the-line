@@ -97,20 +97,24 @@
 - **多人不碰正式後端**：用 `addInitScript` 塞一個用 `BroadcastChannel` 轉送的假 Supabase（`channel/on/subscribe/send/track/untrack/presenceState`、`removeChannel`、`from().upsert`、`rpc`），兩個分頁各設 `PIStore.state.sb`、`uid`、`mode = 'supabase'`，再把大廳的多人按鈕 `disabled` 拿掉。
 - 除錯入口：`window.PI`（`game`、`nav`、`ui.room`、`people`、`scene`、`camera`、`controls`、`centers`），`window.PIStore`。
 
-## 10. 補充（同一天稍晚）：守城拿回來、金蛋經濟
+## 10. 補充（同一天稍晚）：逛城市＋金蛋經濟
 
-### 守城（原本的塔防）與打工並存
-- 大廳上方兩個分頁「🥚 打工／🏰 守城」，選過的記在裝置（`localStorage pi-mode`）。職業卡、怎麼玩、榜單、戰績依分頁切換（`.shift-only`／`.td-only`）。
-- `js/td.js`：從 `7b0db26` 的 game.js 移植。居民與市長**借用 game.js 的**：回合中 `ctx.claim(true)` 讓 game.js 停止帶居民散步、改由 td.js 指揮圍網軍；市長每次開講 game.js 發 `speech` 事件，td.js 加滿意度。英雄與其他玩家用 `game.setExtraWalkers()` 一起畫。網軍用另一個 `createAnimals(C.td.animals)`。
-- `js/tdui.js`：守城的大廳分頁、上方狀態列（`#tdHud`）、右下英雄鈕（`#tdBar`：自動攻擊、大招、6 個表情）、波間提示（`#waveToast`，4 秒後自動下一波）、play 頻道收發。
-- 多人同框：`store.playOn(true)` 只在守城回合加入 `play` 頻道、回大廳就離開；打工時 `td.setHideRemotes(true)` 不畫守城的人。**訊息量**：每人每 max(1, 在線人數×0.25) 秒送一次位置（最多 8 秒一次，沒動時 8 秒心跳），廣播給所有守城中的人，量約 N×(N−1)÷max(1, N÷4) 則／秒（20 人同時守城約 76 則／秒）。人多時要改成只送給附近的人，或把守城也改成房間制。
-- 守城戰績：`rounds`／`kills`／`finals`（原本 schema 就有），`store.tdTotals()`、`tdLeaderboard()`。presence 的 phase 多了 `td`（在線名單顯示「守城中」）。守城不賺金蛋。
+（中間一度把原本的塔防拿回來當「守城」分頁，之後依使用者要求改成「逛城市」；塔防程式只留在 git 歷史，`7b0db26` 以前與 `4f06c1f`。舊的 `rounds`／`kills`／`finals` 欄位不讀也不寫。）
+
+### 逛城市（`js/explore.js`、`js/exploreui.js`、`config.explore`）
+- 大廳上方兩個分頁「🥚 打工／🏙 逛城市」，選過的記在裝置（`localStorage pi-mode`）。`.shift-only`／`.explore-only` 依分頁顯示。
+- 逛城市時打工那邊仍是大廳狀態（居民散步、市長巡迴照舊）；自己的角色與其他人用 `game.setExtraWalkers()` 一起畫。輸入（鍵盤、搖桿）由 main.js 的 `applyInput` 轉給 `explore.setMove`；點地板 `explore.moveTo`（`nav.gridPath`，最多展開 `pathNodes` 格，跨島也找得到橋）。
+- 地點：服飾店＝`config.explore.boutiques` 那幾座島的第 1 棟小房子（main.js 收集成 `BOUTIQUES`、掛「👕 服飾店」名牌，只在逛城市時顯示）；工地＝目前在蓋的城市建設（`placeCity` 記住 `citySite`）；市長＝`game.G.mayor`。走到 `near` 範圍內發 `near` 事件，右下出現「進去」鈕（E）。`explore.goTo(kind)` 是「帶我去」（市長會走動，每 0.6 秒重新對準）。
+- 時鐘：`explore.G.clock`（分鐘）從 10:00 開始每秒走 `clockRate` 分鐘；按時段時 `tween` 平順轉過去。鳥瞰＝城市中心正上方 `birdHeight`。
+- 多人同框：`store.playOn(true)` 只在逛城市時加入 `play` 頻道；位置每 0.5～4 秒（依在線人數）送一次，沒動時 6 秒心跳，收到的全部驗證（職業、座標範圍、穿著字串格式、暱稱長度）。人多時要改成只送附近的人或分房。
+- 全城加成「城市嘉年華」解鎖後，逛城市晚上（`env.night ≥ 0.5`）放煙火（`explore.view`）。
 
 ### 金蛋經濟（`js/shop.js`、`config.econ`、`supabase/economy.sql`）
 - 錢包 = `eggs − donated − built − spent`。只有打工會加 `eggs`。`store.buy(cat, id)`（買過的再點＝換上）、`unequip(cat)`、`give('built'|'donated', n)`、`econ()`（錢包、全站累計、榜單）。
-- 衣服：`outfit` 字串「帽子.背心.配件」（沒穿寫 `-`），`owned` 是 `cat:id` 逗號清單。`people.makeWalker(role, pos, cls, fit)` 依字串加帽子、換背心顏色、加配件（換帽子時職業帽拿掉、手上道具保留）。打工：房間 presence `fit` → 開工設定 roster `fit`；守城：位置訊息 `o`。收到的字串只認 config 裡有的 id。
+- 商店面板依地點開放：新衣服只能在服飾店買（買過的隨時能換）；投金蛋要在工地旁；捐獻金要在市長旁。不在旁邊時面板有「帶我去」。
+- 衣服：`outfit` 字串「帽子.背心.配件」（沒穿寫 `-`），`owned` 是 `cat:id` 逗號清單。`people.makeWalker(role, pos, cls, fit)` 依字串加帽子、換背心顏色、加配件（換帽子時職業帽拿掉、手上道具保留）。打工：房間 presence `fit` → 開工設定 roster `fit`；逛城市：位置訊息 `o`。收到的字串只認 config 裡有的 id。
 - 蓋城市：全站 `built` 加總（每人不超過自己的 eggs）依序蓋 `config.econ.city`。位置是各島 3 棟小房子之一（`house` 0～2）；main.js 的 `placeCity()` 依狀態畫小房子／工地（`crane`）／建築，並加名牌。蓋城市投入的金蛋再算一次進 12 區對抗。
-- 政治獻金（惡搞）：全站 `donated` 加總解鎖 `tiers`。打工加成由房主開工時算好放進開工設定 `boost`（解鎖幾階，房客照收），game.js `boostOf()` 套用（受傷減免、配額、特殊技次數）；守城加成在 `td.js` 回合開始時算（市長加碼、居民勸退、大招冷卻）。自己捐了市長回一句（商店裡與地圖上都有），新解鎖時公告一次（每台裝置記 `pi-tier-seen`）；大廳市長每講 4 次感謝獻金榜第一名。
+- 政治獻金（惡搞）：全站 `donated` 加總解鎖 `tiers`。打工加成由房主開工時算好放進開工設定 `boost`（解鎖幾階，房客照收），game.js `boostOf()` 套用（受傷減免、配額、特殊技次數）。自己捐了市長回一句（面板裡與地圖上都有），新解鎖時公告一次（每台裝置記 `pi-tier-seen`）；市長每講 4 次感謝獻金榜第一名。
 - **上線前要跑 `supabase/economy.sql`**（可重複執行；有「花的不能比賺的多」的 check）。沒跑時花費只記在本機、全站數字只算自己（錢包旁會寫「只記在這台裝置」）。
 - 已知限制：跟打工戰績一樣，數字由玩家自己的瀏覽器寫（RLS 只限本人那一列），有心人能改自己的 eggs 再花。要防就把「搬進籃子」與「花費」改成 RPC，由伺服器端加減。
-- 警語（`config.econ.legal`）放在商店底部：金蛋不是錢、不能買賣；政治獻金不是真的捐款，跟任何候選人、政黨、選舉無關。
+- 警語（`config.econ.legal`）放在商店面板底部：金蛋不是錢、不能買賣；政治獻金不是真的捐款，跟任何候選人、政黨、選舉都無關。

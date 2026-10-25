@@ -152,50 +152,22 @@ export const CONFIG = {
     { id: 'housing',    title: '社宅進度',       tag: '#社宅',   startsAt: '2026-11-15', intensity: 1.4, routes: ['west','south','east'], boss: 'frogking', mix: { caterpillar: 2, frog: 2, parrot: 1 }, chants: ['社宅呢','房租好貴','蓋太慢','社宅跳票','居住正義!!'], desc: '毛蟲慢慢爬，大青蛙王殿後。' },
     { id: 'final',      title: '大選前夜總攻擊', tag: '#總攻擊', startsAt: null, intensity: 2.2, routes: ['west','north','east','south'], boss: 'frogking', boss2: 'bigv', mix: { bird: 3, frog: 3, parrot: 2, caterpillar: 1, chameleon: 1, mouse: 4 }, chants: ['總攻擊!!','抗中保台!!','芒果乾吃起來','青鳥起飛','全部罷掉','下架!!','最後一夜','今日香港明日台灣'], desc: '四面八方、所有動物、兩隻魔王。一樣守得下來。' },
   ],
-  // ═══ 守城塔防（原本的模式）：一場約 3 分鐘，網軍沿步道與橋衝向信義區市政府，居民與英雄一起擋；保證守得住。數值與 2026-10-24 的塔防版相同 ═══
-  td: {
-    round: {
-      seconds: 180, autoNextSeconds: 4, toastLinger: 2, dayStart: 420, dayEnd: 1050, // 一場的天色從 07:00 走到 17:30，不進入夜晚
-      bossAt: 140, surgeAt: 158, surgeEvery: 1.5, surgePct: 0.35, surgeBelowApproval: 40, wipeAt: 176,
-      startApproval: 100, approvalFloor: 1,
-      baseSpawn: 26, bursts: [ { from: 3, to: 45, share: 0.35 }, { from: 55, to: 98, share: 0.35 }, { from: 106, to: 138, share: 0.30 } ],
-      windShift: { minGap: 30, maxGap: 55, duration: 5, speedMul: 1.5 },
-      raid: { minGap: 28, maxGap: 48, size: 5, chance: 0.7 },
-      unitsPerSec: 0.9,          // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
-      spawnGap: 1.2,             // 依序登陸：兩隻之間至少隔幾秒
-      // 頭上對話：每句顯示 chantOn 秒、同時最多 chantMax 句、新的一句至少隔 chantEvery 秒、講完休息 chantRest 秒；chantIssueShare = 講議題台詞（其餘講動物自己的）的比例；鸚鵡複製上一句的長度上限 chantCopyMax；chantSize = 對話框高度（世界單位）；chantSpace = 正在說話的兩隻至少要隔多遠
-      chantOn: 2.6, chantMax: 2, chantEvery: 1.6, chantRest: 7, chantIssueShare: 0.65, chantCopyMax: 6, chantSize: 0.32, chantSpace: 2.2, // chantSpace：說話的兩隻至少隔幾個世界單位
-      focusDmgMul: 3, focusCooldown: 1.4, ultCooldown: 45, ultPct: 0.6, ultSlow: 0.6, ultSlowTime: 3,
-      projSpeed: 9,
-    },
-    // 居民在塔防時會走過去圍住網軍勸退
-    residents: { engageRadius: 9, meleeRange: 0.45, dps: 9, maxPerTarget: 3, rush: 1.5 }, // rush：走去圍網軍時比平常散步快幾倍
-    mayorBonus: 2, // 回合中市長每講一次，滿意度 +2%
-    heroes: {
-      chief:     { name: '里長伯',   icon: '🧓', color: 0xdb6a41, dmg: 16, rate: 0.55, range: 3.2, style: 'ball',  speed: 1.1, desc: '人面廣，中距離穩定輸出。' },
-      driver:    { name: '公車司機', icon: '🚌', color: 0x2f6f9f, dmg: 10, rate: 0.3,  range: 3.0, style: 'bus',   speed: 1.2, desc: '班次密，連發。' },
-      fireman:   { name: '消防員',   icon: '🚒', color: 0xc9452f, dmg: 18, rate: 0.7,  range: 2.8, style: 'water', slow: 0.5, slowTime: 1.6, speed: 1.1, desc: '水柱打到會減速。' },
-      volunteer: { name: '志工媽媽', icon: '🧺', color: 0xc97d97, dmg: 9,  rate: 0.6,  range: 2.8, style: 'ball',  regen: 0.4, rally: 1.3, speed: 1.05, desc: '每秒回一點滿意度，身邊居民攻擊 +30%。' },
-      engineer:  { name: '工程師',   icon: '💻', color: 0x4a3f8f, dmg: 22, rate: 1.0,  range: 3.2, style: 'zap',   chain: 3, speed: 1.0, desc: '台北通連鎖電擊，一次打 3 隻。' },
-    },
-    animals: {
-      bird:        { name: '青鳥',       model: 'bird',   color: 0x17a3b4, accent: 0x0d7281, hp: 40,   speed: 1.0,  bounty: 1, size: 1.0, leak: 4,  fly: true,  chants: ['青鳥起飛!!','守護民主','出來面對','抗中保台','我是自發的'] },
-      frog:        { name: '青蛙',       model: 'frog',   color: 0x4caf50, accent: 0x2e7d32, hp: 95,   speed: 0.65, bounty: 1, size: 1.0, leak: 6,  hop: true,  chants: ['呱!!','呱呱抗中保台','芒果乾呱','呱～罷掉'] },
-      parrot:      { name: '綠鸚鵡',     model: 'bird',   color: 0x6abf4b, accent: 0xd94a3a, hp: 60,   speed: 1.1,  bounty: 1, size: 0.9, leak: 4,  fly: true,  repeat: true, chants: ['同上','+1','複製貼上','台灣價值+1','芒果乾+1'] },
-      caterpillar: { name: '綠毛蟲',     model: 'worm',   color: 0x7cb342, accent: 0x558b2f, hp: 240,  speed: 0.38, bounty: 1, size: 1.0, leak: 8,  chants: ['慢慢連署中','排隊簽連署','陳情寫到一半','蠕動中'] },
-      chameleon:   { name: '變色龍',     model: 'lizard', color: 0x66bb6a, accent: 0xffb300, hp: 130,  speed: 0.9,  bounty: 1, size: 1.0, leak: 6,  shift: true, hairpin: [0.45, 1.5], chants: ['髮夾彎','此一時彼一時','我沒說過','萊豬不一樣','核電再說'] },
-      mouse:       { name: '鍵盤鼠',     model: 'mouse',  color: 0x9e9e9e, accent: 0x616161, hp: 22,   speed: 1.6,  bounty: 1, size: 0.7, leak: 1,  chants: ['已檢舉','笑死','認知作戰!','我不是1450','破防了','可悲'] },
-      bigv:        { name: '側翼大 V',   model: 'bird',   color: 0x0e5f6b, accent: 0xf2c14e, hp: 950,  speed: 0.5,  bounty: 1, size: 2.0, leak: 25, fly: true,  boss: true, spawn: { type: 'mouse', every: 4 }, chants: ['懶人包來了','請大家分享','截圖留存','帶風向中','轉發一百次'] },
-      frogking:    { name: '大青蛙王',   model: 'frog',   color: 0x2e7d32, accent: 0xf2c14e, hp: 1500, speed: 0.38, bounty: 1, size: 2.3, leak: 30, hop: true,  boss: true, spawn: { type: 'frog', every: 7 }, chants: ['呱!!!!','總攻擊','全軍出動','罷免大成功'] },
-    },
-    raidTags: ['#護樹','#拆圓環','#出來面對','#抗中保台','#芒果乾','#青鳥起飛','#洗版中'],
-    multi: { sendEvery: 1, sendPerPlayer: 0.25, sendMax: 8, heartbeat: 8, timeout: 25, presenceGrace: 5, maxRemote: 48, snapDist: 6, catchUp: 1.3, allyDmg: 0.5, allyUltMul: 0.5, allyUltRadius: 3, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.2,
-      emotes: [ { k: 'hi', icon: '👋', say: '嗨！一起守！' }, { k: 'help', icon: '🆘', say: '這邊需要支援！' }, { k: 'mine', icon: '💪', say: '交給我！' }, { k: 'thx', icon: '🙏', say: '謝啦！' }, { k: 'yay', icon: '🎉', say: '守住了！' }, { k: 'love', icon: '❤️', say: '台北加油！' } ],
-      five: { k: 'five', icon: '🙌', say: '擊掌！' } },
-    heroMode: { manualSeconds: 8, exactRadius: 0.9, storageKey: 'pi-hero-auto' },
+  // ═══ 逛城市：自己的角色（穿著金蛋買的衣服）在政策島上散步；服飾店買衣服、工地投金蛋蓋城市、找市長捐政治獻金。其他正在逛的人也看得到 ═══
+  explore: {
+    speed: 1.2, radius: 0.14, pathNodes: 40000,   // 走路速度（每秒幾個世界單位）、碰撞半徑、跨島找路最多展開幾格
+    boutiques: ['xinyi', 'daan', 'zhongshan', 'beitou', 'wanhua', 'songshan', 'wenshan'], // 這幾座島的第 1 棟小房子（商店）是服飾店
+    near: { boutique: 1.0, site: 1.05, mayor: 0.9 }, // 走到幾格內出現「進去」按鈕
+    clockStart: 600, clockRate: 6,  // 逛城市的時鐘：從 10:00 開始，每秒走幾分鐘（遊戲時間）
+    times: [ { min: 360, icon: '🌅', label: '清晨 06' }, { min: 720, icon: '☀️', label: '白天 12' }, { min: 1080, icon: '🌇', label: '黃昏 18' }, { min: 1260, icon: '🌙', label: '夜晚 21' } ],
+    birdHeight: 42, birdBack: 6,      // 鳥瞰：鏡頭在城市中心正上方多高、往後退多少
+    fireworks: { every: 1.4, night: 0.5 }, // 全城加成「城市嘉年華」解鎖後，晚上（天色暗度 ≥ night）每 every 秒放一發煙火
+    multi: { sendEvery: 0.5, sendPerPlayer: 0.1, sendMax: 4, heartbeat: 6, timeout: 20, presenceGrace: 5, maxRemote: 40, snapDist: 4, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.12 },
+    emotes: [ { k: 'hi', icon: '👋', say: '嗨！' }, { k: 'yay', icon: '🎉', say: '讚啦！' }, { k: 'love', icon: '❤️', say: '台北加油！' }, { k: 'thx', icon: '🙏', say: '謝啦！' } ],
+    five: { k: 'five', icon: '🙌', say: '擊掌！' },
+    guideKey: 'pi-guide-explore',
   },
   // ═══ 金蛋經濟：金蛋只有打工賺（搬進籃子的才算），可以買衣服、大家一起蓋城市、捐政治獻金（遊戲裡的惡搞）═══
-  // 錢包 = 累計金蛋 − 衣服花掉的 − 蓋城市投入的 − 政治獻金。衣服 id 不能改（存在玩家資料裡）；同一類一次穿一件。
+  // 錢包 = 累計金蛋 − 衣服花掉的 − 蓋城市投入的 − 政治獻金。衣服在逛城市時走進服飾店買（買過的隨時能換）；id 不能改（存在玩家資料裡）；同一類一次穿一件。
   econ: {
     legal: '金蛋是遊戲點數，只能靠打工搬進籃子賺，不是錢、不能買也不能換錢。「政治獻金」是二創惡搞的遊戲玩法，不是真的捐款，跟任何候選人、政黨、選舉都無關。',
     outfits: {
@@ -208,7 +180,7 @@ export const CONFIG = {
       acc: { label: '配件', items: {
         scarf: { name: '圍巾', icon: '🧣', price: 12 }, sash: { name: '彩帶', icon: '🎗️', price: 20 }, cape: { name: '英雄披風', icon: '🦸', price: 45 } } },
     },
-    // 蓋城市：所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己行政區的 12 區對抗。
+    // 蓋城市：在逛城市時走到工地投金蛋。所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己行政區的 12 區對抗。
     city: [
       { id: 'fountain', name: '金蛋噴水池',     island: 'xinyi',      house: 1, model: 'garden',     cost: 30 },
       { id: 'market2',  name: '夜市二館',       island: 'shilin',     house: 0, model: 'nightmarket', cost: 60 },
@@ -222,13 +194,13 @@ export const CONFIG = {
       { id: 'egg101',   name: '金蛋 101',       island: 'daan',       house: 2, model: 'tower101',   cost: 650 },
     ],
     buildAmounts: [5, 20, 50],
-    // 政治獻金（惡搞）：全站累計到 at 顆解鎖全城加成，所有人都吃得到；自己捐了市長會回一句
+    // 政治獻金（惡搞）：在逛城市時走到市長旁邊捐。全站累計到 at 顆解鎖全城加成，所有人都吃得到；自己捐了市長會回一句
     donate: { amounts: [5, 20, 50, 100], boardMax: 10,
       tiers: [
-        { at: 100,  name: '加碼宣傳', desc: '守城：市長每講一次滿意度再 +1%', td: { mayor: 1 } },
-        { at: 300,  name: '便當加菜', desc: '打工：受到的傷害 −10%', shift: { dmg: 0.1 } },
-        { at: 700,  name: '全城動員', desc: '打工：每波配額 −1；守城：居民勸退 +20%', shift: { quota: -1 }, td: { dps: 0.2 } },
-        { at: 1500, name: '神隊友加持', desc: '打工：特殊技多 1 次；守城：大招冷卻 −10 秒', shift: { specials: 1 }, td: { ult: -10 } },
+        { at: 100,  name: '便當加菜', desc: '打工：受到的傷害 −10%', shift: { dmg: 0.1 } },
+        { at: 300,  name: '全城動員', desc: '打工：每波配額 −1', shift: { quota: -1 } },
+        { at: 700,  name: '神隊友加持', desc: '打工：特殊技多 1 次', shift: { specials: 1 } },
+        { at: 1500, name: '城市嘉年華', desc: '逛城市：晚上放煙火', fireworks: true },
       ],
       lines: {
         small: ['謝謝支持！一顆也是心意', '收到！這顆拿去補路燈', '感謝，金蛋會用在刀口上'],

@@ -77,11 +77,10 @@ export function createGame(ctx) {
       hp: PL.hp, down: false, carry: false, inv: 0, hitT: 99, revive: 0, sp: SH.specials + (G.boost ? G.boost.specials : 0), spT: 0, dash: null, gold: 0, power: 0, rescues: 0, downs: 0, cd: Math.random() * 0.3, focus: 0, move: { x: 0, z: 0 }, goal: null, think: Math.random() * 0.3, net: null, firing: false, flash: 0, emoteT: 0 };
     w.P = P; retag(P); return P; }
   function retag(P) { tagDel(P.w); const kind = P.local ? 'me' : P.npc ? 'npc' : 'player'; tagAdd(P.w, P.nick, `${P.cfg.icon} ${P.local ? '你' : P.npc ? 'NPC' : P.cfg.name}`, hex(P.cfg.color), kind); P.tagSig = ''; }
-  // 守城（td.js）的英雄與其他玩家也一起畫；守城回合中居民交給 td.js 指揮（claimResidents）
-  let extra = [], claimed = false;
+  // 逛城市（explore.js）的自己與其他玩家也一起畫
+  let extra = [];
   function rebuildPeople() { people.build([...G.residents.filter(w => !w.away), G.mayor, ...G.players.map(P => P.w), ...extra].filter(Boolean)); }
   function setExtraWalkers(list) { extra = list || []; rebuildPeople(); }
-  function claimResidents(on) { claimed = !!on; }
   function clearShift() { for (const e of G.enemies) dropEnemyMesh(e); G.enemies = []; enemyById.clear(); enemyHits.length = 0; for (const g of G.eggs) if (g.obj) scene.remove(g.obj); G.eggs = []; for (const f of G.fx) scene.remove(f.obj); G.fx = []; G.warns = []; G.spits = [];
     for (const P of G.players) { tagDel(P.w); for (const o of [P.eggObj, P.buoy, P.ring]) if (o) scene.remove(o); } G.players = []; removeBasket(); }
   function backToLobby() { clearShift(); G.phase = 'lobby'; G.role = null; G.me = -1; G.special = ''; for (const w of G.residents) w.away = false; if (G.mayor) { G.mayor.state = 'walk'; G.mayor.route = null; G.mayor.wait = 1; G.mayor.pose = null; setBubble(G.mayor, null); } rebuildPeople(); emit('shift', 'lobby'); emit('hud'); emit('team'); }
@@ -103,7 +102,7 @@ export function createGame(ctx) {
   function abort(why) { if (G.phase === 'lobby' || G.phase === 'result') return; if (G.role === 'client') { G.phase = 'result'; G.result = makeResult(false, why); emit('end', G.result); return; } finish(false, why); }
 
   // ═══════════════ 模擬主迴圈（solo／host）═══════════════
-  function step(dt) { G.clock += dt; updateMayor(dt); if (!claimed) updateResidents(dt); if (G.phase === 'lobby') return;
+  function step(dt) { G.clock += dt; updateMayor(dt); updateResidents(dt); if (G.phase === 'lobby') return;
     if (G.role === 'client') { clientStep(dt); return; }
     for (const P of G.players) { if (P.local) moveLocal(P, dt); else if (P.npc) { if (G.phase === 'wave' || G.phase === 'inter' || G.phase === 'intro') npcThink(P, dt); moveLocal(P, dt); } else followNet(P, dt); tickPlayer(P, dt); }
     if (G.phase === 'intro' || G.phase === 'inter') { G.t -= dt; if (G.t <= 0) nextWave(); }
@@ -439,6 +438,6 @@ export function createGame(ctx) {
     G.fx = G.fx.filter(f => f.ttl > 0); }
   const onPick = hit => { if (G.phase === 'lobby' || G.phase === 'result') return false; if (hit.enemy && !hit.enemy.dead) { focus(hit.enemy); return true; } if (hit.point) { moveTo(hit.point.x, hit.point.z); return true; } return false; };
   return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startShift, backToLobby, abort, toNpc, fromNpc, step, view, makeSnapshot, applySnapshot, applyResult, remoteInput, myInput,
-    setMove, moveTo, focus, useSpecial, throwEgg, emote, onPick, enemyHits, enemyById, rebuildPeople, setExtraWalkers, claimResidents, shout, me: meP, quotaFor,
+    setMove, moveTo, focus, useSpecial, throwEgg, emote, onPick, enemyHits, enemyById, rebuildPeople, setExtraWalkers, shout, me: meP, quotaFor,
     debugSpawn: type => G.phase === 'wave' && C.animals[type] && G.role !== 'client' ? spawnEnemy(type, randomSpawn()) : null }; // 除錯／測試用
 }
