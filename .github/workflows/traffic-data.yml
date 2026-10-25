@@ -1,0 +1,35 @@
+# 台北車流模擬的資料：在 GitHub 的機器上抓 OpenStreetMap（Overpass）與臺北市號誌位置、時制計畫，整理成 traffic/data/，有變動就 commit 回 main（Cloudflare Pages 接著部署）。
+# 在 GitHub 的 Actions 分頁按「Run workflow」就能重建（例如臺北市更新了時制）。
+name: 台北車流資料
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: traffic-data
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 抓資料並整理
+        env:
+          TRAFFIC_CACHE: /tmp/overpass-cache
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: node scripts/traffic/build-data.mjs
+      - name: 檔案大小
+        run: ls -la traffic/data traffic/data/raw
+      - name: 有變動就 commit 回 main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add traffic/data
+          if git diff --cached --quiet; then echo "資料沒有變動"; exit 0; fi
+          git commit -m "更新台北車流資料（OpenStreetMap 道路、臺北市號誌位置與時制計畫）"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep 5; done
+          exit 1
