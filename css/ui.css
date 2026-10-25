@@ -444,3 +444,10 @@ body.in-shift .nameplate.district{opacity:.75;pointer-events:none}
   .team .nm,.team .st,.team .spd{display:none} .team .badge{width:22px;height:22px;font-size:12px;border-width:1.5px} .team .hp{width:26px;height:4px}
   .team .g{position:absolute;top:-5px;right:-5px;font-size:10px;line-height:1.4;background:#fffbea;border-radius:999px;padding:0 4px;border:1px solid #efe2a6;gap:2px} .team .g::before{width:6px;height:8px}
 }
+/* 電腦版也一樣：同事名單縮成一排小圓章（名字放在滑鼠提示），只留職業、血條、金蛋數；自己那格有珊瑚框，倒下變紅、搬蛋時頭上有蛋 */
+.team{width:auto;padding:6px 8px;border-radius:16px} .team ol{display:flex;gap:6px}
+.team li{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 5px;border-radius:12px;min-width:46px;position:relative}
+.team .nm,.team .st,.team .spd{display:none} .team .badge{width:28px;height:28px;font-size:15px} .team .hp{width:34px;height:5px}
+.team .g{position:absolute;top:-6px;right:-6px;font-size:11px;line-height:1.4;background:#fffbea;border-radius:999px;padding:0 5px;border:1px solid #efe2a6;gap:2px} .team .g::before{width:7px;height:9px}
+.team li.carry::after{content:"";position:absolute;top:-8px;left:-4px;width:11px;height:14px;border-radius:50%/58% 58% 42% 42%;background:#f2c14e;border:1.5px solid #8a6400}
+@media (max-width:900px){ .team li{min-width:36px;padding:4px 5px} .team .badge{width:22px;height:22px;font-size:12px} .team .hp{width:26px;height:4px} .team .g{top:-5px;right:-5px;font-size:10px} }
