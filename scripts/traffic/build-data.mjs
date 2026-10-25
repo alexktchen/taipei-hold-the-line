@@ -20,20 +20,22 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── 下載 ──
-async function overpass(query, label, minCount = 1) {
+async function overpass(query, label, minCount = 1, lowOk = false, rounds = 4) {
   // 快取（GitHub Actions 會把這個資料夾留到下一次）：6 天內的直接用，Overpass 大塞車時失敗的那一輪也不用整個重抓
   const cf = CACHE && `${CACHE}/${label}.json`; if (cf && existsSync(cf) && Date.now() - statSync(cf).mtimeMs < (+process.env.TRAFFIC_CACHE_DAYS || 6) * 864e5) { const j = JSON.parse(await readFile(cf, 'utf8')); log(`Overpass ${label}：讀快取 ${j.elements.length} 筆`); return j.elements; }
-  const els = await overpassFetch(query, label, minCount); if (cf) { await mkdir(CACHE, { recursive: true }); await writeFile(cf, JSON.stringify({ elements: els })); } return els; }
-// 有的鏡像站會回空結果（沒有錯誤訊息）：少於 minCount 筆就當失敗、換下一個
-async function overpassFetch(query, label, minCount) {
-  for (let round = 0; round < 4; round++) { if (round) { log(`  第 ${round + 1} 輪，先等 ${30 * 2 ** round} 秒`); await sleep(30000 * 2 ** round); } for (const url of OVERPASS) {
+  const els = await overpassFetch(query, label, minCount, lowOk, rounds); if (cf) { await mkdir(CACHE, { recursive: true }); await writeFile(cf, JSON.stringify({ elements: els })); } return els; }
+// 有的鏡像站會回空結果（沒有錯誤訊息）：少於 minCount 筆就當失敗、換下一個；lowOk 的話兩次都這麼少就當真的只有這麼少（市界邊角的分格）
+async function overpassFetch(query, label, minCount, lowOk, rounds) { let low = 0;
+  for (let round = 0; round < rounds; round++) { if (late()) throw new Error('時間不夠了'); if (round) { log(`  第 ${round + 1} 輪，先等 ${30 * 2 ** round} 秒`); await sleep(30000 * 2 ** round); } for (const url of OVERPASS) {
     try { log(`Overpass ${label} ← ${url}`); const t = Date.now();
       const res = await fetch(url, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(900_000) });
       if (!res.ok) { log(`  HTTP ${res.status}`); await sleep(15000); continue; }
       const txt = await res.text(); const j = JSON.parse(txt); if (j.remark && /error|runtime/i.test(j.remark)) { log('  remark:', j.remark.slice(0, 200)); await sleep(15000); continue; }
-      log(`  ${(txt.length / 1e6).toFixed(1)} MB、${j.elements.length} 筆、${((Date.now() - t) / 1000).toFixed(0)} 秒`); if (j.elements.length < minCount) { log('  筆數太少，換一個'); await sleep(10000); continue; } return j.elements; }
+      log(`  ${(txt.length / 1e6).toFixed(1)} MB、${j.elements.length} 筆、${((Date.now() - t) / 1000).toFixed(0)} 秒`); if (j.elements.length < minCount) { if (lowOk && ++low >= 2) return j.elements; log('  筆數太少，換一個'); await sleep(10000); continue; } return j.elements; }
     catch (e) { log('  失敗：', e.message); await sleep(15000); } } }
   throw new Error('Overpass 全部失敗：' + label); }
+// 整個工作 60 分鐘會被 GitHub 砍掉：超過 40 分鐘就不再等 Overpass，沒抓到的沿用上一次的
+const T0 = Date.now(), late = () => Date.now() - T0 > 40 * 60e3;
 // 非必要的圖層（水域、綠地、捷運…）：抓不到就沿用上一次的成品，不讓整個流程失敗
 async function optional(label, fn, fallback) { try { return await fn(); } catch (e) { log(`${label}抓不到（${e.message}），沿用上一次的`); return fallback(); } }
 const prevJSON = async (f, d) => { try { return JSON.parse(await readFile(`${OUT}/${f}`, 'utf8')); } catch (e) { return d; } };
@@ -153,11 +155,45 @@ function packTiming(id, T) { const S = T.sched.get(id), P = T.plans.get(id); if 
   for (let d = 1; d <= 7; d++) { const s = S && S[d]; if (!s || !s.length) { dmap.push(-1); continue; } const k = JSON.stringify(s); let i = days.findIndex(x => JSON.stringify(x) === k); if (i < 0) { i = days.length; days.push(s); } dmap.push(i); }
   return { days, dmap, plans: P }; }
 
+// 號誌路口：OSM 號誌節點與臺北市號誌位置，30 公尺內的聚成一個路口（雙向分隔的大路口常有好幾個號誌節點）；
+// 只有臺北市位置的接到 35 公尺內最近的路口節點（isecs：3 條路以上的節點 {o 輸出編號, x, z}）；時制用 icid 對
+function buildSignals(osmPts, isecs, tpPos, T) { const pts = [...osmPts];
+  for (const s of tpPos) { const [x, z] = proj(s.lat, s.lon); pts.push({ x, z, src: 'tp', id: s.id, name: s.name, dist: s.dist, grp: s.grp }); }
+  const cell = 40, grid = new Map(), gk = (x, z) => Math.floor(x / cell) + ',' + Math.floor(z / cell); const ctrls = [];
+  for (const p of pts) { let best = null, bd = 30; const cx = Math.floor(p.x / cell), cz = Math.floor(p.z / cell);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const c of grid.get((cx + dx) + ',' + (cz + dz)) || []) { const d = Math.hypot(c.x - p.x, c.z - p.z); if (d < bd) { bd = d; best = c; } }
+    if (!best) { best = { x: p.x, z: p.z, n: 0, nodes: new Set(), src: new Set(), ids: [], names: [], grp: '' }; ctrls.push(best); const k = gk(p.x, p.z); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(best); }
+    best.x = (best.x * best.n + p.x) / (best.n + 1); best.z = (best.z * best.n + p.z) / (best.n + 1); best.n++; best.src.add(p.src); if (p.node != null) best.nodes.add(p.node); if (p.id) best.ids.push(p.id); if (p.name) best.names.push(p.name); if (p.grp && !best.grp) best.grp = p.grp; }
+  const ngrid = new Map(); for (const n of isecs) { const g = gk(n.x, n.z); if (!ngrid.has(g)) ngrid.set(g, []); ngrid.get(g).push(n); }
+  for (const c of ctrls) { if (c.nodes.size) continue; const cx = Math.floor(c.x / cell), cz = Math.floor(c.z / cell); let best = null, bd = 35;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const n of ngrid.get((cx + dx) + ',' + (cz + dz)) || []) { const d = Math.hypot(n.x - c.x, n.z - c.z); if (d < bd) { bd = d; best = n; } }
+    if (best) c.nodes.add(best.o); }
+  let matched = 0;
+  const signals = ctrls.filter(c => c.nodes.size).map((c, i) => { const id = c.ids.find(x => T.plans.has(x)) || c.ids[0] || ''; const timing = id ? packTiming(id, T) : null; if (timing) matched++;
+    return { i, x: dm(c.x), z: dm(c.z), nodes: [...c.nodes], src: [...c.src], id, name: c.names[0] || '', grp: c.grp || '', timing }; });
+  return { signals, matched }; }
+// 只更新號誌（--signals-only，或 Overpass 抓不到道路時）：用 repo 裡已經整理好的道路圖對路口
+async function signalsOnly() { const main = await prevJSON('net-main.json', null), minor = await prevJSON('net-minor.json', null); if (!main) throw new Error('沒有現成的道路圖可以用');
+  const xy = [], deg = new Map(); for (const f of [main, minor].filter(Boolean)) { for (let i = 0; i < f.nodes.length; i += 2) xy[f.nodeBase + i / 2] = [f.nodes[i] / 10, f.nodes[i + 1] / 10]; for (const e of f.edges) for (const n of [e[0], e[1]]) deg.set(n, (deg.get(n) || 0) + 1); }
+  const isecs = []; xy.forEach((p, o) => { if (p && (deg.get(o) || 0) >= 3) isecs.push({ o, x: p[0], z: p[1] }); });
+  const prev = await prevJSON('signals.json', { signals: [] }), osmPts = prev.signals.filter(s => (s.src || []).includes('osm')).map(s => ({ x: s.x / 10, z: s.z / 10, node: s.nodes[0], src: 'osm' })); // 上一次的 OSM 號誌節點照用
+  let posFiles = [], planFiles = []; try { posFiles = await govDataset(121890); } catch (e) { log('號誌位置下載失敗', e.message); } try { planFiles = await govDataset(145720); } catch (e) { log('時制計畫下載失敗', e.message); }
+  const tpPos = signalPositions([...planFiles, ...posFiles]), T = timingTables(planFiles); if (!tpPos.length) throw new Error('臺北市號誌資料抓不到');
+  const { signals, matched } = buildSignals(osmPts, isecs, tpPos, T); await writeFile(`${OUT}/signals.json`, JSON.stringify({ signals }));
+  const meta = await prevJSON('meta.json', null); if (meta) { Object.assign(meta.counts, { signals: signals.length, signalsWithPlan: matched, tpPositions: tpPos.length, timingIntersections: T.plans.size }); meta.generated = new Date().toISOString(); await writeFile(`${OUT}/meta.json`, JSON.stringify(meta)); }
+  log(`只更新號誌：${signals.length} 處，對到時制 ${matched}`); }
+
 async function main() {
   await mkdir(RAW, { recursive: true }); await mkdir(SAMPLE, { recursive: true });
   // 1. 道路、號誌節點、市界、行政區
   const area = 'area["ISO3166-2"="TW-TPE"]->.tp;';
-  const roads = await overpass(`[out:json][timeout:900][maxsize:2000000000];${area}way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service)$"](area.tp);out body geom qt;`, '道路', 5000);
+  // 道路：全市一次抓常常 504（閘道逾時），切 3×3 分格抓、用 way id 去重；任何一格抓不到就只更新號誌與時制
+  const [bS, bW, bN, bE] = BBOX.split(',').map(Number), cellOf = (K, i, j) => [bS + (bN - bS) * i / K, bW + (bE - bW) * j / K, bS + (bN - bS) * (i + 1) / K, bW + (bE - bW) * (j + 1) / K].map(v => v.toFixed(5)).join(',');
+  let roads = []; try { const seen = new Set(); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+      const els = await overpass(`[out:json][timeout:600][maxsize:1000000000];${area}way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service)$"](area.tp)(${cellOf(3, i, j)});out body geom qt;`, `道路${i}${j}`, 50, true, 2);
+      for (const w of els) if (!seen.has(w.id)) { seen.add(w.id); roads.push(w); } }
+    if (roads.length < 5000) throw new Error(`道路只有 ${roads.length} 筆`); log(`道路合計 ${roads.length} 筆`); }
+  catch (e) { log('道路抓不到，這次只更新號誌與時制：', e.message); await signalsOnly(); return; }
   const sigEls = await overpass(`[out:json][timeout:300];node["highway"="traffic_signals"](${BBOX});out body qt;`, '號誌節點', 200);
   const bound = await overpass(`[out:json][timeout:300];relation["ISO3166-2"="TW-TPE"];out geom;`, '市界');
   const dists = await optional('行政區', () => overpass(`[out:json][timeout:300];${area}relation["boundary"="administrative"]["name"~"區$"](area.tp);out geom;`, '行政區'), () => []);
@@ -168,9 +204,9 @@ async function main() {
   const mrtS = await optional('捷運車站', () => overpass(`[out:json][timeout:300];(node["railway"="station"]["station"="subway"](${BBOX});node["public_transport"="station"]["subway"="yes"](${BBOX}););out body;`, '捷運車站', 20), () => []);
   const tpRing = bound.filter(e => e.type === 'relation').flatMap(e => rings(e.members).outer).sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0] || null;
   // 建物：範圍切 4×4 分批抓（一次抓全市容易逾時），用 way id 去重，只留中心點在市界內的
-  const [bS, bW, bN, bE] = BBOX.split(',').map(Number), K = 4, bld = [], seenB = new Set();
-  for (let i = 0; i < K; i++) for (let j = 0; j < K; j++) { const cell = [bS + (bN - bS) * i / K, bW + (bE - bW) * j / K, bS + (bN - bS) * (i + 1) / K, bW + (bE - bW) * (j + 1) / K].map(v => v.toFixed(5)).join(',');
-    let els = []; try { els = await overpass(`[out:json][timeout:600];way["building"](${cell});out geom qt;`, `建物${i}${j}`, 1); } catch (e) { log('  建物這一格失敗：', e.message); }
+  const K = 4, bld = [], seenB = new Set(); let bFail = 0;
+  for (let i = 0; i < K; i++) for (let j = 0; j < K; j++) { const cell = cellOf(K, i, j);
+    let els = []; try { els = await overpass(`[out:json][timeout:600];way["building"](${cell});out geom qt;`, `建物${i}${j}`, 1, false, 2); } catch (e) { bFail++; log('  建物這一格失敗：', e.message); }
     for (const w of els) { if (w.type !== 'way' || !w.geometry || w.geometry.length < 4 || seenB.has(w.id)) continue; seenB.add(w.id); const r = w.geometry.map(g => proj(g.lat, g.lon)); let cx = 0, cz = 0; for (const [x, z] of r) { cx += x; cz += z; } cx /= r.length; cz /= r.length;
       if (tpRing && !inside([cx, cz], tpRing)) continue; const area = Math.abs(ringArea(r)); if (area < 12) continue; const t = w.tags || {};
       const lv = parseFloat(t['building:levels']), hh = parseFloat(t.height); let h = Number.isFinite(hh) ? hh : Number.isFinite(lv) ? lv * 3.3 + 1 : null;
@@ -187,26 +223,11 @@ async function main() {
   try { planFiles = await govDataset(145720); } catch (e) { log('時制計畫下載失敗', e.message); }
   const tpPos = signalPositions([...planFiles, ...posFiles]), T = timingTables(planFiles); // 有 icid 的位置（時制的 CSV）排前面，聚類時編號會留在路口上
 
-  // 3. 號誌路口：OSM 號誌節點與臺北市號誌位置，30 公尺內的聚成一個路口（雙向分隔的大路口常有好幾個號誌節點）
-  const pts = [];
-  for (const e of signalNodes.values()) { const k = P.order.get(net.nodeIdx.get(e.id)); if (k == null) continue; const [x, z] = proj(e.lat, e.lon); pts.push({ x, z, node: k, src: 'osm' }); }
-  for (const s of tpPos) { const [x, z] = proj(s.lat, s.lon); pts.push({ x, z, src: 'tp', id: s.id, name: s.name, dist: s.dist, grp: s.grp }); }
-  const cell = 40, grid = new Map(), gk = (x, z) => Math.floor(x / cell) + ',' + Math.floor(z / cell);
-  const ctrls = [];
-  for (const p of pts) { let best = null, bd = 30; const cx = Math.floor(p.x / cell), cz = Math.floor(p.z / cell);
-    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const c of grid.get((cx + dx) + ',' + (cz + dz)) || []) { const d = Math.hypot(c.x - p.x, c.z - p.z); if (d < bd) { bd = d; best = c; } }
-    if (!best) { best = { x: p.x, z: p.z, n: 0, nodes: new Set(), src: new Set(), ids: [], names: [], grp: '' }; ctrls.push(best); const k = gk(p.x, p.z); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(best); }
-    best.x = (best.x * best.n + p.x) / (best.n + 1); best.z = (best.z * best.n + p.z) / (best.n + 1); best.n++; best.src.add(p.src); if (p.node != null) best.nodes.add(p.node); if (p.id) best.ids.push(p.id); if (p.name) best.names.push(p.name); if (p.grp && !best.grp) best.grp = p.grp; }
-  // 只有臺北市位置、沒有 OSM 號誌節點的：接到 35 公尺內最近、而且是路口（3 條路以上）的節點
-  const deg = new Map(); for (const e of net.edges) for (const n of [e.a, e.b]) deg.set(n, (deg.get(n) || 0) + 1);
-  const ngrid = new Map(); for (const [osmId, k] of net.nodeIdx) { if ((deg.get(k) || 0) < 3) continue; const o = P.order.get(k); if (o == null) continue; const [x, z] = net.nodeXY[k], g = gk(x, z); if (!ngrid.has(g)) ngrid.set(g, []); ngrid.get(g).push({ o, x, z }); }
-  for (const c of ctrls) { if (c.nodes.size) continue; const cx = Math.floor(c.x / cell), cz = Math.floor(c.z / cell); let best = null, bd = 35;
-    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const n of ngrid.get((cx + dx) + ',' + (cz + dz)) || []) { const d = Math.hypot(n.x - c.x, n.z - c.z); if (d < bd) { bd = d; best = n; } }
-    if (best) c.nodes.add(best.o); }
-  // 時制計畫：用 icid 對
-  let matched = 0;
-  const signals = ctrls.filter(c => c.nodes.size).map((c, i) => { const id = c.ids.find(x => T.plans.has(x)) || c.ids[0] || ''; const timing = id ? packTiming(id, T) : null; if (timing) matched++;
-    return { i, x: dm(c.x), z: dm(c.z), nodes: [...c.nodes], src: [...c.src], id, name: c.names[0] || '', grp: c.grp || '', timing }; });
+  // 3. 號誌路口
+  const isecs = []; for (const [, k] of net.nodeIdx) { const o = P.order.get(k); if (o == null) continue; const [x, z] = net.nodeXY[k]; isecs.push({ o, x, z }); }
+  const deg = new Map(); for (const e of net.edges) for (const n of [e.a, e.b]) { const o = P.order.get(n); if (o != null) deg.set(o, (deg.get(o) || 0) + 1); }
+  const osmPts = []; for (const e of signalNodes.values()) { const k = P.order.get(net.nodeIdx.get(e.id)); if (k == null) continue; const [x, z] = proj(e.lat, e.lon); osmPts.push({ x, z, node: k, src: 'osm' }); }
+  const { signals, matched } = buildSignals(osmPts, isecs.filter(n => (deg.get(n.o) || 0) >= 3), tpPos, T);
   log(`號誌路口：${signals.length} 處（OSM 號誌節點 ${signalNodes.size}、臺北市位置 ${tpPos.length}；時制計畫 ${T.plans.size} 個路口，對到 ${matched}）`);
   { const ex = signals.find(x => x.timing && /忠孝/.test(x.name)) || signals.find(x => x.timing); if (ex) log('  範例：', JSON.stringify(ex).slice(0, 1200)); }
 
@@ -230,10 +251,11 @@ async function main() {
     stations: [...stByName].map(([name, ps]) => ({ name: name.replace(/站$/, ''), x: dm(ps.reduce((a, p) => a + p[0], 0) / ps.length), z: dm(ps.reduce((a, p) => a + p[1], 0) / ps.length) })) };
   if (!mrtR) Object.assign(mrt, await prevJSON('mrt.json', mrt)); log(`捷運：${mrt.lines.length} 條線、${mrt.stations.length} 站`); await w('mrt.json', mrt);
   // 建物分格：1 公里一格，座標存成這一格原點起算的 0.5 公尺整數
-  const TILE = 1000, tiles = new Map(); if (bld.length > 1000) { await rm(`${OUT}/bld`, { recursive: true, force: true }); } else log('建物太少（Overpass 失敗？），沿用上一次的建物格'); await mkdir(`${OUT}/bld`, { recursive: true });
+  /* 有分格沒抓到就整組沿用上一次的（第一次產生時例外），免得那一區的建物不見 */
+  const TILE = 1000, tiles = new Map(), bOK = bld.length > 1000 && (!bFail || !existsSync(`${OUT}/bld/index.json`)); if (bOK) { await rm(`${OUT}/bld`, { recursive: true, force: true }); } else log(`建物沒抓齊（${bFail} 格失敗、${bld.length} 棟），沿用上一次的建物格`); await mkdir(`${OUT}/bld`, { recursive: true });
   for (const b of bld) { const tx = Math.floor(b.cx / TILE), tz = Math.floor(b.cz / TILE), k = tx + '_' + tz; let T = tiles.get(k); if (!T) tiles.set(k, T = { o: [tx * TILE, tz * TILE], b: [] }); T.b.push([b.h, ...b.r.slice(0, -1).flatMap(([x, z]) => [Math.round((x - T.o[0]) * 2), Math.round((z - T.o[1]) * 2)])]); }
-  if (bld.length > 1000) { for (const [k, T] of tiles) await writeFile(`${OUT}/bld/${k}.json`, JSON.stringify(T));
+  if (bOK) { for (const [k, T] of tiles) await writeFile(`${OUT}/bld/${k}.json`, JSON.stringify(T));
   await w('bld/index.json', { size: TILE, unit: 0.5, tiles: Object.fromEntries([...tiles].map(([k, T]) => [k, T.b.length])) }); meta.counts.buildings = bld.length; meta.counts.buildingTiles = tiles.size; } meta.counts.mrtStations = mrt.stations.length;
   await w('meta.json', meta); await w('net-main.json', P.main); await w('net-minor.json', P.minor); await w('signals.json', { signals }); await w('water.json', { polys: waterP }); await w('green.json', { polys: greenP });
   log('完成', JSON.stringify(meta.counts)); }
-main().catch(e => { console.error(e); process.exit(1); });
+(process.argv.includes('--signals-only') ? signalsOnly() : main()).catch(e => { console.error(e); process.exit(1); });
