@@ -1,12 +1,13 @@
 // 台北車流模擬的資料：在 GitHub Actions 上跑（.github/workflows/traffic-data.yml），結果寫進 traffic/data/。
 // 來源：OpenStreetMap（Overpass API：道路、號誌節點、河川、綠地、行政區）、政府資料開放平臺的臺北市號誌位置（121890）與路口號誌時制計畫（145720）。
 // 座標：以台北車站附近為原點的平面公尺（x 向東、z 向南），存成公寸整數（0.1 m）省空間。
-// 輸出：meta.json、net-main.json（快速道路～三級路）、net-minor.json（巷弄）、signals.json、water.json、green.json；raw/ 留臺北市原始檔方便對欄位。
+// 輸出：meta.json、net-main.json（快速道路～三級路）、net-minor.json（巷弄）、signals.json、water.json、green.json。
+// 臺北市原始檔很大（時制兩個 JSON 共約 60 MB，超過 Cloudflare Pages 單檔 25 MB 上限），只放在 RAW_DIR（預設 /tmp），repo 裡的 raw/ 只留 CSV 與每個 JSON 的前幾筆樣本。
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 const CACHE = process.env.TRAFFIC_CACHE || ''; // 有設的話 Overpass 結果存在這個資料夾，下次直接讀（重跑、本機測試用）
 
-const OUT = 'traffic/data', RAW = OUT + '/raw';
+const OUT = 'traffic/data', SAMPLE = OUT + '/raw', RAW = process.env.RAW_DIR || '/tmp/traffic-raw';
 const UA = 'taipei-hold-the-line traffic data builder (github.com/alexktchen/taipei-hold-the-line)';
 const OVERPASS = (process.env.OVERPASS_URLS || 'https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter,https://overpass.private.coffee/api/interpreter').split(',');
 const ORIGIN = { lat: 25.0478, lon: 121.5170 }; // 台北車站
@@ -19,16 +20,17 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── 下載 ──
-async function overpass(query, label) {
+async function overpass(query, label, minCount = 1) {
   const cf = CACHE && `${CACHE}/${label}.json`; if (cf && existsSync(cf)) { const j = JSON.parse(await readFile(cf, 'utf8')); log(`Overpass ${label}：讀快取 ${j.elements.length} 筆`); return j.elements; }
-  const els = await overpassFetch(query, label); if (cf) { await mkdir(CACHE, { recursive: true }); await writeFile(cf, JSON.stringify({ elements: els })); } return els; }
-async function overpassFetch(query, label) {
+  const els = await overpassFetch(query, label, minCount); if (cf) { await mkdir(CACHE, { recursive: true }); await writeFile(cf, JSON.stringify({ elements: els })); } return els; }
+// 有的鏡像站會回空結果（沒有錯誤訊息）：少於 minCount 筆就當失敗、換下一個
+async function overpassFetch(query, label, minCount) {
   for (let round = 0; round < 3; round++) for (const url of OVERPASS) {
     try { log(`Overpass ${label} ← ${url}`); const t = Date.now();
       const res = await fetch(url, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(900_000) });
       if (!res.ok) { log(`  HTTP ${res.status}`); await sleep(15000); continue; }
       const txt = await res.text(); const j = JSON.parse(txt); if (j.remark && /error|runtime/i.test(j.remark)) { log('  remark:', j.remark.slice(0, 200)); await sleep(15000); continue; }
-      log(`  ${(txt.length / 1e6).toFixed(1)} MB、${j.elements.length} 筆、${((Date.now() - t) / 1000).toFixed(0)} 秒`); return j.elements; }
+      log(`  ${(txt.length / 1e6).toFixed(1)} MB、${j.elements.length} 筆、${((Date.now() - t) / 1000).toFixed(0)} 秒`); if (j.elements.length < minCount) { log('  筆數太少，換一個'); await sleep(10000); continue; } return j.elements; }
     catch (e) { log('  失敗：', e.message); await sleep(15000); } }
   throw new Error('Overpass 全部失敗：' + label); }
 async function getBuf(url) { const res = await fetch(url, { headers: { 'User-Agent': UA }, redirect: 'follow', signal: AbortSignal.timeout(300_000) }); if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`); return Buffer.from(await res.arrayBuffer()); }
@@ -36,6 +38,7 @@ async function getBuf(url) { const res = await fetch(url, { headers: { 'User-Age
 function decodeText(buf) { let s = new TextDecoder('utf-8').decode(buf); if ((s.match(/�/g) || []).length > 3) s = new TextDecoder('big5').decode(buf); return s.replace(/^﻿/, ''); }
 // 政府資料開放平臺的資料集：先讀 API 拿到每個檔案的下載網址，再下載；原始檔留在 raw/
 async function govDataset(id) {
+  if (process.env.GOV_DIR) { const { readdir } = await import('node:fs/promises'); const out = []; for (const name of (await readdir(process.env.GOV_DIR)).filter(n => n.startsWith(id + '-') && /\.(json|csv)$/.test(n) && !/meta|sample/.test(n)).sort()) { const buf = await readFile(`${process.env.GOV_DIR}/${name}`); out.push({ name, ext: name.split('.').pop(), text: decodeText(buf) }); } log(`資料集 ${id}：讀本機 ${out.length} 個檔案`); return out; } // 本機測試用
   const meta = JSON.parse(decodeText(await getBuf(`https://data.gov.tw/api/v2/rest/dataset/${id}`)));
   const files = [], seen = new Set();
   const walk = (o) => { if (Array.isArray(o)) return o.forEach(walk); if (!o || typeof o !== 'object') return;
@@ -46,13 +49,15 @@ async function govDataset(id) {
   log(`資料集 ${id}：${(meta.result && (meta.result.title || meta.result.datasetName)) || ''}，${files.length} 個檔案`, files.map(f => f.fmt).join(','));
   const out = [];
   for (const [k, f] of files.entries()) { try { const buf = await getBuf(f.url); const ext = /JSON/.test(f.fmt) ? 'json' : /CSV/.test(f.fmt) ? 'csv' : /XML/.test(f.fmt) ? 'xml' : 'bin';
-      const name = `${id}-${k}.${ext}`; await writeFile(`${RAW}/${name}`, buf); log(`  ${name} ${(buf.length / 1024).toFixed(0)} KB`); out.push({ ...f, name, ext, text: ext === 'bin' ? '' : decodeText(buf) }); }
+      const name = `${id}-${k}.${ext}`, text = ext === 'bin' ? '' : decodeText(buf); await writeFile(`${RAW}/${name}`, buf); log(`  ${name} ${(buf.length / 1024).toFixed(0)} KB`);
+      if (ext === 'csv' && buf.length < 2e6) await writeFile(`${SAMPLE}/${name}`, buf); else if (ext === 'json') { try { const j = JSON.parse(text), arr = Array.isArray(j) ? j : Object.values(j).find(Array.isArray) || []; await writeFile(`${SAMPLE}/${id}-${k}.sample.json`, JSON.stringify(arr.slice(0, 5), null, 1)); } catch (e) {} }
+      out.push({ ...f, name, ext, text }); }
     catch (e) { log('  下載失敗', f.url, e.message); } }
-  await writeFile(`${RAW}/${id}-meta.json`, JSON.stringify(meta, null, 1)); return out; }
-function parseCSV(text) { const rows = []; let row = [], cur = '', q = false;
+  await writeFile(`${SAMPLE}/${id}-meta.json`, JSON.stringify(meta, null, 1)); return out; }
+function parseCSV(text) { const rows = []; let row = [], cur = '', q = false; const first = text.slice(0, text.indexOf('\n') + 1 || 2000), sep = (first.match(/\t/g) || []).length > (first.match(/,/g) || []).length ? '\t' : ','; // 臺北市號誌位置是 tab 分隔
   for (let i = 0; i < text.length; i++) { const c = text[i];
     if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
-    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; if (row.some(v => v !== '')) rows.push(row); row = []; } else cur += c; }
+    else if (c === '"') q = true; else if (c === sep) { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; if (row.some(v => v !== '')) rows.push(row); row = []; } else cur += c; }
   if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
   const head = (rows.shift() || []).map(h => h.trim()); return rows.map(r => Object.fromEntries(head.map((h, i) => [h, (r[i] || '').trim()]))); }
 
@@ -114,29 +119,41 @@ function packNet(net) {
   return { main: { ...pk(main, 0, nMain), names: net.names }, minor: pk(minor, nMain, xy.length), order, nMain }; }
 
 // ── 號誌 ──
-// 臺北市號誌位置：找經緯度欄位
+const rowsOf = f => { try { if (f.ext === 'csv') return parseCSV(f.text); const j = JSON.parse(f.text); return Array.isArray(j) ? j : Object.values(j).find(Array.isArray) || []; } catch (e) { log('  解析失敗', f.name, e.message); return []; } };
+const cleanName = s => String(s || '').trim().replace(/[\s　]+/g, '／'); // 「老泉街　　　　防汛道路」→「老泉街／防汛道路」
+// 號誌位置：121890（流水號、地點、行政區、WGS 經緯度）與 145720 的 CSV（icid、路口名稱、經緯度——有 icid 才對得到時制）
 function signalPositions(files) { const out = [];
-  for (const f of files) { if (f.ext !== 'csv' && f.ext !== 'json') continue; let rows = [];
-    try { rows = f.ext === 'csv' ? parseCSV(f.text) : (j => Array.isArray(j) ? j : (Object.values(j).find(Array.isArray) || []))(JSON.parse(f.text)); } catch (e) { continue; }
-    if (!rows.length) continue; const keys = Object.keys(rows[0]);
-    const kLon = keys.find(k => /經度|lon|lng|longitude|^x$|wgsx|px/i.test(k)), kLat = keys.find(k => /緯度|lat|latitude|^y$|wgsy|py/i.test(k)), kName = keys.find(k => /地點|路口|名稱|name|icname|location/i.test(k)), kDist = keys.find(k => /行政區|district/i.test(k)), kId = keys.find(k => /編號|代碼|icid|^id$|序號|流水號/i.test(k));
-    log(`  號誌位置 ${f.name}：${rows.length} 列，欄位 ${keys.join('|')} → lon=${kLon} lat=${kLat} name=${kName}`);
-    for (const r of rows) { let lon = parseFloat(r[kLon]), lat = parseFloat(r[kLat]); if (lat > 100 && lon < 100) [lat, lon] = [lon, lat]; if (!(lat > 24.8 && lat < 25.4 && lon > 121.3 && lon < 121.8)) continue; out.push({ id: kId ? r[kId] : '', name: kName ? r[kName] : '', dist: kDist ? r[kDist] : '', lat, lon }); } }
+  for (const f of files) { if (f.ext !== 'csv') continue; const rows = rowsOf(f); if (!rows.length) continue; const keys = Object.keys(rows[0]);
+    const kLon = keys.find(k => /經度|^lon|lng|longitude/i.test(k)), kLat = keys.find(k => /緯度|^lat|latitude/i.test(k)), kName = keys.find(k => /地點|路口名稱|icname/i.test(k)), kId = keys.find(k => /^icid$/i.test(k)), kDist = keys.find(k => /行政區/.test(k));
+    log(`  號誌位置 ${f.name}：${rows.length} 列，經度=${kLon} 緯度=${kLat} 名稱=${kName} 編號=${kId || '無'}`); if (!kLon || !kLat) continue;
+    for (const r of rows) { const lon = parseFloat(r[kLon]), lat = parseFloat(r[kLat]); if (!(lat > 24.8 && lat < 25.4 && lon > 121.3 && lon < 121.8)) continue; out.push({ id: kId ? r[kId] : '', name: kName ? cleanName(r[kName]) : '', dist: kDist ? r[kDist] : '', lat, lon }); } }
   return out; }
-// 路口號誌時制計畫：結構還不確定，先把每一筆整理成 { icid, icname, 其他欄位 }，並在 log 印出樣本
-function timingPlans(files) { const recs = [];
-  for (const f of files) { if (f.ext !== 'json' && f.ext !== 'csv') continue; let list = [];
-    try { if (f.ext === 'csv') list = parseCSV(f.text); else { const j = JSON.parse(f.text); const find = o => Array.isArray(o) ? o : o && typeof o === 'object' ? Object.values(o).map(find).find(a => a && a.length) : null; list = find(j) || []; } } catch (e) { log('  時制解析失敗', f.name, e.message); continue; }
-    log(`  時制 ${f.name}：${list.length} 筆，第一筆：`, JSON.stringify(list[0]).slice(0, 1500)); recs.push(...list); }
-  return recs; }
-const norm = s => String(s || '').replace(/臺/g, '台').replace(/[\s　()（）]/g, '');
+// 時制：145720 的兩個 JSON。一個是每個路口每種日型的時段表（segmenttype 1～7，當成週一～週日；subsegment：幾點幾分起用第幾號計畫），
+// 一個是每個路口的各號時制計畫（cycletime 週期、offset 時差、direction 第一時相的方向〔0/2/4/6＝北東南西〕、subplan 各時相的綠黃全紅秒數）。
+// 時相合成「階段」：黃燈 0 的時相是接到下一個時相的前導或延續，遇到有黃燈的才算一個階段結束。
+function timingTables(files) { const sched = new Map(), plans = new Map(); const pidOf = r => +(r['planid（SeqNo）'] ?? r['planid(SeqNo)'] ?? r.planid ?? r.SeqNo);
+  for (const f of files) { if (f.ext !== 'json') continue; const rows = rowsOf(f); log(`  時制 ${f.name}：${rows.length} 筆`);
+    for (const r of rows) { const id = r.icid; if (!id) continue;
+      if (Array.isArray(r.subsegment)) { const st = +r.segmenttype; if (!(st >= 1 && st <= 7)) continue; let m = sched.get(id); if (!m) sched.set(id, m = {});
+        m[st] = r.subsegment.map(x => { const tm = String(x.time || '').padStart(4, '0'); return [+tm.slice(0, 2) * 60 + +tm.slice(2, 4), pidOf(x)]; }).filter(a => Number.isFinite(a[0]) && Number.isFinite(a[1])).sort((a, b) => a[0] - b[0]); }
+      else if (Array.isArray(r.subplan)) { const pid = pidOf(r), C = +r.cycletime; if (!(C >= 20 && C <= 300) || !Number.isFinite(pid)) continue;
+        const stages = []; let g = 0;
+        for (const p of r.subplan.slice().sort((x, y) => x.subphaseid - y.subphaseid)) { const y = +p.yellow || 0, ar = +p.allred || 0; g += (+p.green || 0) + (y ? 0 : ar); if (y > 0) { stages.push([g, y, ar]); g = 0; } }
+        if (g > 0) { if (stages.length) stages[stages.length - 1][0] += g; else stages.push([g, 0, 0]); } if (!stages.length) continue;
+        const lost = stages.reduce((a, x) => a + x[1] + x[2], 0), grn = stages.reduce((a, x) => a + x[0], 0); if (grn + lost !== C && grn > 0) { const k = (C - lost) / grn; for (const x of stages) x[0] = Math.max(1, Math.round(x[0] * k)); } // 總和對不上週期就照比例調綠燈
+        let m = plans.get(id); if (!m) plans.set(id, m = {}); m[pid] = [C, +r.offset || 0, +r.direction || 0, stages]; } } }
+  return { sched, plans }; }
+// 一個路口的時制打包：days＝不重複的時段表，dmap＝週一～週日各用哪一個，plans＝各號計畫
+function packTiming(id, T) { const S = T.sched.get(id), P = T.plans.get(id); if (!P) return null; const days = [], dmap = [];
+  for (let d = 1; d <= 7; d++) { const s = S && S[d]; if (!s || !s.length) { dmap.push(-1); continue; } const k = JSON.stringify(s); let i = days.findIndex(x => JSON.stringify(x) === k); if (i < 0) { i = days.length; days.push(s); } dmap.push(i); }
+  return { days, dmap, plans: P }; }
 
 async function main() {
-  await mkdir(RAW, { recursive: true });
+  await mkdir(RAW, { recursive: true }); await mkdir(SAMPLE, { recursive: true });
   // 1. 道路、號誌節點、市界、行政區
   const area = 'area["ISO3166-2"="TW-TPE"]->.tp;';
-  const roads = await overpass(`[out:json][timeout:900][maxsize:2000000000];${area}way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service)$"](area.tp);out body geom qt;`, '道路');
-  const sigEls = await overpass(`[out:json][timeout:300];${area}node["highway"="traffic_signals"](area.tp);out body qt;`, '號誌節點');
+  const roads = await overpass(`[out:json][timeout:900][maxsize:2000000000];${area}way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service)$"](area.tp);out body geom qt;`, '道路', 5000);
+  const sigEls = await overpass(`[out:json][timeout:300];node["highway"="traffic_signals"](${BBOX});out body qt;`, '號誌節點', 200);
   const bound = await overpass(`[out:json][timeout:300];relation["ISO3166-2"="TW-TPE"];out geom;`, '市界');
   const dists = await overpass(`[out:json][timeout:300];${area}relation["boundary"="administrative"]["name"~"區$"](area.tp);out geom;`, '行政區');
   const water = await overpass(`[out:json][timeout:600];(way["natural"="water"](${BBOX});relation["natural"="water"](${BBOX});way["waterway"="riverbank"](${BBOX});relation["waterway"="riverbank"](${BBOX}););out geom qt;`, '河川水域');
@@ -150,7 +167,7 @@ async function main() {
   let posFiles = [], planFiles = [];
   try { posFiles = await govDataset(121890); } catch (e) { log('號誌位置下載失敗', e.message); }
   try { planFiles = await govDataset(145720); } catch (e) { log('時制計畫下載失敗', e.message); }
-  const tpPos = signalPositions(posFiles), plans = timingPlans(planFiles);
+  const tpPos = signalPositions([...planFiles, ...posFiles]), T = timingTables(planFiles); // 有 icid 的位置（時制的 CSV）排前面，聚類時編號會留在路口上
 
   // 3. 號誌路口：OSM 號誌節點與臺北市號誌位置，30 公尺內的聚成一個路口（雙向分隔的大路口常有好幾個號誌節點）
   const pts = [];
@@ -168,12 +185,12 @@ async function main() {
   for (const c of ctrls) { if (c.nodes.size) continue; const cx = Math.floor(c.x / cell), cz = Math.floor(c.z / cell); let best = null, bd = 35;
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const n of ngrid.get((cx + dx) + ',' + (cz + dz)) || []) { const d = Math.hypot(n.x - c.x, n.z - c.z); if (d < bd) { bd = d; best = n; } }
     if (best) c.nodes.add(best.o); }
-  // 時制計畫：先用編號對，再用路口名稱對（正規化後）
-  const planBy = new Map(); for (const r of plans) { const id = r.icid || r.ICID || r.IcId || r.id; const nm2 = norm(r.icname || r.ICNAME || r.IcName || r.name); if (id) planBy.set('id:' + id, r); if (nm2) planBy.set('nm:' + nm2, r); }
+  // 時制計畫：用 icid 對
   let matched = 0;
-  const signals = ctrls.filter(c => c.nodes.size).map((c, i) => { const plan = c.ids.map(id => planBy.get('id:' + id)).find(Boolean) || c.names.map(n => planBy.get('nm:' + norm(n))).find(Boolean) || null; if (plan) matched++;
-    return { i, x: dm(c.x), z: dm(c.z), nodes: [...c.nodes], src: [...c.src], ids: [...new Set(c.ids)].slice(0, 4), name: c.names[0] || '', plan }; });
-  log(`號誌路口：${signals.length} 處（OSM 節點 ${signalNodes.size}、臺北市位置 ${tpPos.length}；對到時制 ${matched}）`);
+  const signals = ctrls.filter(c => c.nodes.size).map((c, i) => { const id = c.ids.find(x => T.plans.has(x)) || c.ids[0] || ''; const timing = id ? packTiming(id, T) : null; if (timing) matched++;
+    return { i, x: dm(c.x), z: dm(c.z), nodes: [...c.nodes], src: [...c.src], id, name: c.names[0] || '', timing }; });
+  log(`號誌路口：${signals.length} 處（OSM 號誌節點 ${signalNodes.size}、臺北市位置 ${tpPos.length}；時制計畫 ${T.plans.size} 個路口，對到 ${matched}）`);
+  { const ex = signals.find(x => x.timing && /忠孝/.test(x.name)) || signals.find(x => x.timing); if (ex) log('  範例：', JSON.stringify(ex).slice(0, 1200)); }
 
   // 4. 市界、行政區、水域、綠地
   const bRings = bound.filter(e => e.type === 'relation').flatMap(e => rings(e.members).outer).sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)));
@@ -181,7 +198,7 @@ async function main() {
   const waterP = polys(water, 4, 400), greenP = polys(green, 6, 1500);
   const xs = P.main.nodes.filter((_, i) => i % 2 === 0), zs = P.main.nodes.filter((_, i) => i % 2 === 1);
   const meta = { origin: ORIGIN, kx: KX, kz: KZ, unit: 0.1, bbox: [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)], boundary: bRings[0] ? packRing(bRings[0], 10) : null, districts,
-    counts: { nodes: P.order.size, mainEdges: P.main.edges.length, minorEdges: P.minor.edges.length, signals: signals.length, signalsWithPlan: matched, tpPositions: tpPos.length, osmSignals: signalNodes.size, plans: plans.length, water: waterP.length, green: greenP.length },
+    counts: { nodes: P.order.size, mainEdges: P.main.edges.length, minorEdges: P.minor.edges.length, signals: signals.length, signalsWithPlan: matched, tpPositions: tpPos.length, osmSignals: signalNodes.size, timingIntersections: T.plans.size, water: waterP.length, green: greenP.length },
     generated: new Date().toISOString(),
     sources: ['© OpenStreetMap contributors（ODbL）', '臺北市號誌位置（臺北市交通管制工程處，政府資料開放授權條款第 1 版）', '臺北市路口號誌時制計畫（臺北市政府交通局，政府資料開放授權條款第 1 版）'] };
   const w = (f, o) => writeFile(`${OUT}/${f}`, JSON.stringify(o)).then(() => log(`寫出 ${f}`));
