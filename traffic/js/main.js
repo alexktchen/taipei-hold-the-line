@@ -10,6 +10,7 @@ import { createCars, createLamps } from './view.js';
 import { createMarkings } from './markings.js';
 import { createDiag } from './diag.js';
 import { createStory } from './story.js';
+import { loadBldIndex, createOsmBuildings, createMrt } from './osm.js';
 
 const $ = id => document.getElementById(id), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const DATA = 'data/', TOUCH = matchMedia('(pointer:coarse)').matches, ld = msg => { $('ldMsg').textContent = msg; };
@@ -27,8 +28,8 @@ function look(x, z, dist, pol = 0.62, instant = false) { const tgt = new THREE.V
   if (instant) { controls.target.copy(tgt); camera.position.copy(tgt).add(off); return; } fly = { t: 0, ft: controls.target.clone(), fp: camera.position.clone(), tt: tgt, tp: tgt.clone().add(off) }; }
 
 // ── 狀態 ──
-const net = createNet(); let meta, sigData, roads, sig, sim, cars, lamps, ground, buildings, grid, diag, story, masked = () => false;
-const layer = { flow: true, signals: true, cars: true, buildings: true, names: true }; let speed = 1;
+const net = createNet(); let meta, sigData, roads, sig, sim, cars, lamps, ground, buildings, osmB = null, mrt = null, grid, diag, story, masked = () => false;
+const layer = { flow: true, signals: true, cars: true, buildings: true, names: true, mrt: true }; let speed = 1;
 const taipeiWeekday = () => { const d = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Taipei', weekday: 'short' }).format(new Date()); return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(d) + 1; }; // 1～7＝週一～週日
 const taipeiNow = () => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date()); const g = k => +p.find(x => x.type === k).value; return g('hour') * 3600 + g('minute') * 60 + g('second'); };
 
@@ -48,6 +49,9 @@ async function boot() {
   controls.addEventListener('start', () => story.stopDirector()); // 自己動鏡頭就離開導播
   const c = ground.center; look(c.x, c.z + 1500, 30000, 0.55, true);
   setupLabels(); renderStats(); buildUI();
+  // 真實建物輪廓（有的話取代示意建築）與捷運：資料流程產生了才有，沒有就維持原樣
+  loadBldIndex(DATA).then(idx => { if (!idx) return; osmB = createOsmBuildings(scene, idx, DATA, renderer); if (buildings) buildings.update(0, 0, 0, false); buildings = false; renderStats(); });
+  fetchJSON(DATA + 'mrt.json').then(m => { if (!m || !m.lines || !m.lines.length) return; mrt = createMrt(scene, m); addMrtLabels(mrt.stations); }).catch(() => {});
   $('loading').classList.add('done'); setTimeout(() => $('loading').remove(), 500);
   try { if (!localStorage.getItem('pi-traffic-help')) { $('help').hidden = false; localStorage.setItem('pi-traffic-help', '1'); } } catch (e) {}
   // 巷弄背景載入：接上道路圖、重算號誌路口、重排車子出現的地方
@@ -63,11 +67,12 @@ function setupLabels() { const add = (txt, x, z, cls, min, max, prio) => { const
   for (const d of meta.districts || []) add(d.name, d.x * 0.1, d.z * 0.1, 'district', 3500, 1e9, 3);
   const lat = 25.03362, lon = 121.56461; add('台北 101', (lon - meta.origin.lon) * meta.kx, -(lat - meta.origin.lat) * meta.kz, 'mark', 0, 1e9, 4);
   // 路名：同名的路每 900 公尺最多一個
-  const byName = new Map(); for (const e of net.edges) { if (e.cls > 3 || e.name < 0 || e.len < 120 || e.lv < 0) continue; const nm = net.names[e.name]; if (!byName.has(nm)) byName.set(nm, []); byName.get(nm).push(e); }
+  const byName = new Map(); for (const e of net.edges) { if (e.cls > 3 || e.name < 0 || e.len < 120 || e.lv < 0) continue; const nm = net.names[e.name]; if (/匝道|引道|出口|入口/.test(nm)) continue; /* 匝道名稱太多會蓋掉真正的路名 */ if (!byName.has(nm)) byName.set(nm, []); byName.get(nm).push(e); }
   for (const [nm, es] of byName) { const placed = []; es.sort((a, b) => b.len - a.len); for (const e of es) { const k = Math.floor(e.pts.length / 4) * 2, x = e.pts[k], z = e.pts[k + 1]; if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 900)) continue; placed.push([x, z]); add(nm, x, z, 'road', 0, e.cls <= 2 ? 9000 : 4500, e.cls <= 2 ? 2 : 1); } } }
 const v3 = new THREE.Vector3();
+function addMrtLabels(stations) { for (const st of stations) { const el = document.createElement('div'); el.className = 'lbl mrt'; el.innerHTML = st.colors.map(c => `<i style="background:${c}"></i>`).join('') + esc(st.name); labelEl.appendChild(el); labels.push({ el, p: new THREE.Vector3(st.x, 0, st.z), min: 0, max: 12000, prio: 2.5, w: 0, h: 0, kind: 'mrt' }); } }
 function updateLabels(dist) { const w = stage.clientWidth, h = stage.clientHeight, boxes = []; const vis = [];
-  for (const L of labels) { const on = dist >= L.min && dist <= L.max && (layer.names || L.el.classList.contains('district')); if (!on) { L.el.style.display = 'none'; continue; } v3.copy(L.p).project(camera); if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1) { L.el.style.display = 'none'; continue; } L.sx = (v3.x + 1) / 2 * w; L.sy = (1 - v3.y) / 2 * h; vis.push(L); }
+  for (const L of labels) { const on = dist >= L.min && dist <= L.max && (L.kind === 'mrt' ? layer.mrt : layer.names || L.el.classList.contains('district')); if (!on) { L.el.style.display = 'none'; continue; } v3.copy(L.p).project(camera); if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1) { L.el.style.display = 'none'; continue; } L.sx = (v3.x + 1) / 2 * w; L.sy = (1 - v3.y) / 2 * h; vis.push(L); }
   vis.sort((a, b) => b.prio - a.prio); let n = 0;
   for (const L of vis) { L.el.style.display = ''; if (!L.w) { L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; } const b = [L.sx - L.w / 2 - 4, L.sy - L.h / 2 - 3, L.sx + L.w / 2 + 4, L.sy + L.h / 2 + 3];
     if (n > 60 || boxes.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1])) { L.el.style.display = 'none'; continue; } boxes.push(b); n++; L.el.style.transform = `translate(${(L.sx - L.w / 2).toFixed(1)}px,${(L.sy - L.h / 2).toFixed(1)}px)`; } }
@@ -134,7 +139,7 @@ let dist = 30000; const roadVisible = cls => cls <= 2 || (cls <= 4 ? dist < 1600
 function lod() { dist = camera.position.distanceTo(controls.target);
   roads.setVisible(0, true); roads.setVisible(1, true); roads.setVisible(2, dist < 16000); roads.setVisible(3, dist < 5500);
   if (ground) ground.districtLines.visible = dist > 2500;
-  cars.visible = layer.cars && dist < 9000; lamps.lamp.visible = layer.signals && dist < 7000; lamps.pole.visible = layer.signals && dist < 1500; }
+  cars.visible = layer.cars && dist < 9000; lamps.lamp.visible = layer.signals && dist < 4000; lamps.pole.visible = layer.signals && dist < 1500; if (mrt) mrt.visible = layer.mrt && dist > 1500; } // 捷運線拉近就讓給道路（地下段畫在路上會誤會），車站名稱還在
 
 // ── 主迴圈 ──
 let last = performance.now(), acc = 0, uiT = 0, flowT = 0, bT = 0, mT = 0;
@@ -149,9 +154,11 @@ function frame(now) { const raw = Math.min(0.1, (now - last) / 1000); last = now
   flowT += raw; if (flowT > 0.5) { flowT = 0; roads.updateFlow(layer.flow, sim.t); }
   shared.uClose.value = Math.min(1, Math.max(0, (1800 - dist) / 1100)); // 1800 公尺以內慢慢變成柏油路
   mT += raw; if (!marks && grid) marks = createMarkings(scene, net, grid); if (marks && mT > 0.25) { mT = 0; marks.update(tg.x, tg.z, Math.min(900, dist * 1.6), dist < 1300); }
-  bT += raw; if (bT > 0.25 && buildings !== false) { bT = 0; if (!buildings && masked) buildings = createBuildings(scene, net, grid, masked); if (buildings) buildings.update(tg.x, tg.z, 1300, layer.buildings && dist < 2600); }
+  bT += raw; if (bT > 0.25) { bT = 0; const on = layer.buildings && dist < 2600;
+    if (osmB) osmB.update(tg.x, tg.z, TOUCH ? 700 : 1100, on); else if (buildings !== false) { if (!buildings && masked) buildings = createBuildings(scene, net, grid, masked); if (buildings) buildings.update(tg.x, tg.z, 1300, on); } }
+  if (osmB) osmB.work(TOUCH ? 3 : 5); // 建物三角化分批做，一幀最多幾毫秒
   renderer.render(scene, camera); updateLabels(dist);
   uiT += raw; if (uiT > 0.5) { uiT = 0; renderStats(); if (picked) renderInspect(); story.render(); story.cutIfIdle(); }
   requestAnimationFrame(frame); }
-window.TR = { get net() { return net; }, get sim() { return sim; }, get sig() { return sig; }, get diag() { return diag; }, get story() { return story; }, camera, controls, look, scene }; // 除錯用
+window.TR = { get net() { return net; }, get sim() { return sim; }, get sig() { return sig; }, get diag() { return diag; }, get story() { return story; }, get osmB() { return osmB; }, get mrt() { return mrt; }, camera, controls, look, scene }; // 除錯用
 boot().catch(e => { console.error(e); ld('載入失敗：' + e.message); });

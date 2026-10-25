@@ -65,6 +65,7 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} :focus-vi
 .lbl.district{font-size:15px;letter-spacing:.3em;color:#8a7768}
 .lbl.road{font-size:11px;font-weight:700;color:#4d4239;background:#fff8f4d9;border-radius:999px;padding:0 7px;text-shadow:none;box-shadow:0 1px 4px #78685e33}
 .lbl.mark{font-size:12px;background:var(--ink);color:#fff8f4;border-radius:999px;padding:1px 9px;text-shadow:none}
+.lbl.mrt{font-size:11px;font-weight:800;color:#2c2522;background:#fffdfb;border:1.5px solid #2c2522;border-radius:999px;padding:0 7px 0 4px;text-shadow:none;display:flex;align-items:center;gap:2px;box-shadow:0 1px 4px #78685e40} .lbl.mrt i{display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 1.5px #fff}
 
 /* 說明、資料還沒好 */
 .overlay{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:#211d1d55;padding:16px}
