@@ -4,7 +4,7 @@
 // 輸出：meta.json、net-main.json（快速道路～三級路）、net-minor.json（巷弄）、signals.json、water.json、green.json、mrt.json（捷運路線與車站）、bld/（建物輪廓，1 公里一格）。
 // 臺北市原始檔很大（時制兩個 JSON 共約 60 MB，超過 Cloudflare Pages 單檔 25 MB 上限），只放在 RAW_DIR（預設 /tmp），repo 裡的 raw/ 只留 CSV 與每個 JSON 的前幾筆樣本。
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 const CACHE = process.env.TRAFFIC_CACHE || ''; // 有設的話 Overpass 結果存在這個資料夾，下次直接讀（重跑、本機測試用）
 
 const OUT = 'traffic/data', SAMPLE = OUT + '/raw', RAW = process.env.RAW_DIR || '/tmp/traffic-raw';
@@ -21,18 +21,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── 下載 ──
 async function overpass(query, label, minCount = 1) {
-  const cf = CACHE && `${CACHE}/${label}.json`; if (cf && existsSync(cf)) { const j = JSON.parse(await readFile(cf, 'utf8')); log(`Overpass ${label}：讀快取 ${j.elements.length} 筆`); return j.elements; }
+  // 快取（GitHub Actions 會把這個資料夾留到下一次）：6 天內的直接用，Overpass 大塞車時失敗的那一輪也不用整個重抓
+  const cf = CACHE && `${CACHE}/${label}.json`; if (cf && existsSync(cf) && Date.now() - statSync(cf).mtimeMs < (+process.env.TRAFFIC_CACHE_DAYS || 6) * 864e5) { const j = JSON.parse(await readFile(cf, 'utf8')); log(`Overpass ${label}：讀快取 ${j.elements.length} 筆`); return j.elements; }
   const els = await overpassFetch(query, label, minCount); if (cf) { await mkdir(CACHE, { recursive: true }); await writeFile(cf, JSON.stringify({ elements: els })); } return els; }
 // 有的鏡像站會回空結果（沒有錯誤訊息）：少於 minCount 筆就當失敗、換下一個
 async function overpassFetch(query, label, minCount) {
-  for (let round = 0; round < 3; round++) for (const url of OVERPASS) {
+  for (let round = 0; round < 4; round++) { if (round) { log(`  第 ${round + 1} 輪，先等 ${30 * 2 ** round} 秒`); await sleep(30000 * 2 ** round); } for (const url of OVERPASS) {
     try { log(`Overpass ${label} ← ${url}`); const t = Date.now();
       const res = await fetch(url, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(900_000) });
       if (!res.ok) { log(`  HTTP ${res.status}`); await sleep(15000); continue; }
       const txt = await res.text(); const j = JSON.parse(txt); if (j.remark && /error|runtime/i.test(j.remark)) { log('  remark:', j.remark.slice(0, 200)); await sleep(15000); continue; }
       log(`  ${(txt.length / 1e6).toFixed(1)} MB、${j.elements.length} 筆、${((Date.now() - t) / 1000).toFixed(0)} 秒`); if (j.elements.length < minCount) { log('  筆數太少，換一個'); await sleep(10000); continue; } return j.elements; }
-    catch (e) { log('  失敗：', e.message); await sleep(15000); } }
+    catch (e) { log('  失敗：', e.message); await sleep(15000); } } }
   throw new Error('Overpass 全部失敗：' + label); }
+// 非必要的圖層（水域、綠地、捷運…）：抓不到就沿用上一次的成品，不讓整個流程失敗
+async function optional(label, fn, fallback) { try { return await fn(); } catch (e) { log(`${label}抓不到（${e.message}），沿用上一次的`); return fallback(); } }
+const prevJSON = async (f, d) => { try { return JSON.parse(await readFile(`${OUT}/${f}`, 'utf8')); } catch (e) { return d; } };
 async function getBuf(url) { const res = await fetch(url, { headers: { 'User-Agent': UA }, redirect: 'follow', signal: AbortSignal.timeout(300_000) }); if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`); return Buffer.from(await res.arrayBuffer()); }
 // 中文 CSV 常是 Big5：UTF-8 解出亂碼（替代字元）就改用 Big5
 function decodeText(buf) { let s = new TextDecoder('utf-8').decode(buf); if ((s.match(/�/g) || []).length > 3) s = new TextDecoder('big5').decode(buf); return s.replace(/^﻿/, ''); }
@@ -156,12 +160,12 @@ async function main() {
   const roads = await overpass(`[out:json][timeout:900][maxsize:2000000000];${area}way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service)$"](area.tp);out body geom qt;`, '道路', 5000);
   const sigEls = await overpass(`[out:json][timeout:300];node["highway"="traffic_signals"](${BBOX});out body qt;`, '號誌節點', 200);
   const bound = await overpass(`[out:json][timeout:300];relation["ISO3166-2"="TW-TPE"];out geom;`, '市界');
-  const dists = await overpass(`[out:json][timeout:300];${area}relation["boundary"="administrative"]["name"~"區$"](area.tp);out geom;`, '行政區');
-  const water = await overpass(`[out:json][timeout:600];(way["natural"="water"](${BBOX});relation["natural"="water"](${BBOX});way["waterway"="riverbank"](${BBOX});relation["waterway"="riverbank"](${BBOX}););out geom qt;`, '河川水域');
-  const green = await overpass(`[out:json][timeout:600];(way["leisure"="park"](${BBOX});relation["leisure"="park"](${BBOX});way["landuse"~"^(forest|grass|recreation_ground|meadow)$"](${BBOX});relation["landuse"~"^(forest|grass|recreation_ground)$"](${BBOX});way["natural"~"^(wood|scrub)$"](${BBOX});relation["natural"~"^(wood|scrub)$"](${BBOX}););out geom qt;`, '綠地');
+  const dists = await optional('行政區', () => overpass(`[out:json][timeout:300];${area}relation["boundary"="administrative"]["name"~"區$"](area.tp);out geom;`, '行政區'), () => []);
+  const water = await optional('河川水域', () => overpass(`[out:json][timeout:600];(way["natural"="water"](${BBOX});relation["natural"="water"](${BBOX});way["waterway"="riverbank"](${BBOX});relation["waterway"="riverbank"](${BBOX}););out geom qt;`, '河川水域', 50), () => null);
+  const green = await optional('綠地', () => overpass(`[out:json][timeout:600];(way["leisure"="park"](${BBOX});relation["leisure"="park"](${BBOX});way["landuse"~"^(forest|grass|recreation_ground|meadow)$"](${BBOX});relation["landuse"~"^(forest|grass|recreation_ground)$"](${BBOX});way["natural"~"^(wood|scrub)$"](${BBOX});relation["natural"~"^(wood|scrub)$"](${BBOX}););out geom qt;`, '綠地', 200), () => null);
 
-  const mrtR = await overpass(`[out:json][timeout:300];relation["route"="subway"](${BBOX});out geom;`, '捷運路線', 3);
-  const mrtS = await overpass(`[out:json][timeout:300];(node["railway"="station"]["station"="subway"](${BBOX});node["public_transport"="station"]["subway"="yes"](${BBOX}););out body;`, '捷運車站', 20);
+  const mrtR = await optional('捷運路線', () => overpass(`[out:json][timeout:300];relation["route"="subway"](${BBOX});out geom;`, '捷運路線', 3), () => null);
+  const mrtS = await optional('捷運車站', () => overpass(`[out:json][timeout:300];(node["railway"="station"]["station"="subway"](${BBOX});node["public_transport"="station"]["subway"="yes"](${BBOX}););out body;`, '捷運車站', 20), () => []);
   const tpRing = bound.filter(e => e.type === 'relation').flatMap(e => rings(e.members).outer).sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0] || null;
   // 建物：範圍切 4×4 分批抓（一次抓全市容易逾時），用 way id 去重，只留中心點在市界內的
   const [bS, bW, bN, bE] = BBOX.split(',').map(Number), K = 4, bld = [], seenB = new Set();
@@ -209,7 +213,7 @@ async function main() {
   // 4. 市界、行政區、水域、綠地
   const bRings = bound.filter(e => e.type === 'relation').flatMap(e => rings(e.members).outer).sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)));
   const districts = dists.filter(e => e.type === 'relation' && DISTRICTS.includes(e.tags && e.tags.name)).map(e => { const r = rings(e.members).outer.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; if (!r) return null; let sx = 0, sz = 0; for (const [x, z] of r) { sx += x; sz += z; } return { name: e.tags.name, x: dm(sx / r.length), z: dm(sz / r.length), ring: packRing(r, 15) }; }).filter(Boolean);
-  const waterP = polys(water, 4, 400), greenP = polys(green, 6, 1500);
+  const waterP = water ? polys(water, 4, 400) : (await prevJSON('water.json', { polys: [] })).polys, greenP = green ? polys(green, 6, 1500) : (await prevJSON('green.json', { polys: [] })).polys;
   const xs = P.main.nodes.filter((_, i) => i % 2 === 0), zs = P.main.nodes.filter((_, i) => i % 2 === 1);
   const meta = { origin: ORIGIN, kx: KX, kz: KZ, unit: 0.1, bbox: [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)], boundary: bRings[0] ? packRing(bRings[0], 10) : null, districts,
     counts: { nodes: P.order.size, mainEdges: P.main.edges.length, minorEdges: P.minor.edges.length, signals: signals.length, signalsWithPlan: matched, tpPositions: tpPos.length, osmSignals: signalNodes.size, timingIntersections: T.plans.size, water: waterP.length, green: greenP.length },
@@ -218,18 +222,18 @@ async function main() {
   const w = (f, o) => writeFile(`${OUT}/${f}`, JSON.stringify(o)).then(() => log(`寫出 ${f}`));
   // 捷運：每條線（依 ref 或名稱）收集不重複的路段折線，顏色用 OSM 的 colour
   const MRT_COL = { R: '#e3002c', BL: '#0070bd', BR: '#c48c31', G: '#008659', O: '#f8b61c', Y: '#ffdb00' }, lines = new Map();
-  for (const r of mrtR) { if (r.type !== 'relation') continue; const t = r.tags || {}, ref = String(t.ref || '').replace(/\s/g, '') || t.name || 'MRT', key = ref.match(/^[A-Z]+/) ? ref.match(/^[A-Z]+/)[0] : ref; let L = lines.get(key);
+  for (const r of mrtR || []) { if (r.type !== 'relation') continue; const t = r.tags || {}, ref = String(t.ref || '').replace(/\s/g, '') || t.name || 'MRT', key = ref.match(/^[A-Z]+/) ? ref.match(/^[A-Z]+/)[0] : ref; let L = lines.get(key);
     if (!L) { L = { ref: key, name: String(t.name || '').replace(/[（(].*$/, '').replace(/\s*[:：].*$/, ''), color: t.colour || MRT_COL[key] || '#888888', ways: new Map() }; lines.set(key, L); }
     for (const m of r.members || []) if (m.type === 'way' && m.geometry && m.role !== 'platform' && !L.ways.has(m.ref)) L.ways.set(m.ref, m.geometry.map(g => proj(g.lat, g.lon))); }
   const stByName = new Map(); for (const n of mrtS) { const nm = n.tags && (n.tags.name || n.tags['name:zh']); if (!nm || n.lat == null) continue; const [x, z] = proj(n.lat, n.lon); const a = stByName.get(nm) || []; a.push([x, z]); stByName.set(nm, a); }
   const mrt = { lines: [...lines.values()].map(L => ({ ref: L.ref, name: L.name, color: L.color, segs: [...L.ways.values()].map(p => simplify(p, 3).flatMap(([x, z]) => [dm(x), dm(z)])) })),
     stations: [...stByName].map(([name, ps]) => ({ name: name.replace(/站$/, ''), x: dm(ps.reduce((a, p) => a + p[0], 0) / ps.length), z: dm(ps.reduce((a, p) => a + p[1], 0) / ps.length) })) };
-  log(`捷運：${mrt.lines.length} 條線、${mrt.stations.length} 站`); await w('mrt.json', mrt);
+  if (!mrtR) Object.assign(mrt, await prevJSON('mrt.json', mrt)); log(`捷運：${mrt.lines.length} 條線、${mrt.stations.length} 站`); await w('mrt.json', mrt);
   // 建物分格：1 公里一格，座標存成這一格原點起算的 0.5 公尺整數
-  await rm(`${OUT}/bld`, { recursive: true, force: true }); await mkdir(`${OUT}/bld`, { recursive: true }); const TILE = 1000, tiles = new Map();
+  const TILE = 1000, tiles = new Map(); if (bld.length > 1000) { await rm(`${OUT}/bld`, { recursive: true, force: true }); } else log('建物太少（Overpass 失敗？），沿用上一次的建物格'); await mkdir(`${OUT}/bld`, { recursive: true });
   for (const b of bld) { const tx = Math.floor(b.cx / TILE), tz = Math.floor(b.cz / TILE), k = tx + '_' + tz; let T = tiles.get(k); if (!T) tiles.set(k, T = { o: [tx * TILE, tz * TILE], b: [] }); T.b.push([b.h, ...b.r.slice(0, -1).flatMap(([x, z]) => [Math.round((x - T.o[0]) * 2), Math.round((z - T.o[1]) * 2)])]); }
-  for (const [k, T] of tiles) await writeFile(`${OUT}/bld/${k}.json`, JSON.stringify(T));
-  await w('bld/index.json', { size: TILE, unit: 0.5, tiles: Object.fromEntries([...tiles].map(([k, T]) => [k, T.b.length])) }); meta.counts.buildings = bld.length; meta.counts.buildingTiles = tiles.size; meta.counts.mrtStations = mrt.stations.length;
+  if (bld.length > 1000) { for (const [k, T] of tiles) await writeFile(`${OUT}/bld/${k}.json`, JSON.stringify(T));
+  await w('bld/index.json', { size: TILE, unit: 0.5, tiles: Object.fromEntries([...tiles].map(([k, T]) => [k, T.b.length])) }); meta.counts.buildings = bld.length; meta.counts.buildingTiles = tiles.size; } meta.counts.mrtStations = mrt.stations.length;
   await w('meta.json', meta); await w('net-main.json', P.main); await w('net-minor.json', P.minor); await w('signals.json', { signals }); await w('water.json', { polys: waterP }); await w('green.json', { polys: greenP });
   log('完成', JSON.stringify(meta.counts)); }
 main().catch(e => { console.error(e); process.exit(1); });

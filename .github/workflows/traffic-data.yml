@@ -22,13 +22,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # Overpass 常大塞車：上一次抓到的結果留著（腳本只用 6 天內的），這次失敗的那幾個下次接著抓
+      - name: 還原 Overpass 快取
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/overpass-cache
+          key: overpass-${{ github.run_id }}
+          restore-keys: overpass-
       - name: 抓資料並整理
         env:
           TRAFFIC_CACHE: /tmp/overpass-cache
           NODE_OPTIONS: --max-old-space-size=6144
         run: node scripts/traffic/build-data.mjs
+      - name: 存 Overpass 快取（失敗也存，下次接著抓）
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/overpass-cache
+          key: overpass-${{ github.run_id }}
       - name: 檔案大小
-        run: ls -la traffic/data traffic/data/raw
+        run: ls -la traffic/data traffic/data/raw && du -sh traffic/data/bld || true
       - name: 有變動就 commit 回 main
         run: |
           git config user.name "github-actions[bot]"
