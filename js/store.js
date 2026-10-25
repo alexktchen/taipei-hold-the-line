@@ -135,9 +135,9 @@ window.PIStore = (function () {
   function fitObj(v) { const a = typeof v === 'string' ? v.split('.') : []; const o = {}; CATS.forEach((c, i) => { o[c] = itemOf(c, a[i]) ? a[i] : ''; }); return o; }
   function fitStr(v) { const o = typeof v === 'object' && v ? v : fitObj(v); return CATS.map(c => itemOf(c, o[c]) ? o[c] : '-').join('.'); }
   function ownedList(v) { return [...new Set((typeof v === 'string' ? v.split(',') : []).filter(k => { const [c, id] = k.split(':'); return itemOf(c, id); }))].slice(0, 40); }
-  // 共享模式用所有人的（自己那列換成本機最新的）；沒有共享欄位時只有自己。別人的數字一律不超過他自己的金蛋
+  // 全站加總用所有人的（自己那列換成最新的）；別人的數字一律不超過他自己的金蛋（打工的＋GM 發的）
   function econRoster() { if (state.noShiftCols || state.noEconCols) return []; return roster(); }
-  const capped = (h, k) => Math.min(n0(h[k]), n0(h.eggs));
+  const capped = (h, k) => Math.min(n0(h[k]), n0(h.eggs) + n0(h.gift)); // GM 發的也能拿來蓋城市、捐獻金（12 區對抗仍只算打工的）
   function wallet() { const h = state.hero || {}; return Math.max(0, n0(h.eggs) + n0(h.gift) - n0(h.donated) - n0(h.built) - n0(h.spent)); }
   // 金蛋能不能花：offline＝沒連上雲端；nocols＝雲端還沒跑 economy.sql
   const canSpend = () => !cloud() ? 'offline' : state.sb && (state.noShiftCols || state.noEconCols) ? 'nocols' : '';

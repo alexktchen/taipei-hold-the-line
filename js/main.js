@@ -60,7 +60,7 @@ for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLa
   // 彩旗：夜市與老街風格的島，在路燈間掛旗
   if (['boardwalk', 'courtyard', 'rubber'].includes(isl.ground)) for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(c.x, c.z, RING_R + 0.3, k), [bx, bz] = hexVertex(c.x, c.z, RING_R + 0.3, k + 1); for (let s = 1; s < 9; s++) { const t = s / 9; kit.hbox(ax + (bx - ax) * t, TOP + 0.5 - Math.sin(t * Math.PI) * 0.06, az + (bz - az) * t, 0.05, 0.07, 0.01, [0xdb6a41, 0xe8c547, 0x58a6a6, 0xf2a1a1][s % 4], null, [0, Math.atan2(bx - ax, bz - az), 0]); } kit.hbox((ax + bx) / 2, TOP + 0.47, (az + bz) / 2, 0.008, 0.008, Math.hypot(bx - ax, bz - az), 0x211d1d, null, [0, Math.atan2(bx - ax, bz - az), 0]); } }
 
-// 蓋城市的填海造島：位置先算好（海上裝飾避開這些位置），蓋好才真的長出來（placeCity）
+// 蓋城市的新北行政區：位置先算好（海上裝飾避開這些位置），蓋好才真的從海上長出來（placeCity）
 const NEW_ISLES = new Map(C.econ.city.filter(p => p.kind === 'island').map(p => [p.id, { p, c: axialToWorld(...p.axial) }]));
 // ── 海上裝飾：小樹島、梯田小丘、沙洲陽傘、消波塊、小船、浮標、燈塔（避開島、未來的新島與登陸航線）──
 { const srnd = mulberry(77); const placed = []; const W0 = WATER_Y; const lanes = Object.values(C.landings).map(l => { const lc = centers.get(l.island); const d = lc.clone().sub(center).setY(0).normalize(); return { a: lc, d }; });
@@ -106,9 +106,9 @@ labelsReady = true; refreshPolicyLabels();
 // 蓋城市（金蛋商店）：還沒輪到＝原本的小房子、正在蓋＝工地、蓋好＝新建築；名牌寫名稱與進度
 const ckit = createKit(TOP), cmodel = createModels(ckit, colors); let citySig = '', citySite = null; const cityLabels = new Map();
 for (const b of BOUTIQUES) addLabel('👕 服飾店', new THREE.Vector3(b.x, TOP + 0.9, b.z), 'policy shopsign', '', 1.6); // 只在逛城市時顯示
-// 填海造島：蓋的時候海上一片沙洲（跟著進度長大）、浮標圍一圈、一艘吊車船；投金蛋的工地在要接的那座島靠海那邊
+// 新北的區：蓋的時候海上一片沙洲（跟著進度長大）、浮標圍一圈、一艘吊車船；投金蛋的工地在要接的那座島靠海那邊（接三重的新莊要等三重蓋好）
 const isleSites = new Map(), isleBuilt = new Set();
-function shoreOf(n) { return nearestRingPair(centers.get(n.p.link), n.c).pa; }
+function shoreOf(n) { const l = centers.get(n.p.link); return l ? nearestRingPair(l, n.c).pa : null; }
 function reclaim(p) { const n = NEW_ISLES.get(p.id), pct = Math.max(0, Math.min(1, p.got / p.cost)), bucket = Math.floor(pct * 10); let g = isleSites.get(p.id); if (g && g.bucket === bucket) return; if (g) g.kit.dispose(scene);
   const k = createKit(TOP), c = n.c, rr = R * (0.25 + 0.7 * pct), W = WATER_Y;
   k.cyl(c.x, W + 0.01, c.z, rr * 2 + 0.3, 0.04, 0xcbbd9c); k.cyl(c.x, W + 0.05, c.z, rr * 2, 0.1, 0xe6d6b8); k.part('cone', [c.x - rr * 0.2, W + 0.16, c.z + rr * 0.1], [rr * 0.8, 0.18, rr * 0.7], 0xdccaa6);
@@ -122,12 +122,12 @@ function growIsland(id) { if (isleBuilt.has(id)) return; isleBuilt.add(id); cons
   for (const [x, z] of [[-1.0, 0.4], [1.0, 0.5], [-0.5, 1.0], [0.6, 1.1], [-1.2, -0.2], [1.25, -0.1]]) { if (tr() < 0.75) k.tree(c.x + x * ISLAND_K, c.z + z * ISLAND_K, 0.32 + tr() * 0.18, Math.floor(tr() * 9), TREE_STYLE[n.p.ground] || 'round'); else m('bench', c.x + x * ISLAND_K, c.z + z * ISLAND_K, 0.5, 3); }
   k.build(scene); tops.push(r.top, r.cliff); centers.set(id, c); stageSpotCache.clear();
   nav.addIsland(id, c, r.pa, r.pb, [[c.x, c.z + lz, 0.42 * ISLAND_K]]);
-  addLabel(n.p.name, c.clone().add(new THREE.Vector3(0, 0, R * 0.78)).setY(TOP), 'district newland', '', 0); }
+  addLabel(n.p.name, c.clone().add(new THREE.Vector3(0, 0, R * 0.78)).setY(TOP), 'district newland', '新北', 0); }
 function placeCity(list) { for (const p of list) if (p.kind === 'island') { if (p.st === 'done') growIsland(p.id); else if (p.st === 'now') reclaim(p); }
   const now = list.find(p => p.st === 'now'), isle = now && NEW_ISLES.get(now.id), shore = isle && shoreOf(isle), at = now && (shore || CITY_POS.get(now.id)); citySite = at ? { id: now.id, name: now.name, x: at.x, z: at.z } : null; const sig = list.map(p => p.st).join(','); if (sig !== citySig) { citySig = sig; ckit.dispose(scene);
     for (const p of list) { const at = CITY_POS.get(p.id); if (!at) continue; cmodel(p.st === 'done' ? p.model : p.st === 'now' ? 'crane' : at.kind, at.x, at.z, at.size * 1.05, at.seed); }
     ckit.build(scene); }
-  for (const p of list) { const ni = NEW_ISLES.get(p.id), at = ni ? { x: ni.c.x, z: ni.c.z } : CITY_POS.get(p.id); if (!at) continue; let L = cityLabels.get(p.id); const txt = p.st === 'done' ? (ni ? '' : p.name) : p.st === 'now' ? `🚧 ${ni ? '填海造島：' : ''}${p.name} ${Math.floor(p.got / p.cost * 100)}%` : ''; // 蓋好的新島用島名名牌，這裡不另外掛
+  for (const p of list) { const ni = NEW_ISLES.get(p.id), at = ni ? { x: ni.c.x, z: ni.c.z } : CITY_POS.get(p.id); if (!at) continue; let L = cityLabels.get(p.id); const txt = p.st === 'done' ? (ni ? '' : p.name) : p.st === 'now' ? `🚧 ${ni ? '新北・' : ''}${p.name}${ni ? ' 接通工程' : ''} ${Math.floor(p.got / p.cost * 100)}%` : ''; // 蓋好的新島用島名名牌，這裡不另外掛
     if (!txt) { if (L) { L.el.remove(); labels.splice(labels.indexOf(L), 1); cityLabels.delete(p.id); } continue; }
     if (!L) { L = addLabel(txt, new THREE.Vector3(at.x, TOP + 0.95, at.z), 'policy city', '建設', 1.5); cityLabels.set(p.id, L); }
     if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.el.classList.toggle('now', p.st === 'now'); L.w = 0; } } }

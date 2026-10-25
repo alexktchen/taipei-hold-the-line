@@ -218,22 +218,28 @@ export const CONFIG = {
       acc: { label: '配件', items: {
         scarf: { name: '圍巾', icon: '🧣', price: 12 }, sash: { name: '彩帶', icon: '🎗️', price: 20 }, cape: { name: '英雄披風', icon: '🦸', price: 45 } } },
     },
-    // 蓋城市：在逛城市時走到工地投金蛋（填海造島是在要接的那座島靠海那邊）。所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己行政區的 12 區對抗。
+    // 蓋城市：在逛城市時走到工地投金蛋（新北的區是在要接的那座島靠海那邊）。所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己行政區的 12 區對抗。
     city: [
       { id: 'fountain', name: '金蛋噴水池',     island: 'xinyi',      house: 0, model: 'garden',     cost: 30 }, // 市政府右前方（1 號在市政府左邊，會被大樓擋住）
       { id: 'market2',  name: '夜市二館',       island: 'shilin',     house: 0, model: 'nightmarket', cost: 60 },
       { id: 'stage',    name: '河岸舞台',       island: 'datong',     house: 2, model: 'stage',      cost: 100 },
-      // kind: 'island'＝填海造島：在海上 axial 的位置長出一座新島，蓋好時用陸橋接到 link 那座島；蓋的時候在 link 島靠海的那一邊投金蛋
-      { id: 'newland',  name: '金蛋新生地',     kind: 'island', axial: [2, 3], link: 'xinyi', ground: 'lawn', landmark: 'park', cost: 160 },
+      // kind: 'island'＝新北市的行政區：照真實相對位置放在台北 12 區外圍（axial），蓋好時從海上長出來、用陸橋接到真實相鄰的那一區（link；via＝真實的橋名）；
+      // 蓋的時候在 link 島靠新島那一邊投金蛋。不算 12 區對抗。蘆洲（會壓到社子島）沒放。
+      { id: 'sanchong', name: '三重區', kind: 'island', axial: [-2, 2], link: 'datong', via: '台北橋', ground: 'street', landmark: 'nightmarket', cost: 160 },
       { id: 'nursery',  name: '科技園區托嬰',   island: 'neihu',      house: 0, model: 'nursery',    cost: 190 },
       { id: 'teahouse', name: '貓空茶藝館',     island: 'wenshan',    house: 1, model: 'theater',    cost: 230 },
       { id: 'sports',   name: '南港運動中心',   island: 'nangang',    house: 0, model: 'football',   cost: 280 },
-      { id: 'riverisle', name: '河濱創意島',    kind: 'island', axial: [-1, 4], link: 'zhongzheng', ground: 'boardwalk', landmark: 'theater', cost: 360 },
+      { id: 'yonghe',   name: '永和區', kind: 'island', axial: [-1, 4], link: 'zhongzheng', via: '中正橋', ground: 'courtyard', landmark: 'housing', cost: 360 },
       { id: 'housing',  name: '青年社宅',       island: 'wanhua',     house: 2, model: 'housing',    cost: 400 },
       { id: 'dome2',    name: '小巨蛋 2.0',     island: 'songshan',   house: 1, model: 'dome',       cost: 460 },
       { id: 'clock',    name: '城南鐘樓',       island: 'zhongzheng', house: 0, model: 'clock',      cost: 540 },
-      { id: 'scienceisle', name: '未來科學島',  kind: 'island', axial: [2, 1], link: 'neihu', ground: 'gravel', landmark: 'techcampus', cost: 650 },
+      { id: 'xizhi',    name: '汐止區', kind: 'island', axial: [2, 1], link: 'nangang', ground: 'gravel', landmark: 'techcampus', cost: 650 },
       { id: 'egg101',   name: '金蛋 101',       island: 'daan',       house: 2, model: 'tower101',   cost: 800 },
+      { id: 'banqiao',  name: '板橋區', kind: 'island', axial: [-3, 4], link: 'wanhua', via: '華江橋', ground: 'granite', landmark: 'station', cost: 900 },
+      { id: 'zhonghe',  name: '中和區', kind: 'island', axial: [-2, 4], link: 'wanhua', via: '華中橋', ground: 'garden', landmark: 'temple', cost: 1000 },
+      { id: 'xindian',  name: '新店區', kind: 'island', axial: [-1, 5], link: 'wenshan', ground: 'boardwalk', landmark: 'park', cost: 1100 },
+      { id: 'tamsui',   name: '淡水區', kind: 'island', axial: [0, 0], link: 'beitou', ground: 'terracotta', landmark: 'oldstreet', cost: 1250 },
+      { id: 'xinzhuang', name: '新莊區', kind: 'island', axial: [-3, 2], link: 'sanchong', ground: 'schoolyard', landmark: 'school', cost: 1400 }, // 接三重（要先蓋好三重）
     ],
     buildAmounts: [5, 20, 50],
     // 政治獻金（惡搞）：在逛城市時走到市長旁邊捐。全站累計到 at 顆解鎖全城加成，所有人都吃得到；自己捐了市長會回一句
