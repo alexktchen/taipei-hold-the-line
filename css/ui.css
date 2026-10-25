@@ -257,3 +257,108 @@ button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} 
 /* 累計來過的人數：桌機在上方戰績列；手機空間不夠，只放在大廳與在線名單標題 */
 .lobby-stats .vis{grid-column:1/-1}
 @media (max-width:900px){ .gstrip .vis{display:none!important} }
+
+/* ═══════════════ 打工模式 ═══════════════ */
+/* 右上：只剩鏡頭與設定鈕 */
+.hud{width:auto;max-width:330px;padding:8px 10px} .hud .btns{margin:0;justify-content:flex-end}
+#btnQuit{border-color:var(--coral)!important;color:var(--coral)}
+/* 開工時：上方戰績列、12 區、熱線、日誌讓位給這一波的資訊 */
+body.in-shift .gstrip,body.in-shift .dpanel,body.in-shift .hotline,body.in-shift .parody-badge{display:none}
+body.in-shift .nameplate.policy{display:none!important}
+/* 上方中央：第幾波、倒數、金蛋／配額 */
+.shud{left:50%;top:14px;transform:translateX(-50%);display:flex;align-items:center;gap:16px;padding:8px 18px;border-radius:999px;white-space:nowrap}
+.shud .k{font-size:12px;color:var(--muted);font-weight:700} .shud b{font-variant-numeric:tabular-nums;font-weight:900}
+.sh-wave b{font-size:22px;color:var(--coral);margin:0 2px} .sh-time b{font-size:30px;letter-spacing:.02em;min-width:3.2em;display:inline-block;text-align:center} .sh-time b.late{color:var(--bad);animation:pulseTxt .8s infinite}
+@keyframes pulseTxt{50%{opacity:.55}}
+.sh-egg{display:flex;align-items:center;gap:4px;background:#fffbea;border:2px solid #efe2a6;border-radius:999px;padding:3px 12px 3px 8px} .sh-egg b{font-size:22px} .sh-egg #shGold{color:#a87b00}
+.sh-egg .bar{width:70px;height:7px;border-radius:4px;background:#efe2a6;overflow:hidden;margin-left:6px} .sh-egg .bar i{display:block;height:100%;width:0;background:#f2c14e;transition:width .3s}
+.sh-egg.done{background:#eaf5df;border-color:#a9d48f} .sh-egg.done .bar i{background:#7fa35e} .sh-egg.done #shGold{color:#4f8a3f}
+.sh-sp{font-weight:900;font-size:13px;background:#211d1d;color:#fff8f4;border-radius:999px;padding:3px 10px}
+.egg{display:inline-block;width:16px;height:20px;border-radius:50% 50% 50% 50%/58% 58% 42% 42%;background:radial-gradient(circle at 35% 30%,#fff5c8 0 18%,#f2c14e 45%,#c8941f 100%);box-shadow:0 1px 0 #8a6400;flex:none}
+/* 左邊：這一班的同事 */
+.team{left:max(14px,var(--sa-l));top:134px;width:260px;padding:8px 10px}
+.team ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.team li{display:grid;grid-template-columns:28px 1fr auto;grid-template-areas:"b n g" "b h s";column-gap:7px;row-gap:3px;align-items:center;padding:5px 7px;border-radius:12px;background:#fff;border:1px solid #ece3dd}
+.team li.me{border-color:var(--coral);box-shadow:0 0 0 2px #db6a4122} .team li.down{background:#f6e7e3} .team li.down .nm{color:var(--bad)}
+.team .badge{grid-area:b;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:15px;border:2px solid #211d1d}
+.team .nm{grid-area:n;font-weight:900;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .team .nm small{font-size:10px;color:var(--muted);font-weight:700}
+.team .g{grid-area:g;font-size:15px;color:#a87b00;display:flex;align-items:center;gap:3px} .team .g::before{content:"";width:11px;height:14px;border-radius:50%/58% 58% 42% 42%;background:#f2c14e;display:inline-block}
+.team .hp{grid-area:h;height:6px;border-radius:3px;background:#efe6df;overflow:hidden} .team .hp i{display:block;height:100%;background:#7fa35e;transition:width .25s} .team li.down .hp i{background:#ff7a3d}
+.team .st{grid-area:s;font-size:10px;font-weight:900;color:var(--coral);white-space:nowrap;display:flex;gap:4px;align-items:center} .team .spd{display:none}
+.team li.carry .st{color:#a87b00}
+/* 右下：快速訊號、丟蛋、特殊技 */
+.actions{position:absolute;z-index:3;right:max(14px,var(--sa-r));bottom:44px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.actions>*{pointer-events:auto} .actions.spectate .act-row{display:none}
+.actions .emotes{display:flex;gap:6px;margin:0} .actions .emotes button{display:flex;align-items:center;gap:4px;border:2px solid #211d1d;background:#fff8f4;border-radius:999px;padding:3px 10px 3px 4px;font-size:22px;line-height:0;box-shadow:0 4px 12px #78685e33;flex:none;min-width:0}
+.actions .emotes button span{font-size:12px;font-weight:900;line-height:1.2}
+.act-row{display:flex;gap:10px;align-items:flex-end}
+.act{position:relative;border:3px solid #211d1d;border-radius:22px;font-weight:900;box-shadow:0 6px 0 #211d1d,0 10px 22px #78685e55;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:transform .08s}
+.act:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 #211d1d,0 6px 14px #78685e55} .act:disabled{opacity:.45;cursor:default;filter:grayscale(.5)}
+.act .kbd{position:absolute;top:-9px;right:-9px;background:#211d1d;color:#fff8f4;border-radius:7px;font-size:10px;padding:1px 5px;font-family:var(--mono)}
+.act.throw{width:84px;height:72px;background:#fff8f4} .act.throw b{font-size:14px} .act.throw .egg{width:20px;height:25px} .act.throw.ready{background:#fcea8b;animation:nudge 1.2s infinite}
+@keyframes nudge{0%,100%{transform:none}50%{transform:translateY(-3px)}}
+.act.special{width:132px;height:88px;background:var(--coral);color:#fff8f4} .act.special b{font-size:17px;letter-spacing:.04em} .act.special .dots{font-size:15px;letter-spacing:3px;color:#fcea8b}
+/* 手機搖桿（只在觸控裝置、開工時出現） */
+.joy{position:absolute;z-index:3;left:calc(22px + var(--sa-l));bottom:calc(52px + env(safe-area-inset-bottom,0px));width:124px;height:124px;border-radius:50%;background:#fff8f466;border:3px solid #211d1d55;touch-action:none;display:grid;place-items:center;backdrop-filter:blur(2px)}
+.joy i{width:54px;height:54px;border-radius:50%;background:#fff8f4;border:3px solid #211d1d;box-shadow:0 4px 12px #0003;pointer-events:none} .joy.on{background:#fff8f499;border-color:#211d1d99}
+/* 被打到：畫面邊緣紅一下 */
+.hurtfx{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;box-shadow:inset 0 0 90px 20px #d9412b} .hurtfx.on{animation:hurt .45s ease-out}
+@keyframes hurt{0%{opacity:.9}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){ .hurtfx.on,.act.throw.ready,.sh-time b.late{animation:none} }
+/* 人物名牌：底下一條血量；倒下時名牌變紅、條變成救援進度；搬蛋中前面多一顆蛋 */
+.nameplate.person .hpb{position:absolute;left:12px;right:12px;bottom:-5px;height:4px;border-radius:2px;background:#211d1d;overflow:hidden;border:1px solid #211d1d} .nameplate.person .hpb b{display:block;height:100%;width:100%;background:#7fa35e}
+.nameplate.person.down{background:#ffd9cf} .nameplate.person.down .hpb b{background:#ff7a3d} .nameplate.person.hit{animation:plateHit .3s}
+@keyframes plateHit{50%{background:#ffb3a3}}
+.nameplate.person.carry::before{content:"";width:12px;height:15px;margin-left:2px;border-radius:50%/58% 58% 42% 42%;background:#f2c14e;border:1.5px solid #8a6400;flex:none;order:2}
+.nameplate.npc{opacity:.92} .nameplate.player{background:#fff8f4}
+/* 大廳：打工場、職級、職業、開工鈕、房間 */
+.stage-line{margin:4px 0 0;font-size:14px} .stage-line b{color:var(--coral);font-size:16px} .stage-line span{color:var(--muted);font-size:12px}
+.quick{grid-template-columns:1fr 1fr 1fr} .quick .grade{align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:4px;background:#fffbea;border:1px solid #efe2a6;border-radius:12px;padding:8px 12px}
+.grade .gl{display:flex;align-items:baseline;gap:8px} .grade .k{font-size:11px;color:var(--muted);letter-spacing:.08em} .grade b{font-size:18px;color:#a87b00} .grade .pts{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;font-size:12px}
+.grade .bar,.res-me .bar{display:block;height:6px;border-radius:3px;background:#efe2a6;overflow:hidden} .grade .bar i,.res-me .bar i{display:block;height:100%;background:#f2c14e} .grade small{font-size:11px;color:var(--muted)}
+.classes .cls{align-items:start} .classes .cls b em{font-style:normal;font-weight:700;font-size:11px;color:var(--coral);margin-left:5px} .classes .cls small.sp{margin-top:3px;color:#4a403b}
+.q-actions{grid-column:1/-1;display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:10px;align-items:stretch}
+.q-actions button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;margin:0;width:auto;border-radius:16px!important;padding:10px 12px;font-weight:900}
+.q-actions small{font-size:11px;font-weight:500;opacity:.85} .q-actions .go{font-size:18px}
+.go2{border:2px solid var(--coral);background:#fff;color:var(--coral);font-size:15px} .go2:hover{background:var(--navy-soft)} .go2:disabled,.join button:disabled{opacity:.45;cursor:default}
+.join{display:flex;gap:6px;align-items:stretch} .join input{flex:1;min-width:0;border:2px solid #ece3dd;border-radius:14px;padding:8px 10px;font-family:var(--mono);font-weight:900;font-size:18px;text-transform:uppercase;letter-spacing:.2em;text-align:center;background:var(--bg)}
+.join button{border:0;background:var(--ink);color:#fff8f4;border-radius:14px!important;padding:8px 14px}
+.room{grid-column:1/-1;border:2px solid var(--coral);border-radius:16px;padding:12px 14px;background:#fff8f4}
+.room-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap} .room-head .k{font-size:12px;color:var(--muted);margin-right:6px} .room-head b{font-family:var(--mono);font-size:30px;letter-spacing:.18em;color:var(--coral)} .room-head .pub{font-size:11px;color:var(--muted);margin-left:8px}
+.room-head button,.room-btns button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-weight:700}
+.room-list{list-style:none;margin:10px 0 6px;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.room-list li{display:flex;flex-direction:column;align-items:center;gap:2px;background:#fff;border:1px solid #ece3dd;border-radius:12px;padding:8px 6px;text-align:center;min-width:0}
+.room-list li .ic{font-size:24px} .room-list .nm{font-weight:900;font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .room-list small{font-size:11px;color:var(--muted)} .room-list em{font-style:normal;font-size:10px;background:var(--coral);color:#fff8f4;border-radius:999px;padding:0 6px} .room-list em.host{background:#211d1d}
+.room-list li.me{border-color:var(--coral)} .room-list li.empty{border-style:dashed;color:var(--muted);font-size:11px;justify-content:center}
+.room-btns{display:flex;gap:8px;align-items:center} .room-btns .go{margin:0;width:auto;flex:1;max-width:320px;padding:12px 20px}
+.bosses{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:6px;font-size:12px} .bosses li{background:#fff;border:1px solid #ece3dd;border-radius:10px;padding:6px 10px;line-height:1.45} .bosses b{display:block;color:var(--coral);font-size:13px}
+.plist li{grid-template-columns:10px 1fr auto auto} .plist .pj{border:0;background:var(--coral);color:#fff8f4;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:900} .plist li.room i{background:#e8c547}
+/* 結算 */
+.overlay.result{z-index:6;align-items:center} .result-box{max-width:600px!important;text-align:center}
+.result-box h2{font-size:28px} .result-box .lead{color:var(--muted);margin:0 0 10px}
+.res-waves{list-style:none;margin:0 0 12px;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .res-waves li{background:#fff;border:2px solid #ece3dd;border-radius:14px;padding:8px} .res-waves span{display:block;font-size:12px;color:var(--muted)} .res-waves b{font-size:24px;font-variant-numeric:tabular-nums} .res-waves small{font-size:14px;color:var(--muted)}
+.res-waves li.ok{border-color:#a9d48f;background:#f2f9ec} .res-waves li.bad{border-color:#f0b4a6;background:#fdf0ec}
+.res-team{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 12px} .res-team th{font-size:11px;color:var(--muted);font-weight:700;padding:4px;border-bottom:1px solid var(--line)} .res-team td{padding:6px 4px;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums} .res-team td:first-child{text-align:left;font-weight:700} .res-team tr.me td{background:#fbe4d8} .res-team small{color:var(--muted);font-size:10px} .res-team b{color:#a87b00}
+.res-me{display:grid;gap:8px;background:#fffbea;border:1px solid #efe2a6;border-radius:14px;padding:10px 14px;text-align:left} .res-me .pay{display:flex;justify-content:space-between;align-items:baseline} .res-me .pay b{font-size:24px;color:var(--coral)} .res-me span{font-size:13px} .res-me .gr b{font-size:18px;color:#a87b00;margin:0 4px}
+.res-d{font-weight:700;font-size:13px;margin:10px 0 0} .res-d:empty{display:none}
+.res-btns{display:flex;gap:10px;justify-content:center;margin-top:14px} .res-btns button{border:1px solid var(--line);background:#fff;border-radius:999px!important;padding:12px 20px;font-weight:900;width:auto;margin:0} .res-btns .go{min-width:200px} .res-btns .go:disabled{opacity:.6}
+@media (max-width:1100px){ .quick{grid-template-columns:1fr 1fr} .quick .grade{grid-column:1/-1} .q-actions{grid-template-columns:1fr 1fr} .q-actions .go{grid-column:1/-1} }
+@media (max-width:900px){
+  .hud{background:none;box-shadow:none;padding:0;backdrop-filter:none;max-width:none} .hud .btns{position:static;flex-direction:column;width:44px;gap:8px} #btnQuit::before{content:"🏁"} #btnQuit,#btnPause{font-size:0}
+  .quick{grid-template-columns:1fr} .q-actions{grid-template-columns:1fr 1fr} .overlay .box.lobby .go{position:static;box-shadow:0 8px 20px #db6a4150;padding:12px} .overlay .box.lobby{padding-bottom:16px}
+  .room-list{grid-template-columns:1fr 1fr} .room-head b{font-size:24px}
+  /* 開工中的手機版面：左上這一波＋同事，右下大按鈕，左下搖桿 */
+  body.in-shift .brand,body.in-shift .logp{display:none}
+  .shud{left:max(10px,var(--sa-l));top:10px;transform:none;flex-wrap:wrap;gap:4px 10px;padding:6px 10px;border-radius:16px;max-width:calc(100vw - 80px)} .shud::after{content:"二創惡搞";font-size:9px;font-weight:900;border:1.5px solid #211d1d;background:#fcea8b;border-radius:999px;padding:0 6px}
+  .sh-time b{font-size:22px} .sh-wave b{font-size:16px} .sh-egg b{font-size:17px} .sh-egg .bar{width:44px}
+  .team{left:max(10px,var(--sa-l));top:auto;bottom:auto;top:96px;width:150px;padding:5px;border-radius:14px} .team ol{gap:4px} .team li{grid-template-columns:20px 1fr auto;padding:3px 5px;column-gap:5px;row-gap:2px} .team .badge{width:20px;height:20px;font-size:11px;border-width:1.5px} .team .nm{font-size:11px} .team .g{font-size:12px} .team .st{display:none}
+  .actions{right:max(10px,var(--sa-r));bottom:calc(40px + env(safe-area-inset-bottom,0px))} .actions .emotes button{font-size:20px;padding:2px 4px} .actions .emotes button span{display:none}
+  .act.special{width:104px;height:78px} .act.special b{font-size:14px} .act.throw{width:70px;height:64px} .act .kbd{display:none}
+  .res-waves b{font-size:20px} .result-box h2{font-size:22px} .res-btns{flex-direction:column} .res-btns .go{min-width:0}
+}
+/* 大廳在窄螢幕不要被輸入框撐破：格子裡的東西都可以縮 */
+.quick>*,.q-actions>*{min-width:0} .field input,.field select{width:100%;min-width:0} .join input{width:100%}
+@media (max-width:900px){ .q-actions .join{grid-column:1/-1} .classes .cls{align-items:center} .q-actions .go2{padding:10px 8px} }
+/* .ic 是 SVG 圖示的共用 class（line-height:0），職業卡與房間名單裡放的是 emoji，要把行高還回來；.go 的底色不能被一般按鈕樣式蓋掉 */
+.classes .cls .ic,.room-list li .ic{line-height:1.2;display:block;vertical-align:baseline}
+.room-btns .go,.res-btns .go{background:var(--coral);color:#fff8f4;border:0}

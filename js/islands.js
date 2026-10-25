@@ -134,9 +134,9 @@ export function buildGraph(islands, centers, neighbors, links = []) {
 export function makeRoute(pts) { const lens = [0]; for (let k = 1; k < pts.length; k++) lens.push(lens[k - 1] + pts[k].distanceTo(pts[k - 1])); return { pts, lens, total: lens[lens.length - 1] }; }
 export function sampleRoute(route, s) { if (route.total < 0.001) return { p: route.pts[0].clone(), dir: new THREE.Vector3(0, 0, 1) }; let k = 1; while (k < route.lens.length - 1 && route.lens[k] < s) k++; const a = route.pts[k - 1], b = route.pts[k], seg = route.lens[k] - route.lens[k - 1] || 1; const t = Math.min(1, Math.max(0, (s - route.lens[k - 1]) / seg)); return { p: a.clone().lerp(b, t), dir: new THREE.Vector3().subVectors(b, a).setY(0).normalize() }; }
 // 島內建築槽位
-export function slotLayout(n, heroSize) { const hh = heroSize / 2, heroZ = -0.58;
+export function slotLayout(n, heroSize, avoid = null) { const hh = heroSize / 2, heroZ = -0.58; // avoid(x, z, 半寬)：回傳 true 的位置不放建築（金蛋籃廣場）
   for (let s = n <= 4 ? 0.62 : 0.56; s > 0.3; s -= 0.03) { const h = s / 2, gapX = s + 0.1, gapZ = s + 0.08, out = [];
-    for (let zi = -4; zi <= 4; zi++) for (let xi = -5; xi <= 5; xi++) { const z = 0.2 + zi * gapZ, x = (xi + (Math.abs(zi) % 2 ? 0.5 : 0)) * gapX; if (![[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h]].every(([px, pz]) => insideHex(px, pz, INNER - 0.04))) continue; if (Math.abs(x) < hh + h + 0.06 && Math.abs(z - heroZ) < hh + h + 0.06) continue; out.push([x, z]); }
+    for (let zi = -4; zi <= 4; zi++) for (let xi = -5; xi <= 5; xi++) { const z = 0.2 + zi * gapZ, x = (xi + (Math.abs(zi) % 2 ? 0.5 : 0)) * gapX; if (![[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h]].every(([px, pz]) => insideHex(px, pz, INNER - 0.04))) continue; if (Math.abs(x) < hh + h + 0.06 && Math.abs(z - heroZ) < hh + h + 0.06) continue; if (avoid && avoid(x, z, h)) continue; out.push([x, z]); }
     if (out.length >= n) { out.sort((a, b) => Math.hypot(a[0], a[1] - 0.25) - Math.hypot(b[0], b[1] - 0.25)); return { size: s, slots: out.slice(0, n), heroZ }; } }
   return { size: 0.3, slots: [], heroZ: -0.58 };
 }

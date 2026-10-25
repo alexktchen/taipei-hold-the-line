@@ -85,9 +85,9 @@ input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9p
         <label>標籤<input name="tag" maxlength="16"></label>
         <label>開放日（空白＝只在大選前夜）<input name="startsAt" type="date"></label>
         <label>強度<input name="intensity" type="number" step="0.1" min="0.5" max="4" value="1.2"></label>
-        <label>魔王<select name="boss" id="issBoss"></select></label>
-        <label class="wide">動物組合（動物:權重，逗號分隔）<input name="mix" placeholder="bird:2, frog:1"></label>
-        <fieldset class="wide" id="issRoutes"><legend>登陸方向</legend></fieldset>
+        <label>魔王（打工不使用）<select name="boss" id="issBoss"></select></label>
+        <label class="wide">雜魚組合（動物:權重，逗號分隔；可用 mouse bird frog parrot caterpillar chameleon）<input name="mix" placeholder="bird:2, frog:1"></label>
+        <fieldset class="wide" id="issRoutes" hidden><legend>登陸方向</legend></fieldset>
         <label class="wide">口號（一行一句）<textarea name="chants"></textarea></label>
         <label class="wide">一句話描述<input name="desc" maxlength="60"></label>
         <div class="row"><button class="btn" type="submit">儲存議題</button><button class="btn ghost" type="reset">清空表單</button><span class="msg" id="issMsg"></span></div>
@@ -95,9 +95,9 @@ input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9p
     </div>
 
     <div class="card" data-panel="heroes" hidden style="margin-top:12px">
-      <h2>英雄資料</h2>
-      <p class="msg">刪除英雄會從排行榜與總戰績移除。測試資料可以在這裡清掉。</p>
-      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>職業</th><th>波數</th><th>擊退</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
+      <h2>打工仔資料</h2>
+      <p class="msg">刪除打工仔會從打工榜與總戰績移除。測試資料可以在這裡清掉。</p>
+      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>職業</th><th>班數</th><th>金蛋</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
     </div>
   </section>
 </div>

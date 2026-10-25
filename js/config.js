@@ -1,78 +1,127 @@
-/* 萬安政策島 TD — 所有可調參數。其他檔案不得出現魔術數字。
-   新增議題：ISSUES 加一筆（或編輯者在大廳表單新增）。新增動物：ANIMALS 加一筆，model 指到 animals.js 的外型。 */
+/* 萬安政策島 打工 — 所有可調參數。其他檔案不得出現魔術數字。
+   玩法像斯普拉遁的打工：最多 4 人一隊（人不夠由 NPC 同事補），一班 3 波，打倒魔王會掉金蛋，搬進金蛋籃湊滿配額才過關。
+   新增議題：issues 加一筆（或從後台新增），它決定這一波雜魚的組合與頭上台詞。新增敵人：animals 加一筆，model 指到 animals.js 的外型。 */
 export const CONFIG = {
   site: {
-    name: '萬安政策島', sub: 'TD・守住市政府', tag: '二創惡搞・非官方', waveWord: '波攻擊',
-    credit: '島嶼、人物與場景的做法參考 puma.taipei 的「HEART 政策島」互動頁，重新實作。',
+    name: '萬安政策島', sub: '打工・搬金蛋', tag: '二創惡搞・非官方', proj: '打工',
+    credit: '島嶼、人物與場景的做法參考 puma.taipei 的「HEART 政策島」互動頁，重新實作；打工玩法致敬斯普拉遁的打工模式，全部重新設計。',
     parody: '二創惡搞作品｜非官方',
-    parodyLong: '這是網友自製的二創惡搞塔防遊戲，不是台北市政府、蔣萬安本人或任何政黨、競選團隊的官方內容，也沒有收到任何委託或贊助。',
-    disclaimer: '政策摘要整理自公開報導、僅供遊戲參考，細節以官方資訊為準。地標與建築是象徵性的迷你模型；議題、數值、動物與路線都是遊戲設定，攻擊方動物是虛構角色，台詞改編自網路流行語並誇張化處理，不指涉任何真實人物。市長角色是 Q 版遊戲 NPC，台詞取自政策摘要，不代表本人發言。',
+    parodyLong: '這是網友自製的二創惡搞打工遊戲，不是台北市政府、蔣萬安本人或任何政黨、競選團隊的官方內容，也沒有收到任何委託或贊助。',
+    disclaimer: '政策摘要整理自公開報導、僅供遊戲參考，細節以官方資訊為準。地標與建築是象徵性的迷你模型；議題、數值、動物與魔王都是遊戲設定，攻擊方動物是虛構角色，台詞改編自網路流行語並誇張化處理，不指涉任何真實人物。市長角色是 Q 版遊戲 NPC，台詞是遊戲旁白與政策摘要，不代表本人發言；NPC 同事的名字都是虛構的。',
   },
-  election: { date: '2026-11-28', tz: 'Asia/Taipei', finalIssueId: 'final' },
-  round: {
-    seconds: 180, autoNextSeconds: 4, toastLinger: 2, dayStart: 420, dayEnd: 1050, // 一場的天色從 07:00 走到 17:30，不進入夜晚
-    bossAt: 140, surgeAt: 158, surgeEvery: 1.5, surgePct: 0.35, surgeBelowApproval: 40, wipeAt: 176,
-    startApproval: 100, approvalFloor: 1,
-    baseSpawn: 26, bursts: [ { from: 3, to: 45, share: 0.35 }, { from: 55, to: 98, share: 0.35 }, { from: 106, to: 138, share: 0.30 } ],
-    windShift: { minGap: 30, maxGap: 55, duration: 5, speedMul: 1.5 },
-    raid: { minGap: 28, maxGap: 48, size: 5, chance: 0.7 },
-    unitsPerSec: 0.9,          // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
-    spawnGap: 1.2,             // 依序登陸：兩隻之間至少隔幾秒
-    // 頭上對話：每句顯示 chantOn 秒、同時最多 chantMax 句、新的一句至少隔 chantEvery 秒、講完休息 chantRest 秒；chantIssueShare = 講議題台詞（其餘講動物自己的）的比例；鸚鵡複製上一句的長度上限 chantCopyMax；chantSize = 對話框高度（世界單位）；chantSpace = 正在說話的兩隻至少要隔多遠
-    chantOn: 2.6, chantMax: 2, chantEvery: 1.6, chantRest: 7, chantIssueShare: 0.65, chantCopyMax: 6, chantSize: 0.32, chantSpace: 2.2, // chantSpace：說話的兩隻至少隔幾個世界單位
-    focusDmgMul: 3, focusCooldown: 1.4, ultCooldown: 45, ultPct: 0.6, ultSlow: 0.6, ultSlowTime: 3,
-    projSpeed: 9,
+  election: { date: '2026-11-28', tz: 'Asia/Taipei', finalIssueId: 'final', hazardBonus: 0.15 }, // 大選前一晚起：每一波都是總攻擊議題、危險度加 hazardBonus
+  // 一班：waves 波、每波 waveSeconds 秒；開場 introSeconds 秒、波與波之間 interSeconds 秒（這段時間會把倒下的人全部救起、清場）
+  shift: {
+    waves: 3, waveSeconds: 100, introSeconds: 4, interSeconds: 7, resultLinger: 1.2,
+    // 配額 = qBase[第幾波] + qHazard[第幾波] × 危險度（危險度 0.3～2.0）
+    qBase: [9, 11, 13], qHazard: [7, 8, 9],
+    // 魔王：每 bossEvery ÷ (bossK0 + bossK1 × 危險度) 秒來一隻，同時最多 bossMax0 + bossMax1 × 危險度 隻
+    bossEvery: 9, bossK0: 0.7, bossK1: 0.35, bossMax0: 4, bossMax1: 2, bossFirst: 4,
+    // 雜魚：每 lesserEvery ÷ (lesserK0 + lesserK1 × 危險度) 秒來一群，一群 groupBase + groupHazard × 危險度 隻，同時最多 lesserMax0 + lesserMax1 × 危險度 隻
+    lesserEvery: 11, lesserK0: 0.8, lesserK1: 0.3, groupBase: 3, groupHazard: 2, groupGap: 0.3, lesserMax0: 14, lesserMax1: 6, lesserFirst: 1.5,
+    enemyCap: 34,              // 場上敵人總數上限（手機效能）
+    hpK0: 0.75, hpK1: 0.25,    // 敵人血量倍率 = hpK0 + hpK1 × 危險度
+    unitsPerSec: 1,            // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
+    landSeconds: 1.2,          // 從水裡游上岸的時間
+    separation: 0.28,          // 敵人彼此推開的距離
+    retarget: 0.8,             // 敵人每幾秒重新挑最近的人
+    aggroRange: 14,
+    // 特殊波：第 1 波 specialFirst、之後每波 specialChance 的機率
+    specialChance: 0.25, specialFirst: 0.12,
+    fog: { near: 2.5, far: 10, lesserMul: 1.4, goldAt: [12, 42, 72] },
+    rush: { time: 1300, groupEvery: 2.6, groupK: 0.25, group: 6, groupHazard: 2, cap: 30, goldEvery: 7, goldK0: 0.75, goldK1: 0.3, goldMax: 3, goldMaxK: 1, switchEvery: 12 }, // 暴走夜：每 groupEvery÷(1+groupK×危險度) 秒一群暴走鼠；金鍵盤鼠每 goldEvery÷(goldK0+goldK1×危險度) 秒一隻
+    dayTimes: [600, 780, 960], // 一般波的天色：早上、中午、下午（分鐘）
+    // 金蛋
+    egg: { perBoss: 3, pickR: 0.32, basketR: 0.72, carrySpeed: 0.8, throwDist: 1.7, throwTime: 0.45, throwAim: 2.7, scatter: 0.45 },
+    // 打工仔
+    player: { hp: 100, radius: 0.14, regenDelay: 2.5, regen: 40, reviveR: 0.55, reviveTime: 0.9, reviveDecay: 1.5, invAfterRevive: 2, invAfterHit: 0.35 },
+    specials: 2,               // 一班可以放幾次特殊技
+    projSpeed: 10, focusR: 0.9, threatR: 0.9,
+    cameraDist: 9.5, cameraDistNarrow: 11.5, cameraPolar: 38, // 開工時鏡頭跟著自己：距離與俯角（離垂直幾度，越小越像俯視，比較不會被建築擋住）
   },
-  // 市民熱線（右側卡片）與城市快訊（底部跑馬燈）
-  ticker: { hotlineRows: 3, hotlineSeconds: 8, hotlineSlideMs: 700, pxPerSec: 90, mixHotlineEvery: 3, hotlineGenShare: 0.45, weights: { opponent: 0.34, praise: 0.28, crisis: 0.14, city: 0.14, roast: 0.10 } }, // weights：酸對手／誇市長／經濟危機／城市快訊／酸市長的出現比例
-  // 正式網址（Cloudflare Pages）
-  canonicalHost: 'taipei-hold-the-line.pages.dev',
-  // 跟隨鏡頭：lookUp = 看向對象頭部的高度；stiffness 越大跟得越緊
-  follow: { lookUp: 0.35, stiffness: 5 },
-  // 市長 NPC：依行政區順序巡迴每棟政策建築宣傳；回合中每次演講 +滿意度，附近居民會停下來揮手。sayFacts = 演講輪流講摘要與前幾條細項（後面的細項放進度與爭議）
-  mayor: { name: '蔣萬安市長', speed: 0.5, speechSeconds: 5.5, pauseSeconds: 0.8, approach: 0.45, sloganMax: 22, sayFacts: 3, approvalPerSpeech: 2, cheerRadius: 2.2 },
-  // 居民（原本就住在島上的人）：平常在步道上散步，有敵人時會走過去勸退。
-  residents: { perIsland: 7, speed: 0.6, engageRadius: 9, meleeRange: 0.45, dps: 9, maxPerTarget: 3, roles: ['citizen','elder','child','parent','officeworker','youth','cyclist','worker','hiker'] },
-  // 英雄（登入者）：點島嶼就走過去，自動攻擊射程內的敵人。
+  // 每 rotateHours 小時換一個打工場（大家同時間看到同一個場）
+  rotateHours: 2,
+  // 打工場：basket = 金蛋籃所在的島（島中央前方有廣場），islands = 這個場用到的島（敵人從外圍島的岸邊登陸）
+  stages: [
+    { id: 'xinyi',      name: '信義市府廣場', basket: 'xinyi',      islands: ['xinyi', 'daan', 'songshan', 'nangang', 'wenshan'] },
+    { id: 'daan',       name: '大安森林公園', basket: 'daan',       islands: ['daan', 'zhongzheng', 'wenshan', 'xinyi', 'zhongshan'] },
+    { id: 'zhongzheng', name: '艋舺車站前',   basket: 'zhongzheng', islands: ['zhongzheng', 'wanhua', 'datong', 'daan'] },
+    { id: 'zhongshan',  name: '中山圓山',     basket: 'zhongshan',  islands: ['zhongshan', 'datong', 'shilin', 'neihu', 'songshan'] },
+    { id: 'shilin',     name: '士林社子島',   basket: 'shilin',     islands: ['shilin', 'beitou', 'neihu', 'shezi'] },
+  ],
+  plaza: { z: 0.5, len: 1.1, r: 0.5, basketZ: 0.62 }, // 金蛋籃廣場：島中心往前 z 開始、長 len、半寬 r 的走道不放建築；籃子在中心往前 basketZ
+  // 打工職級：點數 0～100，滿 100 升一級（從 promoteTo 點開始），低於 0 降一級（從 demoteTo 點開始）；最高級的點數可以一直累積
+  grades: {
+    names: ['見習生', '工讀生', '約聘', '正職', '股長', '科長', '局長'],
+    hazard: [0.3, 0.45, 0.6, 0.8, 1.0, 1.2, 1.4], hazardPerPts: 0.2, topPtsCap: 999, topHazardMax: 2.0,
+    clear: 20, fail: [-20, -10, 0], failSafeBelow: 2, promoteTo: 40, demoteTo: 80, // failSafeBelow：這級以下失敗不扣點
+    storageKey: 'pi.grade.v1',
+  },
+  // 打工點數（只是好玩的薪水單）：每過一波、每顆金蛋、每隻勸退、每次救人
+  pay: { wave: 120, egg: 15, kill: 1, rescue: 10, clearBonus: 200 },
+  // 市長在金蛋籃旁邊廣播（像打工的老闆）
+  mayor: { name: '蔣萬安市長', speed: 0.5, speechSeconds: 5.5, pauseSeconds: 0.8, approach: 0.45, sloganMax: 22, sayFacts: 3, cheerRadius: 2.2,
+    lines: {
+      intro: '各位同事，開工囉！金蛋搬進籃子！', wave: '第 {n} 波！配額 {q} 顆金蛋！', fog: '起大霧了，看不清楚就跟緊彼此！', rush: '暴走夜！被肉搜的人快跑，其他人掩護！',
+      boss: '{name}來了！打倒會掉金蛋！', quota: '達標！多搬的算加班費！', hurry: '還差 {k} 顆，衝啊！', clearWave: '這波收工！喘口氣！', fail: '全倒了⋯這班先收工', timeup: '時間到，配額還差 {k} 顆⋯', clear: '三波全過！今天辛苦了！',
+    } },
+  // 居民：平常在步道上散步；開工時打工場上的居民會先離開
+  residents: { perIsland: 7, speed: 0.6, roles: ['citizen','elder','child','parent','officeworker','youth','cyclist','worker','hiker'] },
+  // 打工仔職業（id 不要改：Supabase heroes.cls 有檢查）。武器自動瞄準射程內的敵人；點敵人＝鎖定它
+  // special：一班 2 次的特殊技
   heroes: {
-    chief:     { name: '里長伯',   icon: '🧓', color: 0xdb6a41, dmg: 16, rate: 0.55, range: 3.2, style: 'ball',  speed: 1.1, desc: '人面廣，中距離穩定輸出。' },
-    driver:    { name: '公車司機', icon: '🚌', color: 0x2f6f9f, dmg: 10, rate: 0.3,  range: 3.0, style: 'bus',   speed: 1.2, desc: '班次密，連發。' },
-    fireman:   { name: '消防員',   icon: '🚒', color: 0xc9452f, dmg: 18, rate: 0.7,  range: 2.8, style: 'water', slow: 0.5, slowTime: 1.6, speed: 1.1, desc: '水柱打到會減速。' },
-    volunteer: { name: '志工媽媽', icon: '🧺', color: 0xc97d97, dmg: 9,  rate: 0.6,  range: 2.8, style: 'ball',  regen: 0.4, rally: 1.3, speed: 1.05, desc: '每秒回一點滿意度，身邊居民攻擊 +30%。' },
-    engineer:  { name: '工程師',   icon: '💻', color: 0x4a3f8f, dmg: 22, rate: 1.0,  range: 3.2, style: 'zap',   chain: 3, speed: 1.0, desc: '台北通連鎖電擊，一次打 3 隻。' },
+    chief:     { name: '里長伯',   icon: '🧓', color: 0xdb6a41, dmg: 26, rate: 0.4,  range: 3.2, style: 'ball',  speed: 1.55, weapon: '大聲公',     desc: '中距離穩定輸出。', special: { id: 'broadcast', name: '里民廣播', desc: '身邊 3.5 格的敵人全部定住 3 秒並受到重傷。', r: 3.5, dmg: 300, stun: 3 } },
+    driver:    { name: '公車司機', icon: '🚌', color: 0x2f6f9f, dmg: 12, rate: 0.16, range: 2.8, style: 'bus',   speed: 1.7,  weapon: '票卡連發',   desc: '射速最快、跑最快。',     special: { id: 'dash',      name: '公車衝鋒', desc: '開著公車往前衝 4.5 格，撞到的敵人受重傷，衝的時候不會受傷。', dist: 4.5, time: 0.6, w: 0.7, dmg: 600 } },
+    fireman:   { name: '消防員',   icon: '🚒', color: 0xc9452f, dmg: 30, rate: 0.5,  range: 3.0, style: 'water', speed: 1.5, slow: 0.45, slowTime: 1.4, weapon: '水柱', desc: '打到會減速（魔王也有效）。', special: { id: 'hose', name: '水砲全開', desc: '8 秒內射速 3 倍、射程 +1、傷害 +20%。', time: 8, rateMul: 3, rangeAdd: 1, dmgMul: 1.2 } },
+    volunteer: { name: '志工媽媽', icon: '🧺', color: 0xc97d97, dmg: 18, rate: 0.4,  range: 2.8, style: 'ball',  speed: 1.55, reviveMul: 2, weapon: '愛心飯糰', desc: '救人速度 2 倍。',        special: { id: 'bento',     name: '愛心便當', desc: '5 格內倒下的隊友全部救起、所有人補滿血並無敵 4 秒。', r: 5, inv: 4 } },
+    engineer:  { name: '工程師',   icon: '💻', color: 0x4a3f8f, dmg: 40, rate: 0.8,  range: 3.4, style: 'zap', chain: 3, speed: 1.45, weapon: '台北通電擊', desc: '連鎖電擊一次打 3 隻。', special: { id: 'chain',     name: '台北通連鎖', desc: '6 格內最多 10 隻敵人各受 350 傷害。', r: 6, n: 10, dmg: 350 } },
   },
-  // 攻擊方動物（model: bird / frog / worm / lizard / mouse）
+  // 敵人。model：bird / frog / worm / lizard / mouse / tower
+  // 雜魚：hp 血量、speed 速度、dmg 近戰傷害、range 攻擊距離；parrot 會吐口水（ranged）
+  // 魔王（boss: true）：打倒掉 egg.perBoss 顆金蛋；ai 決定招式。金色的（gold）被打會掉金蛋
   animals: {
-    bird:        { name: '青鳥',       model: 'bird',   color: 0x17a3b4, accent: 0x0d7281, hp: 40,   speed: 1.0,  bounty: 1, size: 1.0, leak: 4,  fly: true,  chants: ['青鳥起飛!!','守護民主','出來面對','抗中保台','我是自發的'] },
-    frog:        { name: '青蛙',       model: 'frog',   color: 0x4caf50, accent: 0x2e7d32, hp: 95,   speed: 0.65, bounty: 1, size: 1.0, leak: 6,  hop: true,  chants: ['呱!!','呱呱抗中保台','芒果乾呱','呱～罷掉'] },
-    parrot:      { name: '綠鸚鵡',     model: 'bird',   color: 0x6abf4b, accent: 0xd94a3a, hp: 60,   speed: 1.1,  bounty: 1, size: 0.9, leak: 4,  fly: true,  repeat: true, chants: ['同上','+1','複製貼上','台灣價值+1','芒果乾+1'] },
-    caterpillar: { name: '綠毛蟲',     model: 'worm',   color: 0x7cb342, accent: 0x558b2f, hp: 240,  speed: 0.38, bounty: 1, size: 1.0, leak: 8,  chants: ['慢慢連署中','排隊簽連署','陳情寫到一半','蠕動中'] },
-    chameleon:   { name: '變色龍',     model: 'lizard', color: 0x66bb6a, accent: 0xffb300, hp: 130,  speed: 0.9,  bounty: 1, size: 1.0, leak: 6,  shift: true, hairpin: [0.45, 1.5], chants: ['髮夾彎','此一時彼一時','我沒說過','萊豬不一樣','核電再說'] },
-    mouse:       { name: '鍵盤鼠',     model: 'mouse',  color: 0x9e9e9e, accent: 0x616161, hp: 22,   speed: 1.6,  bounty: 1, size: 0.7, leak: 1,  chants: ['已檢舉','笑死','認知作戰!','我不是1450','破防了','可悲'] },
-    bigv:        { name: '側翼大 V',   model: 'bird',   color: 0x0e5f6b, accent: 0xf2c14e, hp: 950,  speed: 0.5,  bounty: 1, size: 2.0, leak: 25, fly: true,  boss: true, spawn: { type: 'mouse', every: 4 }, chants: ['懶人包來了','請大家分享','截圖留存','帶風向中','轉發一百次'] },
-    frogking:    { name: '大青蛙王',   model: 'frog',   color: 0x2e7d32, accent: 0xf2c14e, hp: 1500, speed: 0.38, bounty: 1, size: 2.3, leak: 30, hop: true,  boss: true, spawn: { type: 'frog', every: 7 }, chants: ['呱!!!!','總攻擊','全軍出動','罷免大成功'] },
+    mouse:       { name: '鍵盤鼠',   model: 'mouse',  color: 0x9e9e9e, accent: 0x616161, hp: 30,   speed: 1.75, dmg: 18, size: 0.75, chants: ['已檢舉','笑死','認知作戰!','我不是1450','破防了','可悲'] },
+    bird:        { name: '青鳥',     model: 'bird',   color: 0x17a3b4, accent: 0x0d7281, hp: 70,   speed: 1.3,  dmg: 30, size: 1.0, fly: true,  chants: ['青鳥起飛!!','守護民主','出來面對','抗中保台','我是自發的'] },
+    frog:        { name: '青蛙',     model: 'frog',   color: 0x4caf50, accent: 0x2e7d32, hp: 200,  speed: 0.85, dmg: 50, size: 1.15, hop: true,  chants: ['呱!!','呱呱抗中保台','芒果乾呱','呱～罷掉'] },
+    parrot:      { name: '綠鸚鵡',   model: 'bird',   color: 0x6abf4b, accent: 0xd94a3a, hp: 60,   speed: 1.0,  dmg: 25, size: 0.9, fly: true, ranged: { range: 2.6, speed: 3.2, every: 2.6 }, repeat: true, chants: ['同上','+1','複製貼上','台灣價值+1','芒果乾+1'] },
+    caterpillar: { name: '綠毛蟲',   model: 'worm',   color: 0x7cb342, accent: 0x558b2f, hp: 320,  speed: 0.55, dmg: 45, size: 1.1, chants: ['慢慢連署中','排隊簽連署','陳情寫到一半','蠕動中'] },
+    chameleon:   { name: '變色龍',   model: 'lizard', color: 0x66bb6a, accent: 0xffb300, hp: 110,  speed: 1.2,  dmg: 35, size: 1.0, stealth: true, chants: ['髮夾彎','此一時彼一時','我沒說過','萊豬不一樣','核電再說'] },
+    rushmouse:   { name: '暴走鼠',   model: 'mouse',  color: 0x4ad6c8, accent: 0x167a72, hp: 25,   speed: 2.3,  dmg: 25, size: 0.8, glow: true, chants: ['肉搜!!','找到了','衝衝衝','起底中'] },
+    // 魔王
+    bigv:        { name: '側翼大V',  model: 'bird',   color: 0x0e5f6b, accent: 0xf2c14e, hp: 520,  speed: 0.75, dmg: 40, size: 1.8, boss: true, ai: 'bomber', fly: false, every: 6.5, windup: 1.6, bombHp: 110, fuse: 1.6, blastR: 1.0, blastDmg: 90, throwRange: 6, desc: '頭頂舉起懶人包丟人；舉著的時候猛打，包會在牠頭上爆炸。', chants: ['懶人包來了','請大家分享','截圖留存','帶風向中'] },
+    frogking:    { name: '大青蛙王', model: 'frog',   color: 0x2e7d32, accent: 0xf2c14e, hp: 650,  speed: 0.6,  dmg: 50, size: 2.1, boss: true, ai: 'leaper', hop: true, every: 5, aim: 1.3, air: 0.5, slamR: 0.85, slamDmg: 100, stun: 2, stunMul: 1.5, leapRange: 5, desc: '瞄準一個人跳過去壓；落地後會暈 2 秒，傷害 1.5 倍。', chants: ['呱!!!!','總攻擊','全軍出動','罷免大成功'] },
+    ironfan:     { name: '鐵粉龍',   model: 'lizard', color: 0x5d6d7e, accent: 0xd94a3a, hp: 480,  speed: 0.5,  dmg: 70, size: 1.6, boss: true, ai: 'charger', shield: 0.15, shieldArc: 1.05, every: 6, aim: 0.8, chargeSpeed: 3.2, chargeTime: 2.2, stun: 2.5, desc: '正面有鐵粉護盾（只吃 15% 傷害），衝撞後會暈，繞到旁邊或背後打。', chants: ['鐵粉在此','護主!!','不准黑','永遠支持'] },
+    spamtower:   { name: '洗版塔',   model: 'tower',  color: 0x3b3a42, accent: 0x4ad6c8, hp: 420,  speed: 0.6,  dmg: 80, size: 1.6, boss: true, ai: 'tower', every: 4.5, aim: 1.1, beamW: 0.35, beamLen: 8, desc: '上岸就不動，一直對人發射洗版光束；看到紅線就閃開。', chants: ['洗版中','複製貼上','留言灌爆','+1+1+1'] },
+    missile:     { name: '飛彈鸚鵡', model: 'bird',   color: 0x8bc34a, accent: 0xd94a3a, hp: 380,  speed: 0.8,  dmg: 75, size: 1.7, boss: true, ai: 'missile', fly: true, pods: true, every: 7, aim: 1.6, blastR: 0.75, hover: 15, desc: '停在岸邊上空，對每個人發射飛彈；腳下出現紅圈就快跑。', chants: ['飛彈發射','全員鎖定','標記完成','轟炸開始'] },
+    // 金色（特殊波）：被打就掉金蛋
+    goldfrog:    { name: '金青蛙',   model: 'frog',   color: 0xf2c14e, accent: 0xb8860b, hp: 300,  speed: 0.9,  dmg: 30, size: 1.3, gold: true, hop: true, glow: true, eggEvery: 0.25, eggOnDeath: 2, chants: ['金金金','發財呱','抓不到'] },
+    goldmouse:   { name: '金鍵盤鼠', model: 'mouse',  color: 0xf2c14e, accent: 0xb8860b, hp: 120,  speed: 1.6,  dmg: 20, size: 1.0, gold: true, glow: true, eggOnDeath: 2, chants: ['金鍵盤!','打我啊','給你金蛋'] },
   },
-  // 12 座島 = 台北市 12 個行政區，軸座標依實際地理相對位置排列（上北下南、左西右東）。goal = 市政府所在的信義區。
-  // landmark：該區的象徵地標（純裝飾）；政策建築另外依 policies 隨機散落。
+  bossTypes: ['bigv', 'frogking', 'ironfan', 'spamtower', 'missile'],
+  lesserTypes: ['mouse', 'bird', 'frog', 'parrot', 'caterpillar', 'chameleon'],
+  melee: { range: 0.32, windup: 0.45, cooldown: 1.2, reach: 0.18 }, // 近戰：靠到 range 開始揮，揮完人還在 range + reach 內才算打到
+  chant: { on: 2.6, max: 2, every: 1.8, rest: 8, issueShare: 0.65, copyMax: 6, size: 0.32, space: 2.2 },
+  // NPC 同事（人不夠時補滿 4 人）。名字都是虛構的
+  npc: { names: ['阿明', '小美', '阿凱', '佩佩', '志豪', '雅婷', '阿伯', '小傑', '阿珠', '建宏'], think: 0.25, eggRange: 6, reviveRange: 7, bossRange: 7, home: 2.6, specialBosses: 3, kiteR: 0.8, kiteHp: 70, kiteCrowd: 3, kiteDist: 1.6 }, // kite：雜魚貼身、血少或被圍時先拉開距離
   islands: [
     { id: 'beitou',   number: 1,  axial: [1, 0],  name: '北投區', ground: 'meadow',     landmark: 'hotspring' },
-    { id: 'shilin',   number: 2,  axial: [0, 1],  name: '士林區', ground: 'lawn',       landmark: 'palace' },
+    { id: 'shilin',   number: 2,  axial: [0, 1],  name: '士林區', ground: 'lawn',       landmark: 'palace', plaza: true },
     { id: 'neihu',    number: 3,  axial: [1, 1],  name: '內湖區', ground: 'lawn',       landmark: 'techcampus' },
     { id: 'datong',   number: 4,  axial: [-1, 2], name: '大同區', ground: 'courtyard',  landmark: 'oldstreet' },
-    { id: 'zhongshan',number: 5,  axial: [0, 2],  name: '中山區', ground: 'street',     landmark: 'grandhotel' },
+    { id: 'zhongshan',number: 5,  axial: [0, 2],  name: '中山區', ground: 'street',     landmark: 'grandhotel', plaza: true },
     { id: 'songshan', number: 6,  axial: [1, 2],  name: '松山區', ground: 'street',     landmark: 'airport' },
     { id: 'nangang',  number: 7,  axial: [2, 2],  name: '南港區', ground: 'gravel',     landmark: 'expo' },
     { id: 'wanhua',   number: 8,  axial: [-2, 3], name: '萬華區', ground: 'terracotta', landmark: 'temple' },
-    { id: 'zhongzheng',number: 9, axial: [-1, 3], name: '中正區', ground: 'granite',    landmark: 'station' },
-    { id: 'daan',     number: 10, axial: [0, 3],  name: '大安區', ground: 'garden',     landmark: 'park' },
-    { id: 'xinyi',    number: 11, axial: [1, 3],  name: '信義區', ground: 'granite',    landmark: 'cityhall', goal: true },
+    { id: 'zhongzheng',number: 9, axial: [-1, 3], name: '中正區', ground: 'granite',    landmark: 'station', plaza: true },
+    { id: 'daan',     number: 10, axial: [0, 3],  name: '大安區', ground: 'garden',     landmark: 'park', plaza: true },
+    { id: 'xinyi',    number: 11, axial: [1, 3],  name: '信義區', ground: 'granite',    landmark: 'cityhall', goal: true, plaza: true },
     { id: 'wenshan',  number: 12, axial: [0, 4],  name: '文山區', ground: 'forest',     landmark: 'gondola' },
     // 社子島：獨立在士林西側的河口沙洲，不跟其他島相鄰，只靠一座陸橋連到士林
     { id: 'shezi',    number: 13, axial: [-1, 1], offset: [-1.9, -0.8], detached: true, link: 'shilin', name: '社子島', ground: 'garden', landmark: 'wetland' },
   ],
-  // 敵人從河口登陸的區（四個方向），再沿步道與橋走向信義區市政府。
+  // 地圖上的河口標籤（純裝飾）。
   landings: { west: { island: 'wanhua', name: '淡水河' }, north: { island: 'beitou', name: '關渡' }, east: { island: 'nangang', name: '基隆河' }, south: { island: 'wenshan', name: '景美溪' } },
-  // 政策：每一筆是一棟可點擊的建築（政策卡顯示 summary、why、facts 最多 8 條、agencies 主責局處、issue 相關議題代號），沒指定 district 就依 id 雜湊隨機落在某座島。後台（共享資料庫 policies 集合）新增的會自動出現。
+  // 政策：每一筆是一棟可點擊的建築（政策卡顯示 summary、why、facts 最多 8 條、agencies 主責局處、issue 相關議題代號），沒指定 district 就依 id 雜湊隨機落在某座島。後台（共享資料庫 policies 集合）新增的會自動出現。政策建築在打工時也是障礙物。
   // model 可用：housing nursery elderhome busstop dome techcampus school smartpole garden crane containers theater kiosk station crossing nightmarket hub card court bigtree
   policies: [
     { id: 'housing',   title: '社會住宅',       tag: '#居住',  model: 'housing',    summary: '持續興建與包租代管，讓年輕家庭租得起。', why: '台北租金負擔重，以社宅與租屋協助減輕青年與家庭居住壓力。', facts: ['2023至2025年完工社宅4,805戶', '南港機廠社宅1區1,442戶，分批入住', '南港機廠社宅2區288戶，預計2029年竣工', '「臺北輕鬆住」租金分級補貼', '配合中央包租代管計畫媒合民間空屋'], agencies: ['都發局'], issue: 'housing' },
@@ -93,6 +142,7 @@ export const CONFIG = {
     { id: 'shezi-flood', title: '社子島防洪',     tag: '#社子島', model: 'levee', district: 'shezi', summary: '防洪標準從 20 年提高到 200 年，堤防加高隨開發案推動。', why: '社子島位於兩河交會低地，須提高防洪標準才能安全開發。', facts: ['1987年核定以20年洪水標準築堤', '現行防洪計畫採200年防洪標準', '2019年12月行政院核定防洪計畫', '生態社子島方案大幅降低填土量', '堤防加高隨開發案推動，尚未動工'], agencies: ['工務局水利處'] },
     { id: 'tourism',   title: '夜市與觀光',     tag: '#觀光',  model: 'nightmarket',summary: '燈節與大型活動行銷，夜市推食安標章。', why: '整合夜市、節慶與大型活動，吸引旅客並帶動在地消費。', facts: ['2026臺北燈節：西門、花博雙展區', '燈節展期2026年2月25日至3月15日', '衛生局2018年起推夜市食安微笑標章', '2024年標章評核擴及艋舺、公館夜市'], agencies: ['觀傳局', '衛生局'] },
   ],
+  // 議題：每一波從已開放（startsAt 到了）的議題挑一個，決定這一波雜魚的組合（mix）與頭上台詞（chants）；intensity 讓雜魚群大一點。routes、boss 是舊塔防的欄位，打工不使用
   issues: [
     { id: 'trees',      title: '護樹',           tag: '#護樹',   startsAt: '2026-10-01', intensity: 1.0, routes: ['west','north'], boss: null,       mix: { bird: 3, parrot: 1, mouse: 1 }, chants: ['護樹!!','樹呢??','移樹就是砍樹','樹也是台灣人','護樹護台灣','砍樹毀民主'], desc: '青鳥為主，從淡水河與關渡飛來。' },
     { id: 'roundabout', title: '拆圓環',         tag: '#拆圓環', startsAt: '2026-10-15', intensity: 1.1, routes: ['west','south'], boss: null,       mix: { frog: 3, bird: 1, caterpillar: 1 }, chants: ['圓環還我!!','公館塞爆','拆圓環毀民主','圓環也有台灣價值','芒果乾圓環'], desc: '青蛙群從公館方向跳進來。' },
@@ -101,15 +151,19 @@ export const CONFIG = {
     { id: 'housing',    title: '社宅進度',       tag: '#社宅',   startsAt: '2026-11-15', intensity: 1.4, routes: ['west','south','east'], boss: 'frogking', mix: { caterpillar: 2, frog: 2, parrot: 1 }, chants: ['社宅呢','房租好貴','蓋太慢','社宅跳票','居住正義!!'], desc: '毛蟲慢慢爬，大青蛙王殿後。' },
     { id: 'final',      title: '大選前夜總攻擊', tag: '#總攻擊', startsAt: null, intensity: 2.2, routes: ['west','north','east','south'], boss: 'frogking', boss2: 'bigv', mix: { bird: 3, frog: 3, parrot: 2, caterpillar: 1, chameleon: 1, mouse: 4 }, chants: ['總攻擊!!','抗中保台!!','芒果乾吃起來','青鳥起飛','全部罷掉','下架!!','最後一夜','今日香港明日台灣'], desc: '四面八方、所有動物、兩隻魔王。一樣守得下來。' },
   ],
-  raidTags: ['#護樹','#拆圓環','#出來面對','#抗中保台','#芒果乾','#青鳥起飛','#洗版中'],
-  palette: { coral: 0xdb6a41, ink: 0x211d1d, cream: 0xfff8f4, yellow: 0xfcea8b, green: 0x8fb37a, stone: 0xd9cbb4, accent: 0xdb6a41 },
-  // 多人同框：其他玩家的英雄透過 Supabase Realtime broadcast 出現在你的地圖上，一起打你畫面上的網軍。
-  // 位置傳送間隔隨在線人數拉長（人數 × sendPerPlayer 秒，介於 sendEvery 與 sendMax），控制免費方案的訊息量。只有預設表情與短句，不開放自由輸入。
-  multi: { sendEvery: 1, sendPerPlayer: 0.25, sendMax: 8, heartbeat: 8, timeout: 25, presenceGrace: 5, maxRemote: 48, snapDist: 6, catchUp: 1.3, allyDmg: 0.5, allyUltMul: 0.5, allyUltRadius: 3, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.2,
-    emotes: [ { k: 'hi', icon: '👋', say: '嗨！一起守！' }, { k: 'help', icon: '🆘', say: '這邊需要支援！' }, { k: 'mine', icon: '💪', say: '交給我！' }, { k: 'thx', icon: '🙏', say: '謝啦！' }, { k: 'yay', icon: '🎉', say: '守住了！' }, { k: 'love', icon: '❤️', say: '台北加油！' } ],
-    five: { k: 'five', icon: '🙌', say: '擊掌！' } },
-  // 英雄模式：手動點島後自動找怪暫停幾秒；點的位置離步道多近就直接走到那一點
-  heroMode: { manualSeconds: 8, exactRadius: 0.9, storageKey: 'pi-hero-auto' },
+  palette: { coral: 0xdb6a41, ink: 0x211d1d, cream: 0xfff8f4, yellow: 0xfcea8b, green: 0x8fb37a, stone: 0xd9cbb4, accent: 0xdb6a41, gold: 0xf2c14e },
+  // 市民熱線（右側卡片）與城市快訊（底部跑馬燈）
+  ticker: { hotlineRows: 3, hotlineSeconds: 8, hotlineSlideMs: 700, pxPerSec: 90, mixHotlineEvery: 3, hotlineGenShare: 0.45, weights: { opponent: 0.34, praise: 0.28, crisis: 0.14, city: 0.14, roast: 0.10 } }, // weights：酸對手／誇市長／經濟危機／城市快訊／酸市長的出現比例
+  canonicalHost: 'taipei-hold-the-line.pages.dev',
+  // 跟隨鏡頭：lookUp = 看向對象頭部的高度；stiffness 越大跟得越緊
+  follow: { lookUp: 0.35, stiffness: 6 },
+  // 一起打工（Supabase Realtime）：房間最多 roomMax 人，房主的瀏覽器跑模擬、每秒送 snapHz 次快照；其他人每秒送 upHz 次自己的位置（沒動時 heartbeat 秒一次）
+  // 頻道：shift-<房號> 給房主廣播與成員名單（presence），shift-<房號>-u-<人> 每位成員一條、只有房主收，訊息量只跟人數成正比
+  net: { roomMax: 4, codeLen: 4, codeChars: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', snapHz: 5, upHz: 6, heartbeat: 1.5, hostGrace: 8, waitBeat: 5, smooth: 9, protocol: 1, autoStartFull: 3, maxSpeedSlack: 1.6 },
+  // 快速訊號（預設三句，不開放打字）
+  emotes: [ { k: 'here', icon: '👉', say: '這邊！' }, { k: 'help', icon: '🆘', say: '救我！' }, { k: 'yay', icon: '🎉', say: '讚啦！' } ],
+  emoteCooldown: 1.2, bubbleSeconds: 2.6,
+  controls: { joyR: 46, joyDead: 0.12, tapMoveExact: 0.9 },
   ui: { logMax: 30, leaderboardMax: 10, heroesQueryLimit: 1000, districtPanelKey: 'pi-dpanel' }, // districtPanelKey：左上 12 區對抗面板收合狀態存在裝置上的 key
 };
 window.PI_CONFIG = CONFIG;

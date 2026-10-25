@@ -1,4 +1,4 @@
-/* 進入點：建場景、島、建築、居民、動物、遊戲與 UI；主迴圈。 */
+/* 進入點：建場景、島、建築、居民、動物、打工遊戲與 UI；鏡頭、鍵盤／搖桿輸入、點擊；主迴圈。 */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG as C } from './config.js';
@@ -8,6 +8,7 @@ import { createKit, createModels } from './buildings.js';
 import { createPeople } from './people.js';
 import { createAnimals } from './animals.js';
 import { createGame } from './game.js';
+import { createNav } from './nav.js';
 import { ICONS } from './icons.js';
 import { createUI } from './ui.js';
 import { mulberry, WATER_Y } from './env.js';
@@ -23,17 +24,18 @@ const TOUCH_MAP = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }, TOUCH
 const colors = C.palette;
 // 島與建築
 const kit = createKit(TOP);
-const { centers, neighbors, views, tops, links } = buildIslands(scene, C.islands, kit, colors);
+const { centers, neighbors, views, tops, links, bridges } = buildIslands(scene, C.islands, kit, colors);
 const center = new THREE.Vector3(); for (const c of centers.values()) center.add(c); center.divideScalar(centers.size); center.y = TOP;
 const model = createModels(kit, colors); const rnd = mulberry(5);
 // 每座島固定 8 個槽位：前 5 個給政策建築（動態），後 3 個放小房子（靜態）
-const POLICY_SLOTS = 5, LAYOUT = new Map();
+const POLICY_SLOTS = 5, LAYOUT = new Map(), STATIC_OBST = []; // STATIC_OBST：打工時不能穿過的建築（地標、小房子），政策建築另外動態加
+const PZ = C.plaza, inPlaza = (x, z, h) => Math.abs(x) < PZ.r + h && z + h > PZ.z - PZ.r && z - h < PZ.z + PZ.len; // 金蛋籃廣場：島中央前方一條走道不放建築
 const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'topiary', boardwalk: 'palm', rubber: 'palm', street: 'poplar', courtyard: 'blossom', meadow: 'willow', lawn: 'round', granite: 'topiary', terracotta: 'round', schoolyard: 'round', gravel: 'round' };
 const TRIM = { granite: 'bollard', lawn: 'hedge', gravel: 'hoarding', street: 'bollard', schoolyard: 'railing', forest: 'logs', softpad: 'picket', terracotta: 'wall', garden: 'hedge', meadow: 'railing', boardwalk: 'rope', rubber: 'picket', courtyard: 'wall' };
-for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55])];
+for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
   const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
-  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number);
-  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => model(['shop', 'house', 'house2'][i % 3], c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i));
+  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.5]);
+  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { model(['shop', 'house', 'house2'][i % 3], c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.5]); });
   // 島緣：沒有橋的邊放圍欄／樹籬／矮牆
   const nb = neighbors.get(isl.id); const bridgeDirs = nb.filter(n => n.id).map(n => dirOf(n.dq, n.dr)); for (const L of links) if (L.a === isl.id || L.b === isl.id) { const mine = L.a === isl.id ? L.pa : L.pb; const v = mine.clone().sub(c).setY(0).normalize(); bridgeDirs.push([v.x, v.z]); } const trim = TRIM[isl.ground];
   for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.3, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.3, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
@@ -73,15 +75,16 @@ for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLa
 kit.build(scene);
 const env = createEnvironment(scene, { center, quality }); env.setTime(720);
 const graph = buildGraph(C.islands, centers, neighbors, links);
+const nav = createNav({ islands: C.islands, centers, bridges, links, graph }); nav.setObstacles(STATIC_OBST, []);
 // 政策建築：有指定行政區就放該區，沒有就依 id 雜湊隨機落島；清單改變時整批重建
 const pkit = createKit(TOP); const pmodel = createModels(pkit, colors); let policyMeshes = [], policyById = new Map(), policyIsland = new Map(), policyStops = [], gameRef = null, labelsReady = false;
 const hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h; };
-function placePolicies(list) { pkit.dispose(scene); policyById = new Map(); policyIsland = new Map(); policyStops = []; const used = new Map(C.islands.map(i => [i.id, 0])); const ids = C.islands.map(i => i.id);
+function placePolicies(list) { pkit.dispose(scene); policyById = new Map(); policyIsland = new Map(); policyStops = []; const dyn = []; const used = new Map(C.islands.map(i => [i.id, 0])); const ids = C.islands.map(i => i.id);
   const pick = (pol) => { let idx = pol.district && ids.includes(pol.district) ? ids.indexOf(pol.district) : hash(pol.id) % ids.length; for (let k = 0; k < ids.length; k++) { const id = ids[(idx + k) % ids.length]; if (used.get(id) < POLICY_SLOTS) return id; } return ids[idx]; };
-  for (const pol of list) { const islId = pick(pol); const n = used.get(islId); used.set(islId, n + 1); const c = centers.get(islId), lay = LAYOUT.get(islId); const [sx, sz] = lay.slots[Math.min(n, POLICY_SLOTS - 1)]; pkit.owner = pol.id; pmodel(pol.model || 'kiosk', c.x + sx, c.z + sz, lay.size * 1.08, hash(pol.id) % 7); policyById.set(pol.id, pol); policyIsland.set(pol.id, islId); policyStops.push({ pol, island: islId, order: C.islands.find(i => i.id === islId).number, pos: new THREE.Vector3(c.x + sx, TOP, c.z + sz) }); }
-  pkit.owner = null; policyMeshes = pkit.build(scene); if (gameRef) gameRef.setStops(policyStops); if (labelsReady) refreshPolicyLabels(); }
+  for (const pol of list) { const islId = pick(pol); const n = used.get(islId); used.set(islId, n + 1); const c = centers.get(islId), lay = LAYOUT.get(islId); const [sx, sz] = lay.slots[Math.min(n, POLICY_SLOTS - 1)]; pkit.owner = pol.id; pmodel(pol.model || 'kiosk', c.x + sx, c.z + sz, lay.size * 1.08, hash(pol.id) % 7); dyn.push([c.x + sx, c.z + sz, lay.size * 0.52]); policyById.set(pol.id, pol); policyIsland.set(pol.id, islId); policyStops.push({ pol, island: islId, order: C.islands.find(i => i.id === islId).number, pos: new THREE.Vector3(c.x + sx, TOP, c.z + sz) }); }
+  pkit.owner = null; policyMeshes = pkit.build(scene); nav.setObstacles(null, dyn); if (gameRef) gameRef.setStops(policyStops); if (labelsReady) refreshPolicyLabels(); }
 placePolicies(C.policies);
-const people = createPeople(scene, colors, C.heroes); const animals = createAnimals(scene, C.animals, { chantSize: C.round.chantSize });
+const people = createPeople(scene, colors, C.heroes); const animals = createAnimals(scene, C.animals, { chantSize: C.chant.size });
 // 名牌（DOM，螢幕固定大小，每幀投影）：政策標籤為主、可點；行政區只是淡淡的地面字；重疊時優先顯示前面的
 const labelLayer = document.getElementById('labels'); const labels = [];
 function addLabel(txt, pos, cls, num, prio = 1) { const el = document.createElement('div'); el.className = 'nameplate ' + (cls || ''); if (num) { const em = document.createElement('em'); em.textContent = num; el.appendChild(em); } el.appendChild(document.createTextNode(txt)); labelLayer.appendChild(el); const L = { el, pos: pos.clone(), v: new THREE.Vector3(), prio, w: 0, h: 0 }; labels.push(L); return L; }
@@ -96,7 +99,7 @@ function refreshPolicyLabels() { for (const L of policyLabels) { L.el.remove(); 
   for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.st = st; L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
 labelsReady = true; refreshPolicyLabels();
 function updateLabels() { const w = stage.clientWidth, h = stage.clientHeight; const boxes = [];
-  for (const L of labels) { const f = L.follow; if (f) L.pos.set(f.pos.x, f.pos.y + (0.66 * f.plan.scale * 0.8 + (f.onBox ? 0.07 : 0)) * lastZoom + 0.03, f.pos.z); L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
+  for (const L of labels) { const f = L.follow; if (f) L.pos.set(f.pos.x, f.pos.y + (f.down ? 0.3 : 0.66 * f.plan.scale * 0.8 + (f.onBox ? 0.07 : 0)) * lastZoom + 0.03, f.pos.z); L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
   const order = labels.filter(L => L.vis).sort((a, b) => b.prio - a.prio || a.v.z - b.v.z);
   for (const L of labels) if (!L.vis) L.el.style.display = 'none';
   for (const L of order) { L.el.style.display = ''; if (!L.w) { L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; } const bx = { x0: L.sx - L.w / 2 - 2, x1: L.sx + L.w / 2 + 2, y0: L.sy - L.h - 2, y1: L.sy + 2 };
@@ -110,11 +113,14 @@ const callbacks = {};
 // 人物名牌（市長、自己、其他玩家）：DOM 標籤跟著人走，優先權高於政策標籤
 const personLabels = new Map();
 callbacks.tag = (op, w, t) => { const old = personLabels.get(w); if (old) { old.el.remove(); labels.splice(labels.indexOf(old), 1); personLabels.delete(w); } if (op !== 'add') return;
-  const el = document.createElement('div'); el.className = 'nameplate person ' + t.kind; const b = document.createElement('span'); b.className = 'badge'; b.textContent = t.badge; b.style.background = t.color; el.append(b, document.createTextNode(t.name)); labelLayer.appendChild(el);
+  const el = document.createElement('div'); el.className = 'nameplate person ' + t.kind; const b = document.createElement('span'); b.className = 'badge'; b.textContent = t.badge; b.style.background = t.color; el.append(b, document.createTextNode(t.name));
+  if (t.kind !== 'mayor') { const bar = document.createElement('i'); bar.className = 'hpb'; bar.appendChild(document.createElement('b')); el.appendChild(bar); } labelLayer.appendChild(el); // 打工仔名牌底下一條血量（倒下時變成救援進度）
   const L = { el, pos: new THREE.Vector3(), v: new THREE.Vector3(), prio: t.kind === 'mayor' ? 2.8 : t.kind === 'me' ? 2.7 : 2.5, w: 0, h: 0, follow: w }; labels.push(L); personLabels.set(w, L); };
+callbacks.tagState = (w, s) => { const L = personLabels.get(w); if (!L) return; const el = L.el; el.classList.toggle('down', !!s.down); el.classList.toggle('carry', !!s.carry); el.classList.toggle('hit', !!s.hit); const b = el.querySelector('.hpb b'); if (b) b.style.width = Math.round(Math.max(0, Math.min(1, s.down ? s.revive : s.hp)) * 100) + '%'; };
 // 說話泡泡：掛在名牌上方（市長的政績口號、玩家的表情短句）
 callbacks.say = (w, txt, ic) => { const L = personLabels.get(w); if (!L) return; let s = L.el.querySelector('.say'); if (!txt) { if (s) s.remove(); L.sayH = 0; return; } if (!s) { s = document.createElement('span'); s.className = 'say'; L.el.appendChild(s); } s.textContent = ''; if (ic && ICONS[ic]) { const i = document.createElement('span'); i.className = 'ic'; i.innerHTML = ICONS[ic]; s.appendChild(i); } s.appendChild(document.createTextNode(txt)); s.classList.remove('pop'); L.sayH = s.offsetHeight + 9; s.classList.add('pop'); };
-const game = createGame({ scene, graph, centers, people, animals, islands: C.islands, colors, callbacks });
+const issueById = id => ((window.PIStore && window.PIStore.listIssues()) || C.issues).find(i => i.id === id) || null;
+const game = createGame({ scene, graph, nav, centers, people, animals, islands: C.islands, colors, callbacks, issueById });
 gameRef = game; game.setStops(policyStops); game.spawnMayor(); people.build([...game.spawnResidents(), game.G.mayor]);
 // 相機
 function fit() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
@@ -122,35 +128,49 @@ fit(); window.addEventListener('resize', fit);
 const narrow = () => stage.clientWidth < 700;
 function overview(instant) { controls.target.copy(center); const d = narrow() ? 44 : 32; const pol = THREE.MathUtils.degToRad(50); const to = new THREE.Vector3(center.x + Math.sin(0.08) * Math.sin(pol) * d, center.y + Math.cos(pol) * d, center.z + Math.cos(0.08) * Math.sin(pol) * d); if (instant) camera.position.copy(to); else fly = { from: camera.position.clone(), to, t: 0 }; }
 let fly = null; overview(true);
+// 打工場全景：把這個場用到的島都框進畫面
+function stageView() { const st = game.G.stage; if (!st) { overview(false); return; } stopFollow(); const c = new THREE.Vector3(); for (const id of st.islands) c.add(centers.get(id)); c.divideScalar(st.islands.length); c.y = TOP; let r = 0; for (const id of st.islands) r = Math.max(r, centers.get(id).distanceTo(c)); const d = (r + R + 1) * (narrow() ? 3.1 : 2.3), pol = THREE.MathUtils.degToRad(52);
+  controls.target.copy(c); fly = { from: camera.position.clone(), to: new THREE.Vector3(c.x + Math.sin(0.08) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.08) * Math.sin(pol) * d), t: 0 }; }
 // 跟隨鏡頭：鏡頭目標平順追著對象走，保留玩家自己轉的角度與遠近；跟隨中關掉平移，避免和追蹤打架
-const FOLLOW = { target: null, kind: null, lastT: new THREE.Vector3() };
-function followGetter(kind) { const G = game.G; if (kind === 'mayor') return () => G.mayor && G.mayor.pos; if (kind === 'hero') return () => G.hero && G.hero.pos;
-  if (kind === 'enemy') return () => { let best = null; for (const e of G.enemies) if (!e.dead && (!best || e.prog / e.route.total > best.prog / best.route.total)) best = e; return best && new THREE.Vector3(e2x(best), TOP, best.z); }; return () => null; }
-const e2x = e => e.x;
-function startFollow(kind) { const get = followGetter(kind); const p = get(); if (!p) return false; FOLLOW.kind = kind; FOLLOW.target = get; fly = null; controls.enablePan = false; controls.touches = { ...TOUCH_FOLLOW };
-  const off = camera.position.clone().sub(controls.target); const want = narrow() ? 7.5 : 6; off.setLength(want); controls.target.copy(p).setY(p.y + C.follow.lookUp); camera.position.copy(controls.target).add(off); FOLLOW.lastT.copy(controls.target); return true; }
+const FOLLOW = { target: null, kind: null };
+function followGetter(kind) { const G = game.G; if (kind === 'mayor') return () => G.mayor && G.mayor.pos; if (kind === 'hero') return () => { const P = game.me(); return P && P.pos; }; if (kind === 'basket') return () => G.basket && new THREE.Vector3(G.basket.x, TOP, G.basket.z); return () => null; }
+function startFollow(kind, reset) { const get = followGetter(kind); const p = get(); if (!p) return false; FOLLOW.kind = kind; FOLLOW.target = get; fly = null; controls.enablePan = false; controls.touches = { ...TOUCH_FOLLOW };
+  const want = kind === 'mayor' ? (narrow() ? 7.5 : 6) : narrow() ? C.shift.cameraDistNarrow : C.shift.cameraDist; let off = camera.position.clone().sub(controls.target);
+  if (reset) { const pol = THREE.MathUtils.degToRad(C.shift.cameraPolar); off = new THREE.Vector3(Math.sin(0.08) * Math.sin(pol), Math.cos(pol), Math.cos(0.08) * Math.sin(pol)); }
+  off.setLength(want); controls.target.copy(p).setY(p.y + C.follow.lookUp); camera.position.copy(controls.target).add(off); return true; }
 function stopFollow() { FOLLOW.kind = null; FOLLOW.target = null; controls.enablePan = true; controls.touches = { ...TOUCH_MAP }; }
-function updateFollow(dt) { if (!FOLLOW.target) return; const p = FOLLOW.target(); if (!p) { if (FOLLOW.kind === 'enemy') { const n = followGetter('enemy')(); if (n) { FOLLOW.target = followGetter('enemy'); return; } } stopFollow(); callbacks.follow && callbacks.follow(null); return; }
+function updateFollow(dt) { if (!FOLLOW.target) return; const p = FOLLOW.target(); if (!p) { stopFollow(); callbacks.follow && callbacks.follow(null); return; }
   const want = p.clone(); want.y += C.follow.lookUp; const k = 1 - Math.exp(-dt * C.follow.stiffness); const next = controls.target.clone().lerp(want, k); const delta = next.clone().sub(controls.target); controls.target.copy(next); camera.position.add(delta); }
-// 點擊
+// 鍵盤（WASD／方向鍵）與手機搖桿：依鏡頭方向換算成地圖上的移動方向
+const KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' }; const keys = new Set(), stick = { x: 0, y: 0 };
+addEventListener('keydown', e => { const k = KEYMAP[e.code]; if (!k || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || game.G.phase === 'lobby') return; keys.add(k); e.preventDefault(); });
+addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); }); addEventListener('blur', () => keys.clear());
+const fwd = new THREE.Vector3();
+function applyInput() { let fx = stick.y, rx = stick.x; if (keys.has('f')) fx += 1; if (keys.has('b')) fx -= 1; if (keys.has('r')) rx += 1; if (keys.has('l')) rx -= 1; const L = Math.hypot(fx, rx); if (L < 0.01) { game.setMove(0, 0); return; } if (L > 1) { fx /= L; rx /= L; }
+  fwd.copy(controls.target).sub(camera.position).setY(0).normalize(); game.setMove(fwd.x * fx - fwd.z * rx, fwd.z * fx + fwd.x * rx); }
+// 點擊：開工中點敵人＝鎖定、點地面＝走過去；大廳時點政策建築或市長開政策卡
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
 renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
 renderer.domElement.addEventListener('pointerup', e => { if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (moved > 6) return;
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+  if (game.G.phase !== 'lobby') { const eh = ray.intersectObjects(game.enemyHits, false); if (eh.length) { game.onPick({ enemy: eh[0].object.userData.enemy }); return; } const th = ray.intersectObjects(tops, false); if (th.length) game.onPick({ point: th[0].point }); return; }
   // 觸控裝置上政策標籤不吃指標事件（才能從標籤上開始拖地圖），點擊改在這裡用位置判斷
   const lh = policyLabels.find(L => L.el.style.display !== 'none' && !L.el.classList.contains('hidden') && (b => e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom + 6)(L.el.getBoundingClientRect())); if (lh) { callbacks.card && callbacks.card(lh.st.pol, lh.st.island); return; }
-  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); const eh = ray.intersectObjects(game.enemyHits, false); if (eh.length) return game.onPick({ enemy: eh[0].object.userData.enemy }); const rh = ray.intersectObjects(game.remoteHits, false); if (rh.length) return game.onPick({ remote: rh[0].object.userData.remoteId }); const M = game.G.mayor; if (M && ray.intersectObject(M.hit, false).length) { const st = M.current || policyStops[M.stop % policyStops.length]; if (st) callbacks.card(st.pol, st.island); return; } const ph = ray.intersectObjects(policyMeshes, false); if (ph.length && ph[0].object.userData.owners) { const id = ph[0].object.userData.owners[ph[0].instanceId]; if (id && policyById.has(id)) { callbacks.card && callbacks.card(policyById.get(id), policyIsland.get(id)); return; } } const th = ray.intersectObjects(tops, false); if (th.length) game.onPick({ island: th[0].object.userData.island, point: th[0].point }); });
+  const M = game.G.mayor; if (M && ray.intersectObject(M.hit, false).length) { const st = M.current || policyStops[M.stop % policyStops.length]; if (st) callbacks.card(st.pol, st.island); return; } const ph = ray.intersectObjects(policyMeshes, false); if (ph.length && ph[0].object.userData.owners) { const id = ph[0].object.userData.owners[ph[0].instanceId]; if (id && policyById.has(id)) { callbacks.card && callbacks.card(policyById.get(id), policyIsland.get(id)); return; } } });
 // UI
 function flyTo(islandId) { const c = centers.get(islandId); if (!c) return; controls.target.copy(c); const pol = THREE.MathUtils.degToRad(48), d = narrow() ? 13 : 10; fly = { from: camera.position.clone(), to: new THREE.Vector3(c.x + Math.sin(0.3) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.3) * Math.sin(pol) * d), t: 0 }; }
-const ui = createUI({ game, callbacks, overview: () => { stopFollow(); overview(false); }, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), islandNear: p => { let best = null, bd = Infinity; for (const [id, c] of centers) { const d = (c.x - p.x) ** 2 + (c.z - p.z) ** 2; if (d < bd) { bd = d; best = id; } } return best; }, setDistrictRanks, renderer, follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } } });
-// 迴圈
-let last = performance.now(), acc = 0, lastZoom = 1; const G = game.G;
+const ui = createUI({ game, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
+  follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } }, input: { stick, clear: () => { keys.clear(); stick.x = stick.y = 0; }, aim: () => { fwd.copy(controls.target).sub(camera.position).setY(0).normalize(); return [fwd.x, fwd.z]; } } });
+// 迴圈：天色與霧跟著波次（一般波早→午→下午、暴走夜是晚上、起大霧時霧拉近）
+let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = scene.fog.near, fogFar = scene.fog.far; const G = game.G; const FOG0 = [scene.fog.near, scene.fog.far];
 function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
-  if (!G.paused) { const dt = raw * G.speed; const sub = Math.ceil(dt / 0.025); for (let i = 0; i < sub; i++) game.step(dt / sub, lastZoom); }
-  const zoomK = Math.min(1.7, Math.max(1, camera.position.distanceTo(controls.target) / 15)); lastZoom = zoomK; game.updateRemotes(raw, zoomK); people.update(raw, t, zoomK); for (const e of G.enemies) e.obj.scale.setScalar(zoomK); env.update(raw);
-  env.setTime(G.phase === 'round' ? C.round.dayStart + (G.t / C.round.seconds) * (C.round.dayEnd - C.round.dayStart) : 720);
+  applyInput(); if (!G.paused) { const sub = Math.ceil(raw / 0.025); for (let i = 0; i < sub; i++) game.step(raw / sub); }
+  const zoomK = Math.min(1.7, Math.max(1, camera.position.distanceTo(controls.target) / 15)); lastZoom = zoomK; game.view(raw, t, zoomK); people.update(raw, t, zoomK); env.update(raw);
+  const shift = G.phase !== 'lobby', wantMin = !shift ? 720 : G.special === 'rush' ? C.shift.rush.time : C.shift.dayTimes[Math.max(0, Math.min(2, G.waveNo - 1))]; dayMin += (wantMin - dayMin) * Math.min(1, raw * 1.2); env.setTime(dayMin);
+  const fog = shift && G.special === 'fog'; fogNear += ((fog ? C.shift.fog.near : FOG0[0]) - fogNear) * Math.min(1, raw * 1.5); fogFar += ((fog ? C.shift.fog.far : FOG0[1]) - fogFar) * Math.min(1, raw * 1.5); scene.fog.near = fogNear; scene.fog.far = fogFar;
   if (fly) { fly.t = Math.min(1, fly.t + raw * 1.2); const k = fly.t * fly.t * (3 - 2 * fly.t); camera.position.lerpVectors(fly.from, fly.to, k); if (fly.t >= 1) fly = null; }
   updateFollow(raw); controls.update(); renderer.render(scene, camera); updateLabels();
   acc += raw; if (acc > 0.2) { acc = 0; ui.tick(); }
   requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
-window.PI = { game, people, scene, camera, controls, graph, centers, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)) }; // 除錯用
+window.PI = { game, nav, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)) }; // 除錯用

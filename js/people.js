@@ -92,9 +92,10 @@ export function createPeople(scene, colors, heroCfgs) {
   const pivots = { legL: 0.13, legR: 0.13, armL: 0.255, armR: 0.255, head: 0.27 };
   function update(dt, time, zoom = 1) {
     for (const [pi, w] of people.entries()) {
-      const p = w.pos; const moving = w.moving ? 1 : 0; const ph = (time * 9 + w.phase * 20) * (moving || (w.pose === 'fight' ? 1 : 0)); const bob = moving ? Math.abs(Math.sin(ph)) * 0.012 : 0; const sc = w.plan.scale * 0.8 * zoom;
+      const p = w.pos; const moving = w.moving && !w.down ? 1 : 0; const ph = (time * 9 + w.phase * 20) * (moving || (w.pose === 'fight' ? 1 : 0)); const bob = moving ? Math.abs(Math.sin(ph)) * 0.012 : 0; const sc = w.plan.scale * 0.8 * zoom;
       const lift = w.onBox ? 0.07 * sc : 0;
-      dummy.position.set(p.x, p.y + bob + lift, p.z); dummy.rotation.set(0, w.yaw, 0); dummy.scale.setScalar(sc); dummy.updateMatrix(); base.copy(dummy.matrix);
+      dummy.rotation.order = 'YXZ'; if (w.down) { dummy.position.set(p.x, p.y + 0.05 * sc, p.z); dummy.rotation.set(-1.45, w.yaw, 0); } else { dummy.position.set(p.x, p.y + bob + lift, p.z); dummy.rotation.set(0, w.yaw, 0); } // 打工倒下：整個人躺平
+      dummy.scale.setScalar(sc); dummy.updateMatrix(); base.copy(dummy.matrix);
       for (const pt of w.plan.parts) { let ang = 0, axis = 'x';
         if (moving) { if (pt.ch === 'legL') ang = Math.sin(ph) * 0.55; if (pt.ch === 'legR') ang = -Math.sin(ph) * 0.55; if (pt.ch === 'armL') ang = -Math.sin(ph) * 0.45; if (pt.ch === 'armR') ang = Math.sin(ph) * 0.45; }
         if (pt.ch === 'head') ang = Math.sin(time * 1.3 + w.phase * 9) * 0.06;
