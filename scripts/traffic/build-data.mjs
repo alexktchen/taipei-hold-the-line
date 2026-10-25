@@ -1,9 +1,9 @@
 // 台北車流模擬的資料：在 GitHub Actions 上跑（.github/workflows/traffic-data.yml），結果寫進 traffic/data/。
 // 來源：OpenStreetMap（Overpass API：道路、號誌節點、河川、綠地、行政區）、政府資料開放平臺的臺北市號誌位置（121890）與路口號誌時制計畫（145720）。
 // 座標：以台北車站附近為原點的平面公尺（x 向東、z 向南），存成公寸整數（0.1 m）省空間。
-// 輸出：meta.json、net-main.json（快速道路～三級路）、net-minor.json（巷弄）、signals.json、water.json、green.json。
+// 輸出：meta.json、net-main.json（快速道路～三級路）、net-minor.json（巷弄）、signals.json、water.json、green.json、mrt.json（捷運路線與車站）、bld/（建物輪廓，1 公里一格）。
 // 臺北市原始檔很大（時制兩個 JSON 共約 60 MB，超過 Cloudflare Pages 單檔 25 MB 上限），只放在 RAW_DIR（預設 /tmp），repo 裡的 raw/ 只留 CSV 與每個 JSON 的前幾筆樣本。
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 const CACHE = process.env.TRAFFIC_CACHE || ''; // 有設的話 Overpass 結果存在這個資料夾，下次直接讀（重跑、本機測試用）
 
@@ -124,9 +124,9 @@ const cleanName = s => String(s || '').trim().replace(/[\s　]+/g, '／'); // �
 // 號誌位置：121890（流水號、地點、行政區、WGS 經緯度）與 145720 的 CSV（icid、路口名稱、經緯度——有 icid 才對得到時制）
 function signalPositions(files) { const out = [];
   for (const f of files) { if (f.ext !== 'csv') continue; const rows = rowsOf(f); if (!rows.length) continue; const keys = Object.keys(rows[0]);
-    const kLon = keys.find(k => /經度|^lon|lng|longitude/i.test(k)), kLat = keys.find(k => /緯度|^lat|latitude/i.test(k)), kName = keys.find(k => /地點|路口名稱|icname/i.test(k)), kId = keys.find(k => /^icid$/i.test(k)), kDist = keys.find(k => /行政區/.test(k));
+    const kLon = keys.find(k => /經度|^lon|lng|longitude/i.test(k)), kLat = keys.find(k => /緯度|^lat|latitude/i.test(k)), kName = keys.find(k => /地點|路口名稱|icname/i.test(k)), kId = keys.find(k => /^icid$/i.test(k)), kDist = keys.find(k => /行政區/.test(k)), kGrp = keys.find(k => /群組/.test(k));
     log(`  號誌位置 ${f.name}：${rows.length} 列，經度=${kLon} 緯度=${kLat} 名稱=${kName} 編號=${kId || '無'}`); if (!kLon || !kLat) continue;
-    for (const r of rows) { const lon = parseFloat(r[kLon]), lat = parseFloat(r[kLat]); if (!(lat > 24.8 && lat < 25.4 && lon > 121.3 && lon < 121.8)) continue; out.push({ id: kId ? r[kId] : '', name: kName ? cleanName(r[kName]) : '', dist: kDist ? r[kDist] : '', lat, lon }); } }
+    for (const r of rows) { const lon = parseFloat(r[kLon]), lat = parseFloat(r[kLat]); if (!(lat > 24.8 && lat < 25.4 && lon > 121.3 && lon < 121.8)) continue; out.push({ id: kId ? r[kId] : '', name: kName ? cleanName(r[kName]) : '', dist: kDist ? r[kDist] : '', grp: kGrp ? r[kGrp] : '', lat, lon }); } }
   return out; }
 // 時制：145720 的兩個 JSON。一個是每個路口每種日型的時段表（segmenttype 1～7，當成週一～週日；subsegment：幾點幾分起用第幾號計畫），
 // 一個是每個路口的各號時制計畫（cycletime 週期、offset 時差、direction 第一時相的方向〔0/2/4/6＝北東南西〕、subplan 各時相的綠黃全紅秒數）。
@@ -137,9 +137,10 @@ function timingTables(files) { const sched = new Map(), plans = new Map(); const
       if (Array.isArray(r.subsegment)) { const st = +r.segmenttype; if (!(st >= 1 && st <= 7)) continue; let m = sched.get(id); if (!m) sched.set(id, m = {});
         m[st] = r.subsegment.map(x => { const tm = String(x.time || '').padStart(4, '0'); return [+tm.slice(0, 2) * 60 + +tm.slice(2, 4), pidOf(x)]; }).filter(a => Number.isFinite(a[0]) && Number.isFinite(a[1])).sort((a, b) => a[0] - b[0]); }
       else if (Array.isArray(r.subplan)) { const pid = pidOf(r), C = +r.cycletime; if (!(C >= 20 && C <= 300) || !Number.isFinite(pid)) continue;
-        const stages = []; let g = 0;
-        for (const p of r.subplan.slice().sort((x, y) => x.subphaseid - y.subphaseid)) { const y = +p.yellow || 0, ar = +p.allred || 0; g += (+p.green || 0) + (y ? 0 : ar); if (y > 0) { stages.push([g, y, ar]); g = 0; } }
-        if (g > 0) { if (stages.length) stages[stages.length - 1][0] += g; else stages.push([g, 0, 0]); } if (!stages.length) continue;
+        // 每個階段：[綠, 黃, 全紅, 行人綠閃, 行人紅, 最短綠]（行人與最短綠燈拿來檢查時制合不合理）
+        const stages = []; let g = 0, pf = 0, pr = 0, mg = 0;
+        for (const p of r.subplan.slice().sort((x, y) => x.subphaseid - y.subphaseid)) { const y = +p.yellow || 0, ar = +p.allred || 0; g += (+p.green || 0) + (y ? 0 : ar); mg += +p.mingreen || 0; pf = Math.max(pf, +p.pedgreenflash || 0); pr = Math.max(pr, +p.pedred || 0); if (y > 0) { stages.push([g, y, ar, pf, pr, mg]); g = 0; pf = 0; pr = 0; mg = 0; } }
+        if (g > 0) { if (stages.length) stages[stages.length - 1][0] += g; else stages.push([g, 0, 0, pf, pr, mg]); } if (!stages.length) continue;
         const lost = stages.reduce((a, x) => a + x[1] + x[2], 0), grn = stages.reduce((a, x) => a + x[0], 0); if (grn + lost !== C && grn > 0) { const k = (C - lost) / grn; for (const x of stages) x[0] = Math.max(1, Math.round(x[0] * k)); } // 總和對不上週期就照比例調綠燈
         let m = plans.get(id); if (!m) plans.set(id, m = {}); m[pid] = [C, +r.offset || 0, +r.direction || 0, stages]; } } }
   return { sched, plans }; }
@@ -159,6 +160,19 @@ async function main() {
   const water = await overpass(`[out:json][timeout:600];(way["natural"="water"](${BBOX});relation["natural"="water"](${BBOX});way["waterway"="riverbank"](${BBOX});relation["waterway"="riverbank"](${BBOX}););out geom qt;`, '河川水域');
   const green = await overpass(`[out:json][timeout:600];(way["leisure"="park"](${BBOX});relation["leisure"="park"](${BBOX});way["landuse"~"^(forest|grass|recreation_ground|meadow)$"](${BBOX});relation["landuse"~"^(forest|grass|recreation_ground)$"](${BBOX});way["natural"~"^(wood|scrub)$"](${BBOX});relation["natural"~"^(wood|scrub)$"](${BBOX}););out geom qt;`, '綠地');
 
+  const mrtR = await overpass(`[out:json][timeout:300];relation["route"="subway"](${BBOX});out geom;`, '捷運路線', 3);
+  const mrtS = await overpass(`[out:json][timeout:300];(node["railway"="station"]["station"="subway"](${BBOX});node["public_transport"="station"]["subway"="yes"](${BBOX}););out body;`, '捷運車站', 20);
+  const tpRing = bound.filter(e => e.type === 'relation').flatMap(e => rings(e.members).outer).sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0] || null;
+  // 建物：範圍切 4×4 分批抓（一次抓全市容易逾時），用 way id 去重，只留中心點在市界內的
+  const [bS, bW, bN, bE] = BBOX.split(',').map(Number), K = 4, bld = [], seenB = new Set();
+  for (let i = 0; i < K; i++) for (let j = 0; j < K; j++) { const cell = [bS + (bN - bS) * i / K, bW + (bE - bW) * j / K, bS + (bN - bS) * (i + 1) / K, bW + (bE - bW) * (j + 1) / K].map(v => v.toFixed(5)).join(',');
+    let els = []; try { els = await overpass(`[out:json][timeout:600];way["building"](${cell});out geom qt;`, `建物${i}${j}`, 1); } catch (e) { log('  建物這一格失敗：', e.message); }
+    for (const w of els) { if (w.type !== 'way' || !w.geometry || w.geometry.length < 4 || seenB.has(w.id)) continue; seenB.add(w.id); const r = w.geometry.map(g => proj(g.lat, g.lon)); let cx = 0, cz = 0; for (const [x, z] of r) { cx += x; cz += z; } cx /= r.length; cz /= r.length;
+      if (tpRing && !inside([cx, cz], tpRing)) continue; const area = Math.abs(ringArea(r)); if (area < 12) continue; const t = w.tags || {};
+      const lv = parseFloat(t['building:levels']), hh = parseFloat(t.height); let h = Number.isFinite(hh) ? hh : Number.isFinite(lv) ? lv * 3.3 + 1 : null;
+      if (h == null) { const ty = t.building; h = /^(house|detached|bungalow)$/.test(ty) ? 7 : /^(roof|garage|garages|shed|kiosk|carport|hut)$/.test(ty) ? 3.5 : /^(industrial|warehouse)$/.test(ty) ? 9 : area > 3000 ? 30 : area > 800 ? 20 : area > 250 ? 15 : 12; } // 台北的公寓大多 4～5 樓
+      bld.push({ cx, cz, h: Math.max(3, Math.min(510, Math.round(h))), r: simplifyRing(r, 0.4) }); } }
+  log(`建物：${bld.length} 棟`);
   const signalNodes = new Map(sigEls.filter(e => e.type === 'node').map(e => [e.id, e]));
   const net = buildNet(roads, signalNodes); const P = packNet(net);
   log(`道路圖：${net.nodeXY.length} 個節點、${net.edges.length} 段（主要 ${P.main.edges.length}、巷弄 ${P.minor.edges.length}）`);
@@ -172,13 +186,13 @@ async function main() {
   // 3. 號誌路口：OSM 號誌節點與臺北市號誌位置，30 公尺內的聚成一個路口（雙向分隔的大路口常有好幾個號誌節點）
   const pts = [];
   for (const e of signalNodes.values()) { const k = P.order.get(net.nodeIdx.get(e.id)); if (k == null) continue; const [x, z] = proj(e.lat, e.lon); pts.push({ x, z, node: k, src: 'osm' }); }
-  for (const s of tpPos) { const [x, z] = proj(s.lat, s.lon); pts.push({ x, z, src: 'tp', id: s.id, name: s.name, dist: s.dist }); }
+  for (const s of tpPos) { const [x, z] = proj(s.lat, s.lon); pts.push({ x, z, src: 'tp', id: s.id, name: s.name, dist: s.dist, grp: s.grp }); }
   const cell = 40, grid = new Map(), gk = (x, z) => Math.floor(x / cell) + ',' + Math.floor(z / cell);
   const ctrls = [];
   for (const p of pts) { let best = null, bd = 30; const cx = Math.floor(p.x / cell), cz = Math.floor(p.z / cell);
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const c of grid.get((cx + dx) + ',' + (cz + dz)) || []) { const d = Math.hypot(c.x - p.x, c.z - p.z); if (d < bd) { bd = d; best = c; } }
-    if (!best) { best = { x: p.x, z: p.z, n: 0, nodes: new Set(), src: new Set(), ids: [], names: [] }; ctrls.push(best); const k = gk(p.x, p.z); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(best); }
-    best.x = (best.x * best.n + p.x) / (best.n + 1); best.z = (best.z * best.n + p.z) / (best.n + 1); best.n++; best.src.add(p.src); if (p.node != null) best.nodes.add(p.node); if (p.id) best.ids.push(p.id); if (p.name) best.names.push(p.name); }
+    if (!best) { best = { x: p.x, z: p.z, n: 0, nodes: new Set(), src: new Set(), ids: [], names: [], grp: '' }; ctrls.push(best); const k = gk(p.x, p.z); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(best); }
+    best.x = (best.x * best.n + p.x) / (best.n + 1); best.z = (best.z * best.n + p.z) / (best.n + 1); best.n++; best.src.add(p.src); if (p.node != null) best.nodes.add(p.node); if (p.id) best.ids.push(p.id); if (p.name) best.names.push(p.name); if (p.grp && !best.grp) best.grp = p.grp; }
   // 只有臺北市位置、沒有 OSM 號誌節點的：接到 35 公尺內最近、而且是路口（3 條路以上）的節點
   const deg = new Map(); for (const e of net.edges) for (const n of [e.a, e.b]) deg.set(n, (deg.get(n) || 0) + 1);
   const ngrid = new Map(); for (const [osmId, k] of net.nodeIdx) { if ((deg.get(k) || 0) < 3) continue; const o = P.order.get(k); if (o == null) continue; const [x, z] = net.nodeXY[k], g = gk(x, z); if (!ngrid.has(g)) ngrid.set(g, []); ngrid.get(g).push({ o, x, z }); }
@@ -188,7 +202,7 @@ async function main() {
   // 時制計畫：用 icid 對
   let matched = 0;
   const signals = ctrls.filter(c => c.nodes.size).map((c, i) => { const id = c.ids.find(x => T.plans.has(x)) || c.ids[0] || ''; const timing = id ? packTiming(id, T) : null; if (timing) matched++;
-    return { i, x: dm(c.x), z: dm(c.z), nodes: [...c.nodes], src: [...c.src], id, name: c.names[0] || '', timing }; });
+    return { i, x: dm(c.x), z: dm(c.z), nodes: [...c.nodes], src: [...c.src], id, name: c.names[0] || '', grp: c.grp || '', timing }; });
   log(`號誌路口：${signals.length} 處（OSM 號誌節點 ${signalNodes.size}、臺北市位置 ${tpPos.length}；時制計畫 ${T.plans.size} 個路口，對到 ${matched}）`);
   { const ex = signals.find(x => x.timing && /忠孝/.test(x.name)) || signals.find(x => x.timing); if (ex) log('  範例：', JSON.stringify(ex).slice(0, 1200)); }
 
@@ -202,6 +216,20 @@ async function main() {
     generated: new Date().toISOString(),
     sources: ['© OpenStreetMap contributors（ODbL）', '臺北市號誌位置（臺北市交通管制工程處，政府資料開放授權條款第 1 版）', '臺北市路口號誌時制計畫（臺北市政府交通局，政府資料開放授權條款第 1 版）'] };
   const w = (f, o) => writeFile(`${OUT}/${f}`, JSON.stringify(o)).then(() => log(`寫出 ${f}`));
+  // 捷運：每條線（依 ref 或名稱）收集不重複的路段折線，顏色用 OSM 的 colour
+  const MRT_COL = { R: '#e3002c', BL: '#0070bd', BR: '#c48c31', G: '#008659', O: '#f8b61c', Y: '#ffdb00' }, lines = new Map();
+  for (const r of mrtR) { if (r.type !== 'relation') continue; const t = r.tags || {}, ref = String(t.ref || '').replace(/\s/g, '') || t.name || 'MRT', key = ref.match(/^[A-Z]+/) ? ref.match(/^[A-Z]+/)[0] : ref; let L = lines.get(key);
+    if (!L) { L = { ref: key, name: String(t.name || '').replace(/[（(].*$/, '').replace(/\s*[:：].*$/, ''), color: t.colour || MRT_COL[key] || '#888888', ways: new Map() }; lines.set(key, L); }
+    for (const m of r.members || []) if (m.type === 'way' && m.geometry && m.role !== 'platform' && !L.ways.has(m.ref)) L.ways.set(m.ref, m.geometry.map(g => proj(g.lat, g.lon))); }
+  const stByName = new Map(); for (const n of mrtS) { const nm = n.tags && (n.tags.name || n.tags['name:zh']); if (!nm || n.lat == null) continue; const [x, z] = proj(n.lat, n.lon); const a = stByName.get(nm) || []; a.push([x, z]); stByName.set(nm, a); }
+  const mrt = { lines: [...lines.values()].map(L => ({ ref: L.ref, name: L.name, color: L.color, segs: [...L.ways.values()].map(p => simplify(p, 3).flatMap(([x, z]) => [dm(x), dm(z)])) })),
+    stations: [...stByName].map(([name, ps]) => ({ name: name.replace(/站$/, ''), x: dm(ps.reduce((a, p) => a + p[0], 0) / ps.length), z: dm(ps.reduce((a, p) => a + p[1], 0) / ps.length) })) };
+  log(`捷運：${mrt.lines.length} 條線、${mrt.stations.length} 站`); await w('mrt.json', mrt);
+  // 建物分格：1 公里一格，座標存成這一格原點起算的 0.5 公尺整數
+  await rm(`${OUT}/bld`, { recursive: true, force: true }); await mkdir(`${OUT}/bld`, { recursive: true }); const TILE = 1000, tiles = new Map();
+  for (const b of bld) { const tx = Math.floor(b.cx / TILE), tz = Math.floor(b.cz / TILE), k = tx + '_' + tz; let T = tiles.get(k); if (!T) tiles.set(k, T = { o: [tx * TILE, tz * TILE], b: [] }); T.b.push([b.h, ...b.r.slice(0, -1).flatMap(([x, z]) => [Math.round((x - T.o[0]) * 2), Math.round((z - T.o[1]) * 2)])]); }
+  for (const [k, T] of tiles) await writeFile(`${OUT}/bld/${k}.json`, JSON.stringify(T));
+  await w('bld/index.json', { size: TILE, unit: 0.5, tiles: Object.fromEntries([...tiles].map(([k, T]) => [k, T.b.length])) }); meta.counts.buildings = bld.length; meta.counts.buildingTiles = tiles.size; meta.counts.mrtStations = mrt.stations.length;
   await w('meta.json', meta); await w('net-main.json', P.main); await w('net-minor.json', P.minor); await w('signals.json', { signals }); await w('water.json', { polys: waterP }); await w('green.json', { polys: greenP });
   log('完成', JSON.stringify(meta.counts)); }
 main().catch(e => { console.error(e); process.exit(1); });
