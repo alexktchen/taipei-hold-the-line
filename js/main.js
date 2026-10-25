@@ -187,25 +187,72 @@ function stageView() { const st = game.G.stage; if (!st) { overview(false); retu
 // 打工場的大廳：鏡頭框住這個場（instant＝直接切過去，不飛）
 function frameStage(sid, instant) { const st = C.stages.find(s => s.id === sid); if (!st) { overview(instant); return; } stopFollow(); const c = new THREE.Vector3(); for (const id of st.islands) c.add(centers.get(id)); c.divideScalar(st.islands.length); c.y = TOP; let r = 0; for (const id of st.islands) r = Math.max(r, centers.get(id).distanceTo(c)); const d = (r + R + 1) * (narrow() ? 3.1 : 2.3), pol = THREE.MathUtils.degToRad(52);
   controls.target.copy(c); const to = new THREE.Vector3(c.x + Math.sin(0.08) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.08) * Math.sin(pol) * d); if (instant) { fly = null; camera.position.copy(to); } else fly = { from: camera.position.clone(), to, t: 0 }; }
-// 換世界：雲從四周湧進來蓋住畫面、鏡頭往上拉遠（zoom out）；蓋滿時切換；雲散開、鏡頭從高處推近新的世界
-let pull = null, warping = false, covered = false; const UP = new THREE.Vector3(0, 1, 0);
-const cw = document.getElementById('cloudwipe'); { const P = [[8, 18, 46, -60, -50], [32, 6, 40, -10, -70], [62, 10, 48, 20, -70], [90, 22, 44, 70, -50], [4, 52, 42, -80, 0], [96, 56, 46, 80, 0], [14, 86, 50, -60, 60], [44, 94, 46, 0, 80], [76, 88, 50, 50, 70], [30, 40, 38, -40, -20], [68, 44, 40, 40, -10], [50, 64, 44, 0, 40], [22, 66, 36, -50, 30], [82, 66, 38, 50, 30]];
-  for (const [x, y, w, ox, oy] of P) { const d = document.createElement('i'); d.className = 'puff'; d.style.cssText = `--x:${x}%;--y:${y}%;--w:${w}vmax;--ox:${ox}vw;--oy:${oy}vh;--d:${(Math.hypot(ox, oy) / 100 * 0.12).toFixed(2)}s`; cw.insertBefore(d, document.getElementById('cwText')); } } // 雲疊在霧上面、字在最上面
+// 換世界：鏡頭往上穿過雲層、飛到雲海上方（雲海從上面看是不透明的，這時候換世界），在雲上滑到新世界的上空，再往下穿過雲層降落
+let flight = null, warping = false; const UP = new THREE.Vector3(0, 1, 0);
+const cw = document.getElementById('cloudwipe'), cwText = document.getElementById('cwText');
 const wait = ms => new Promise(r => setTimeout(r, ms)), nextFrame = () => new Promise(r => requestAnimationFrame(() => r())), still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-// 鏡頭拉遠／推近照真實時間走（不是照幀數），掉幀時也跟雲的 CSS 動畫同步、準時結束
-function startPull(from, to, tilt, dur) { const off = camera.position.clone().sub(controls.target); pull = { t0: performance.now(), dur: dur * 1000, from, to, tilt, dir: off.normalize() }; stepPull(); }
-function stepPull() { if (!pull) return; const t = Math.min(1, (performance.now() - pull.t0) / pull.dur), k = t * t * (3 - 2 * t), len = pull.from + (pull.to - pull.from) * k, tl = pull.tilt > 0 ? pull.tilt * k : -pull.tilt * (1 - k);
-  const dir = pull.dir.clone().lerp(UP, tl).normalize(); camera.position.copy(controls.target).addScaledVector(dir, len); if (t >= 1) pull = null; }
-// 新世界第一次出現的材質先在雲後面編好 shader，雲散開那一刻才不會卡一下（最多等 0.6 秒）
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// 雲海：一大片雲的地板＋一圈雲朵（sprite），平常藏著；材質用畫布畫，第一次換世界才建
+const clouds = (() => { let g = null, matF = null; const mats = [], puffs = [];
+  const blob = (x, cx, cy, r, col, a) => { const gr = x.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(0.55, `rgba(${col},${a * 0.6})`); gr.addColorStop(1, `rgba(${col},0)`); x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); };
+  // 雲海地板：灰藍的底、一團團白雲（每團右下有一點陰影，看起來是鼓起來的積雲頂），邊上的也畫到對邊，貼起來沒有接縫
+  function floorTex() { const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N; const x = cv.getContext('2d'), rnd = mulberry(5); x.fillStyle = '#cfdbe5'; x.fillRect(0, 0, N, N);
+    const wrap = (cx, cy, r, col, a) => { for (const dx of [-N, 0, N]) for (const dy of [-N, 0, N]) if (Math.abs(cx + dx - N / 2) < N / 2 + r && Math.abs(cy + dy - N / 2) < N / 2 + r) blob(x, cx + dx, cy + dy, r, col, a); };
+    for (let i = 0; i < 18; i++) wrap(rnd() * N, rnd() * N, 90 + rnd() * 110, '236,242,247', 0.55); // 大片的明暗起伏
+    for (let i = 0; i < 230; i++) { const cx = rnd() * N, cy = rnd() * N, r = 10 + rnd() * 30; wrap(cx + r * 0.3, cy + r * 0.35, r * 1.08, '138,162,184', 0.32); wrap(cx, cy, r, '255,255,255', 0.97); }
+    for (let i = 0; i < 90; i++) wrap(rnd() * N, rnd() * N, 5 + rnd() * 9, '255,255,255', 1); // 亮點
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(16, 16); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+  // 一朵雲：底部灰藍、上面一顆顆白色的圓頂
+  function puffTex() { const W = 256, H = 160, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d'), rnd = mulberry(9);
+    for (let i = 0; i < 10; i++) blob(x, 46 + rnd() * 164, 100 + rnd() * 16, 30 + rnd() * 16, '150,172,194', 0.55);
+    for (let i = 0; i < 16; i++) { const u = rnd(), cx = 40 + u * 176, cy = 84 - Math.sin(u * Math.PI) * 36 + rnd() * 10, r = 24 + Math.sin(u * Math.PI) * 26 + rnd() * 10; blob(x, cx + r * 0.2, cy + r * 0.3, r, '170,190,210', 0.45); blob(x, cx, cy, r, '255,255,255', 0.97); }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; }
+  function make() { g = new THREE.Group(); g.visible = false;
+    matF = new THREE.MeshBasicMaterial({ map: floorTex(), transparent: true, opacity: 0, fog: false }); // 地板寫深度：從上面看時雲層下面的 sprite 會被擋住
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(360, 360), matF); floor.rotation.x = -Math.PI / 2; floor.renderOrder = 20; g.add(floor);
+    const tp = puffTex(); for (let k = 0; k < 3; k++) mats.push(new THREE.SpriteMaterial({ map: tp, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    const rnd = mulberry(13); for (let i = 0; i < 90; i++) { const sp = new THREE.Sprite(mats[i % 3]), a = rnd() * Math.PI * 2, r = 4 + Math.sqrt(rnd()) * 64, k = 10 + rnd() * 16;
+      sp.position.set(Math.cos(a) * r, -8 + rnd() * 14, Math.sin(a) * r); sp.scale.set(k, k * 0.62, 1); sp.renderOrder = 21; sp.userData = { y0: sp.position.y, w: rnd() * 6 }; g.add(sp); puffs.push(sp); }
+    scene.add(g); }
+  return { get y() { return g ? g.position.y : 0; },
+    show(x, y, z) { if (!g) make(); g.position.set(x, y, z); g.visible = true; },
+    hide() { if (g) g.visible = false; },
+    // 依鏡頭高度算濃淡：在雲層下面看不到雲，穿過雲層時被雲朵包住，到雲層上面雲海整片不透明
+    update(camY, night, t) { if (!g || !g.visible) return; const y = g.position.y, kP = sstep(y - 17, y - 3, camY), kF = sstep(y - 0.5, y + 8, camY), v = 1 - 0.58 * night;
+      matF.opacity = kF; matF.color.setRGB(v * 0.97, v * 0.985, Math.min(1, v + 0.06 * night)); mats.forEach((m, i) => { m.opacity = kP * [1, 0.85, 0.7][i]; m.color.copy(matF.color); });
+      for (const sp of puffs) sp.position.y = sp.userData.y0 + Math.sin(t * 0.35 + sp.userData.w) * 0.35; } }; })();
+// 鏡頭飛一段：位置與目標都內插、照真實時間走；飛行中不讓 OrbitControls 介入（它會把仰角夾在 25° 以上）
+const camAt = () => ({ pos: camera.position.clone(), target: controls.target.clone() });
+function flyLeg(a, b, dur, ease) { return new Promise(res => { flight = { a, b, t0: performance.now(), dur: dur * 1000, ease, res }; stepFlight(); }); }
+function stepFlight() { const f = flight; if (!f) return; const t = Math.min(1, (performance.now() - f.t0) / f.dur), k = f.ease(t);
+  controls.target.lerpVectors(f.a.target, f.b.target, k); const oa = f.a.pos.clone().sub(f.a.target), ob = f.b.pos.clone().sub(f.b.target), la = oa.length(), lb = ob.length();
+  camera.position.copy(controls.target).addScaledVector(oa.normalize().lerp(ob.normalize(), k).normalize(), la + (lb - la) * k); camera.lookAt(controls.target);
+  if (t >= 1) { flight = null; f.res(); } }
+const smoothE = t => t * t * (3 - 2 * t), outE = t => 1 - Math.pow(1 - t, 3);
+// 雲海上方的位置：目標正上方偏一點（保留原本的方位），高度在雲層上面 alt
+function above(target, from, alt) { const off = from.clone().sub(target); off.y = Math.max(off.y, 0.01); const dir = off.normalize().lerp(UP, 0.72).normalize(); return { pos: target.clone().addScaledVector(dir, (alt - target.y) / dir.y), target: target.clone() }; }
+// 新世界第一次出現的材質先在雲後面編好 shader，降落時才不會卡一下（最多等 0.6 秒）
 const prewarm = () => Promise.race([renderer.compileAsync ? renderer.compileAsync(scene, camera).catch(() => {}) : Promise.resolve(renderer.compile(scene, camera)), wait(600)]);
-async function warp(label, fn, opt = {}) { if (warping) return false; warping = true; document.getElementById('cwText').textContent = label; document.body.classList.add('warping'); // 名牌先淡出，拉遠推近時不跟著跳
-  try { if (!opt.covered) { cw.className = 'cloudwipe'; cw.hidden = false; void cw.offsetWidth; await nextFrame(); // 雲先在畫面外就位，下一幀才湧進來（同一幀顯示又加 in 會直接跳到蓋滿、沒有動畫）
-      cw.className = 'cloudwipe in'; fly = null; const L = camera.position.distanceTo(controls.target); if (!still()) startPull(L, Math.min(80, L * 2.6), 0.45, 0.9); await wait(still() ? 250 : 950); } else { cw.hidden = false; cw.className = 'cloudwipe cover'; }
-    covered = true; await fn(); fly = null; pull = null; await prewarm(); covered = false; // 蓋滿時不畫 3D（底下看不到），GPU 讓給雲
-    const L = camera.position.distanceTo(controls.target), sky = !!opt.sky; // sky：重新整理後從更高的雲端降落
-    if (!still()) startPull(Math.min(80, L * (sky ? 4.5 : 2.6)), L, sky ? -0.75 : -0.45, sky ? 1.9 : 1.1);
-    await nextFrame(); cw.className = 'cloudwipe out'; await wait(still() ? 250 : sky ? 1700 : 1100); } // 先畫好一幀新世界才開雲
-  finally { covered = false; cw.className = 'cloudwipe'; cw.hidden = true; warping = false; document.body.classList.remove('warping'); } return true; }
+// opt.covered：一開始畫面就蓋著（重新整理後回訪，從雲端直接降落）；opt.sky：降落得慢一點
+async function warp(label, fn, opt = {}) { if (warping) return false; warping = true; cwText.textContent = label; document.body.classList.add('warping'); fly = null; // 名牌先淡出，飛的時候不跟著跳
+  const reduce = still(); controls.enabled = false;
+  try {
+    if (reduce) { // 減少動態：只用霧淡入淡出
+      if (!opt.covered) { cw.className = 'cloudwipe'; cw.hidden = false; void cw.offsetWidth; await nextFrame(); cw.className = 'cloudwipe in'; await wait(300); } else { cw.hidden = false; cw.className = 'cloudwipe cover'; }
+      await fn(); await prewarm(); await nextFrame(); cw.className = 'cloudwipe out'; await wait(300); return true; }
+    let from = camAt();
+    if (!opt.covered) { const cy = Math.max(from.target.y + 22, from.pos.y + 8); clouds.show(from.target.x, cy, from.target.z); // 往上穿過雲層
+      cw.hidden = false; cw.className = 'cloudwipe fly'; const peak = above(from.target, from.pos, cy + 22); await flyLeg(from, peak, 1.15, smoothE); from = peak; }
+    await fn(); fly = null; const to = camAt(); // fn 把鏡頭擺到新世界該在的位置：記下來當降落的終點
+    if (opt.covered) { const cy = Math.max(to.target.y + 22, to.pos.y + 8); clouds.show(to.target.x, cy, to.target.z); from = above(to.target, to.pos, cy + 22); cw.hidden = false; cw.className = 'cloudwipe cover'; }
+    camera.position.copy(from.pos); controls.target.copy(from.target); camera.lookAt(from.target);
+    await prewarm();
+    if (opt.covered) { await nextFrame(); cw.className = 'cloudwipe fly'; await wait(450); } // 霧散開，看到的是雲海上方
+    const top = above(to.target, to.pos, clouds.y + 22), d = Math.hypot(top.target.x - from.target.x, top.target.z - from.target.z);
+    if (d > 0.5) await flyLeg(from, top, Math.min(1.0, Math.max(0.45, d / 30)), smoothE); // 在雲上滑到新世界的上空
+    cw.className = 'cloudwipe fly done'; await flyLeg(top, to, opt.sky ? 2.0 : 1.55, outE); // 往下穿過雲層降落
+    return true; }
+  finally { flight = null; clouds.hide(); controls.enabled = true; cw.className = 'cloudwipe'; cw.hidden = true; warping = false; document.body.classList.remove('warping'); document.body.classList.add('landed'); setTimeout(() => document.body.classList.remove('landed'), 600); } }
 // 跟隨鏡頭：鏡頭目標平順追著對象走，保留玩家自己轉的角度與遠近；跟隨中關掉平移，避免和追蹤打架
 const FOLLOW = { target: null, kind: null };
 function followGetter(kind) { const G = game.G; if (kind === 'mayor') return () => G.mayor && G.mayor.pos; if (kind === 'hero') return () => { const P = game.me(); return P && P.pos; }; if (kind === 'basket') return () => G.basket && new THREE.Vector3(G.basket.x, TOP, G.basket.z); if (kind === 'xme') return () => explore.G.me && explore.G.me.pos; return () => null; }
@@ -250,12 +297,12 @@ function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = no
   const shift = G.phase !== 'lobby', XG = explore.G, wantMin = XG.on ? XG.clock : !shift ? 720 : G.special === 'rush' ? C.shift.rush.time : C.shift.dayTimes[Math.max(0, Math.min(2, G.waveNo - 1))]; if (XG.on && !XG.tween) dayMin = XG.clock; else { let d = wantMin - dayMin; if (XG.on) d = ((d % 1440) + 2160) % 1440 - 720; dayMin = (((dayMin + d * Math.min(1, raw * (XG.on ? 2.5 : 1.2))) % 1440) + 1440) % 1440; if (XG.on && Math.abs(d) < 2) { XG.tween = false; dayMin = XG.clock; } } env.setTime(dayMin); // 逛城市：時鐘照走，按時段時平順轉過去
   const fog = shift && G.special === 'fog'; fogNear += ((fog ? C.shift.fog.near : FOG0[0]) - fogNear) * Math.min(1, raw * 1.5); fogFar += ((fog ? C.shift.fog.far : FOG0[1]) - fogFar) * Math.min(1, raw * 1.5); scene.fog.near = fogNear; scene.fog.far = fogFar;
   if (fly) { fly.t = Math.min(1, fly.t + raw * 1.2); const k = fly.t * fly.t * (3 - 2 * fly.t); camera.position.lerpVectors(fly.from, fly.to, k); if (fly.t >= 1) fly = null; }
-  updateFollow(raw); stepPull(); controls.update();
+  if (flight) stepFlight(); else if (!warping) { updateFollow(raw); controls.update(); } clouds.update(camera.position.y, env.night, t); // 換世界時鏡頭歸飛行管（兩段之間停著不動）
   { const me = G.phase !== 'lobby' && FOLLOW.kind === 'hero' ? game.me() : FOLLOW.kind === 'xme' ? explore.G.me : null, on = me ? 1 : 0; // 擋住自己的建築變半透明（腰部以上、鏡頭到自己的圓錐裡）
     if (CUT.uCutOn.value !== on) { CUT.uCutOn.value = on; setCutVisible(on); } if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.3, me.pos.z); CUT.uCutY.value = me.pos.y + 0.32; } }
-  if (!covered) renderer.render(scene, camera); if (!warping) updateLabels(); // 雲蓋滿時不畫；換世界途中名牌藏著不用排
+  renderer.render(scene, camera); if (!warping) updateLabels(); // 換世界途中名牌藏著不用排
   acc += raw; if (acc > 0.2) { acc = 0; ui.tick(); }
   requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 { const ld = document.getElementById('loading'); if (ld) requestAnimationFrame(() => requestAnimationFrame(() => { ld.classList.add('done'); setTimeout(() => ld.remove(), 450); })); } // 第一幀畫完再收掉載入畫面
-window.PI = { game, explore, nav, layout: LAYOUT, cityPos: CITY_POS, boutiques: BOUTIQUES, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)) }; // 除錯用
+window.PI = { game, explore, nav, layout: LAYOUT, cityPos: CITY_POS, boutiques: BOUTIQUES, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)), get flightInfo() { return { flying: !!flight, warping, camY: +camera.position.y.toFixed(2), cloudY: +clouds.y.toFixed(2) }; } }; // 除錯用

@@ -120,7 +120,7 @@
 - 警語（`config.econ.legal`）放在商店面板底部：金蛋不是錢、不能買賣；政治獻金不是真的捐款，跟任何候選人、政黨、選舉都無關。
 
 ### 11. 再補充：兩個世界、打工現場、萬聖節套裝、回訪直接進城市
-- **兩個世界**：城市（逛城市）與打工場（大廳）。`main.js` 的 `warp(label, fn, opt)`：雲（`#cloudwipe`，14 朵 CSS 雲＋霧）湧進來、鏡頭往上拉遠（`startPull`），蓋滿時執行 `fn` 切換，再雲散開、鏡頭推近；`opt.covered` 一開始就蓋著（重新整理用），`opt.sky` 從更高處降落。`ui.js` 的 `goCity()`／`goWork()`；大廳沒有分頁了，按鈕是「🏙 進城市逛逛」、結算的「回城市花金蛋」、城市工具列的「🥚 去打工」。打工場大廳時鏡頭框住現在輪到的打工場（`frameStage`）。
+- **兩個世界**：城市（逛城市）與打工場（大廳）。`main.js` 的 `warp(label, fn, opt)` 是 3D 的雲海飛行（見第 13 節；原本是 CSS 雲＋霧的蓋版）。`ui.js` 的 `goCity()`／`goWork()`；大廳沒有分頁了，按鈕是「🏙 進城市逛逛」、結算的「回城市花金蛋」、城市工具列的「🥚 去打工」。打工場大廳時鏡頭框住現在輪到的打工場（`frameStage`）。
 - **回訪**：這台裝置存過名字或職業（`localStorage pi.hero.v1`）就不顯示大廳，載入後從雲端降落到自己的區；第一次來顯示大廳（有 `#firstNote` 說明）；`?room=` 邀請連結一律到打工場。
 - **打工現場**（`live` 頻道，`store.liveOn(who, on)` 依用途計數）：打工的房主／單人 `ui.js` 每秒檢查，換波、金蛋、魔王、倒下有變才送（最快 3 秒一次），沒變 10 秒心跳，收工送 `le`；逛城市的人剛進來送 `lq`，打工的人下一秒就回報。城市端 `exploreui.js` 驗證後列出、`explore.setLive()` 在岸外放魔王（裝飾）、`main.js liveSigns()` 掛牌子；25 秒沒更新就拿掉。訊息量：每班約每 3～10 秒一則 × 正在逛城市的人數。
 - **萬聖節套裝**：穿著字串多第四段（`帽子.背心.配件.套裝`），舊三段式照樣認得。`price: 0` 免費、隨時換（`store.buy` 直接換上），其他在服飾店買。外型在 `people.js` 的 `SUIT`（膚色／髮色／背心／褲子）與 `switch (F.suit)`。公車司機手上的方向盤拿掉了。
@@ -135,3 +135,9 @@
 - 打完一班 `recordShift` → RPC `hero_shift`（資料庫裡 +1 班、+金蛋，一班最多 300 顆）；花金蛋 `buy`／`give`／換穿著 → RPC `hero_spend`（錢包不夠丟 `poor`）。資料庫還沒有這兩個函式時（`PGRST202`）退回整列 upsert；`saveHero` 只寫身分欄位，不會用舊數字蓋掉雲端的金蛋。沒連上雲端：`recordShift` 回 `{ ok:false, why:'offline' }`，結算顯示沒記錄；商店不能花。
 - `gift` 欄位＝GM 發的金蛋：錢包算進去，打工榜、全體戰績、12 區對抗不算。觸發器 `heroes_keep_gift` 讓 anon／authenticated 改不了它；`admin_gift(p_hero, p_n)`（security definer，要 `is_admin()`）給後台用；後台「英雄資料」可以用暱稱搜尋、按「＋金蛋」。也可以跑 `supabase/gm_gift.sql`。
 - 打開商店時 `S.refresh()` 重讀一次雲端（10 秒內不重讀），GM 剛發的金蛋馬上看得到。
+
+### 13. 換世界：3D 雲海飛行、打完自動回城市
+- `main.js` 的 `clouds`：一片 360×360 的雲海地板（畫布畫的積雲頂，貼 16×16 次，從上面看不透明、會寫深度）＋ 90 朵雲 sprite；平常藏著，`warp` 時放在出發點上空（高度＝`max(目標+22, 鏡頭+8)`），濃淡依鏡頭高度算（`clouds.update`），晚上變暗。
+- `warp`：①`flyLeg` 從現在的鏡頭飛到雲海上方（`above()`：保留方位、往正上方偏 0.72、高度雲層＋22）②在雲上執行 `fn` 換世界，記下 `fn` 擺好的鏡頭當終點，`prewarm` 編 shader ③在雲上滑到新世界上空（距離決定 0.45～1 秒）④往下穿過雲層降落（1.55 秒，回訪 2 秒）。飛行照 `performance.now()` 走；飛行中不呼叫 `controls.update()`（它會把仰角夾在 25° 以上）、關掉操作，兩段之間鏡頭停著。`#cloudwipe` 只剩：回訪載入時的霧（cover）、天上的一行字（fly）、減少動態時的霧淡入淡出。飛行時 HUD 淡出（`body.warping`，二創惡搞徽章留著），降落後淡入（`body.landed`）。
+- 打工場：降落後大廳才滑上來（`lobbyIn`）。單人打完一班：結算出來後倒數 `config.shift.autoCity`（8）秒自動 `goCity()`；「留在打工場」、再打一班、回大廳都會取消。房間裡不自動。
+- 測試：`performance.now` 換成可凍結的虛擬時鐘，一步步推進截圖（scratchpad `t2/flight.js`、`flight2.js`）。

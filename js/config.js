@@ -12,7 +12,7 @@ export const CONFIG = {
   election: { date: '2026-11-28', tz: 'Asia/Taipei', finalIssueId: 'final', hazardBonus: 0.15 }, // 大選前一晚起：每一波都是總攻擊議題、危險度加 hazardBonus
   // 一班：waves 波、每波 waveSeconds 秒；開場 introSeconds 秒、波與波之間 interSeconds 秒（這段時間會把倒下的人全部救起、清場）
   shift: {
-    waves: 3, waveSeconds: 100, introSeconds: 4, interSeconds: 7, resultLinger: 1.2,
+    waves: 3, waveSeconds: 100, introSeconds: 4, interSeconds: 7, resultLinger: 1.2, autoCity: 8, // autoCity：單人打完幾秒後自動飛回城市（房間裡不自動）
     // 配額 = qBase[第幾波] + qHazard[第幾波] × 危險度（危險度 0.3～2.0）
     qBase: [10, 12, 14], qHazard: [8, 9, 10],
     // 魔王：每 bossEvery ÷ (bossK0 + bossK1 × 危險度) 秒來一隻，同時最多 bossMax0 + bossMax1 × 危險度 隻

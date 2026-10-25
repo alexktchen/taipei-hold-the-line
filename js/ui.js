@@ -122,10 +122,12 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     enter: async () => { if (room.code) { await room.leave(); dropRoomParam(); } $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); input.clear(); renderFollowBtn(); },
     goWork: () => goWork(), liveSigns, stageCenter, stageInfo, lookStage: sid => frameStage(sid, false) } });
   // ── 換世界：雲湧進來、鏡頭拉遠，切換後雲散開、鏡頭推近 ──
-  function showLobby() { renderLobby(); $('lobby').hidden = false; frameStage(stageNow().id, true); renderFollowBtn(); hint(''); }
+  function showLobby(later) { renderLobby(); if (!later) $('lobby').hidden = false; frameStage(stageNow().id, true); renderFollowBtn(); hint(''); }
+  // 降落在打工場之後，大廳才從下面滑上來
+  function lobbyIn() { const L = $('lobby'); L.hidden = false; L.classList.remove('enter'); void L.offsetWidth; L.classList.add('enter'); }
   function goCity(covered, sky) { if (G.phase !== 'lobby' && G.phase !== 'result') return Promise.resolve(false);
-    return warp(sky ? '🏙 歡迎回來' : '🏙 回到城市', async () => { if (G.phase === 'result') { $('resultBox').hidden = true; game.backToLobby(); } $('lobby').hidden = true; setWorld('city'); await xui.start(); }, { covered, sky }); }
-  function goWork() { if (!xOn()) return Promise.resolve(false); return warp('🥚 前往打工場', async () => { xui.leave(); setWorld('work'); input.clear(); showLobby(); }); }
+    stopAuto(); return warp(sky ? '🏙 歡迎回來' : '🏙 飛回城市', async () => { if (G.phase === 'result') { $('resultBox').hidden = true; game.backToLobby(); } $('lobby').hidden = true; setWorld('city'); await xui.start(); }, { covered, sky }); }
+  function goWork() { if (!xOn()) return Promise.resolve(false); return warp('🥚 飛往打工場', async () => { xui.leave(); setWorld('work'); input.clear(); showLobby(true); }).then(ok => { if (ok) lobbyIn(); return ok; }); }
   $('btnToCity').addEventListener('click', () => goCity()); $('btnResCity').addEventListener('click', () => goCity());
   // ── 政策卡：編號標題、摘要、為什麼、細項、主責局處、遊戲裡的狀態（市長巡迴、相關議題）、相關政策 ──
   let cardPol = null, cardIsl = null, cardTimer = 0; const tagOf = p => String(p.tag || '').replace(/^#/, ''); const md = s => s.split('-').slice(1).map(Number).join('/');
@@ -276,9 +278,15 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     else $('resMe').innerHTML = `<div class="gr"><span>${G.me < 0 ? '這班你在旁邊看，沒有算進戰績。' : '這班沒有算進戰績，打工職級不變。'}</span></div>`;
     $('resDistrict').textContent = mine && !mine.npc && g1 ? (saved && !saved.ok ? (saved.why === 'offline' ? '⚠ 沒連上雲端，這班的金蛋沒有記錄（金蛋只記在雲端）。' : '⚠ 連線不穩，這班的金蛋沒存到雲端。') : districtLine(mine.gold, myDistrict())) : '';
     const client = G.role === 'client'; $('btnAgain').disabled = client; $('btnAgain').textContent = client ? '等房主開下一班⋯' : room.code ? '同一房再打一班' : '再打一班';
-    $('resultBox').hidden = false; }
-  $('btnAgain').addEventListener('click', () => { if (G.role === 'client') return; if (room.code && room.isHost) startRoomShift(); else startSolo(); });
-  $('btnResLobby').addEventListener('click', () => { $('resultBox').hidden = true; game.backToLobby(); showLobby(); });
+    $('resultBox').hidden = false; if (G.role === 'solo') startAuto(); }
+  // 單人打完：結算看幾秒就自動飛回城市（不用再選）；按「留在打工場」、再打一班或回大廳就取消。房間裡大家可能要再打，不自動
+  let cityT = 0, autoEnd = 0;
+  function startAuto() { stopAuto(); const sec = SH.autoCity || 0; if (!sec) return; autoEnd = performance.now() + sec * 1000; $('resAuto').hidden = false; $('resAutoBar').style.transition = 'none'; $('resAutoBar').style.width = '0%'; void $('resAutoBar').offsetWidth; $('resAutoBar').style.transition = `width ${sec}s linear`; $('resAutoBar').style.width = '100%';
+    const tick = () => { const left = Math.ceil((autoEnd - performance.now()) / 1000); $('resAutoN').textContent = String(Math.max(0, left)); if (left <= 0) { cityT = 0; $('resAuto').hidden = true; goCity(); return; } cityT = setTimeout(tick, 200); }; tick(); }
+  function stopAuto() { clearTimeout(cityT); cityT = 0; $('resAuto').hidden = true; }
+  $('btnResStay').addEventListener('click', stopAuto);
+  $('btnAgain').addEventListener('click', () => { stopAuto(); if (G.role === 'client') return; if (room.code && room.isHost) startRoomShift(); else startSolo(); });
+  $('btnResLobby').addEventListener('click', () => { stopAuto(); $('resultBox').hidden = true; game.backToLobby(); showLobby(); });
   $('btnQuit').addEventListener('click', async () => { if (xOn()) { xui.leave(); return; } if (G.phase === 'lobby') return; if (G.phase !== 'result' && !confirm(G.role === 'host' ? '你是房主，收工的話這班所有人都會結束。確定嗎？' : '確定要提早收工嗎？這班不會算進戰績。')) return;
     if (G.phase === 'result') { $('btnResLobby').click(); return; } if (G.role === 'client') { await room.leave(); game.abort('quit'); renderRoom(); } else game.abort('quit'); });
   // ═══════════════ 鏡頭按鈕 ═══════════════
