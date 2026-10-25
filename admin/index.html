@@ -28,7 +28,7 @@ h2{margin:0 0 10px;font-size:17px;font-weight:900}
 label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:700}
 input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);font-size:14px;min-width:0} textarea{min-height:70px;resize:vertical}
 .btn{border:0;background:var(--coral);color:#fff8f4;font-weight:900;border-radius:999px;padding:10px 18px} .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)} .btn.sm{padding:5px 12px;font-size:12px} .btn.danger{background:transparent;color:var(--bad);border:1px solid #c23b2a55}
-.btn:disabled{opacity:.5;cursor:default}
+.btn:disabled{opacity:.5;cursor:default} .gift-n{width:96px;padding:5px 8px;font-size:12px}
 .msg{font-size:13px;min-height:1.4em} .msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
 .tabs{display:flex;gap:6px;flex-wrap:wrap} .tabs button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 16px;font-weight:700} .tabs button[aria-selected="true"]{background:var(--coral);color:#fff8f4;border-color:var(--coral)}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px} .stats div{background:var(--paper);border-radius:14px;padding:12px 14px;box-shadow:0 4px 18px #78685e18} .stats b{display:block;font-size:24px;font-weight:900;color:var(--coral);font-variant-numeric:tabular-nums} .stats span{font-size:12px;color:var(--muted)}
@@ -96,8 +96,10 @@ input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9p
 
     <div class="card" data-panel="heroes" hidden style="margin-top:12px">
       <h2>打工仔資料</h2>
-      <p class="msg">刪除打工仔會從打工榜與總戰績移除。測試資料可以在這裡清掉。</p>
-      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>職業</th><th>班數</th><th>金蛋</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
+      <p class="msg">刪除打工仔會從打工榜與總戰績移除。測試資料可以在這裡清掉。「＋金蛋」是 GM 發的金蛋（記在 gift）：錢包會多這麼多，但不算打工榜與 12 區對抗；填負數是收回。</p>
+      <label style="max-width:320px">用暱稱找<input id="heroSearch" type="search" placeholder="例如：我是GM"></label>
+      <p class="msg" id="heroNote"></p>
+      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>職業</th><th>班數</th><th>打工金蛋</th><th>GM 發的</th><th>錢包</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
     </div>
   </section>
 </div>

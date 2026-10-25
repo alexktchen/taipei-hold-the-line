@@ -37,7 +37,8 @@
 - **工具列**（下方）：時段（清晨／白天／黃昏／夜晚，時鐘從 10:00 開始一直走）、名牌開關、停住時間、鳥瞰、政策清單（搜尋、依行政區或主題分組，點一項開政策卡並走過去）、回大廳。第一次進來有三步說明。
 - **多人同框**：所有正在逛城市的人都在同一張地圖上（全站 `play` 頻道，只有逛城市時才加入；訊息類型 `xp` 位置與穿著、`xe` 表情、`xb` 離開）。表情列 1～4、點別人擊掌。
 - 頁面上明寫：金蛋是遊戲點數，不是錢、不能買賣；政治獻金是惡搞玩法，不是真的捐款，與任何候選人、政黨、選舉無關。
-- 金蛋經濟存在 `heroes.donated`／`built`／`spent`／`outfit`／`owned`，要先跑 **`supabase/economy.sql`**（有「花的不能比賺的多」的檢查）；沒跑的話只記在這台裝置。錢包＝`eggs`−`donated`−`built`−`spent`。
+- **金蛋只記在雲端**（`heroes.eggs`／`gift`／`donated`／`built`／`spent`／`outfit`／`owned`），這台裝置只存暱稱、職業、行政區。要先跑 **`supabase/economy.sql`**：打完一班用 `hero_shift`、花金蛋用 `hero_spend`，都在資料庫裡直接加減（錢包不夠就失敗，多台裝置同時玩不會互相蓋掉）；沒跑的話可以打工但商店不能花。沒連上雲端時可以單人打工，但金蛋不會記錄。錢包＝`eggs`＋`gift`−`donated`−`built`−`spent`。
+- **GM 發金蛋**：管理員登入 `/admin/` →「英雄資料」用暱稱找人、按「＋金蛋」（`admin_gift`，只有 admins 名單能用）；或在 SQL Editor 跑 `supabase/gm_gift.sql`。發的記在 `gift`：錢包會多，但不算打工榜、全體戰績與 12 區對抗；玩家自己改不了（觸發器擋）。
 
 ## 一起打工（多人）
 - **單人**：「立刻開工」＝自己＋3 位 NPC 同事，模擬全在自己的瀏覽器，不用網路。
@@ -85,7 +86,7 @@
 |---|---|
 | claude.ai artifact | `db` + `user` 能力。`heroes/<uid>` 每人一份（只有本人能寫），總數 = 全部加總；`issues/<id>`、`policies/<id>` 由編輯者寫入。只能單人開工。 |
 | Supabase（靜態站） | 匿名登入；`heroes` 每人一列（打工欄位要先跑 `supabase/shifts.sql`）；排行榜每 60 秒重抓；`online` presence 算線上人數並列出打工房；房間見 `js/room.js`。 |
-| 本機 | 退回 `localStorage`，只記本機戰績；政策與議題只用 config；只能單人開工。 |
+| 沒連上 | 可以單人開工，但金蛋與戰績都不記（只記在雲端）；政策與議題只用 config。`localStorage` 只存暱稱、職業、行政區。 |
 
 介面：`init / onGlobal / onLeaderboard / onIssues / onPolicies / onOnline / saveHero / recordShift / districtBoard / setPresence / addIssue / addPolicy`。
 

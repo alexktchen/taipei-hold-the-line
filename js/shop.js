@@ -11,10 +11,11 @@ export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, island
   function cityState(built) { let left = built; const st = E.city.map((p, i) => { if (left >= p.cost) { left -= p.cost; return { ...p, i, st: 'done', got: p.cost }; } const got = left; left = 0; return { ...p, i, st: 'todo', got }; });
     const now = st.findIndex(p => p.st !== 'done'); return st.map((p, i) => ({ ...p, st: p.st === 'done' ? 'done' : i === now ? 'now' : 'lock' })); }
   const tierCount = d => E.donate.tiers.filter(t => d >= t.at).length;
+  const WHY = { poor: '金蛋不夠，去打工賺吧', offline: '沒連上雲端，金蛋只記在雲端，連上才能花', nocols: '雲端的金蛋帳本還沒開（supabase/economy.sql），暫時不能花', net: '連線不穩，沒有花成，再試一次' }, whyOf = r => WHY[r.why] || '買不了';
   const goBtn = (kind, txt) => `<button type="button" class="go2 go-there" data-go="${kind}">👣 ${txt}</button>`;
   function setTab(t) { if (t) tab = t; render(); }
   function render() { const e = S.econ(); $('wallet').textContent = fmt(e.wallet);
-    $('walletNote').textContent = e.local ? '（只記在這台裝置）' : `累計賺 ${fmt(e.eggs)} 顆`;
+    $('walletNote').textContent = e.blocked === 'offline' ? '（沒連上雲端，金蛋只記在雲端，現在不能花）' : e.blocked === 'nocols' ? '（雲端的金蛋帳本還沒開，暫時不能花）' : `累計賺 ${fmt(e.eggs)} 顆${e.gift ? `・GM 發 ${fmt(e.gift)} 顆` : ''}`;
     $('shopTabs').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     $('shopBody').innerHTML = tab === 'fit' ? fitHtml(e) : tab === 'city' ? cityHtml(e) : donateHtml(e); }
   function fitHtml(e) { const parts = e.outfit.split('.'), worn = {}, own = new Set(e.owned), shop = at('boutique'); ['hat', 'color', 'acc', 'suit'].forEach((c, i) => { worn[c] = parts[i] && parts[i] !== '-' ? parts[i] : ''; });
@@ -48,10 +49,10 @@ export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, island
     if (b.dataset.home && who) { who.goHome(); return; }
     if (b.dataset.cls && who) { who.setCls(b.dataset.cls); render(); onChange && onChange(); hint(`換成${C.heroes[b.dataset.cls].name}`); return; }
     if (b.dataset.go) { const k = b.dataset.go; if (goTo(k)) hint({ boutique: '往最近的服飾店走', site: '往工地走', mayor: '去找市長' }[k]); else hint('找不到可以去的地方', true); return; }
-    if (b.dataset.cat) act(async () => { const cat = b.dataset.cat; if (b.dataset.off) { await S.unequip(cat); hint('脫下了'); return; } const it = E.outfits[cat].items[b.dataset.id]; const owned = S.econ().owned.includes(cat + ':' + b.dataset.id) || it.price === 0;
-      if (!owned && !at('boutique')) { hint('買新衣服要走進服飾店', true); return; } const r = await S.buy(cat, b.dataset.id); if (!r.ok) { hint(r.why === 'poor' ? '金蛋不夠，去打工賺吧' : '買不了', true); return; } hint(r.equip ? `換上${it.name}` : `買了${it.name}，花 ${it.price} 顆金蛋`); });
-    else if (b.dataset.build) act(async () => { if (!at('site')) { hint('要走到工地旁邊才能投', true); return; } const n = +b.dataset.build, before = cityState(S.econ().built).filter(p => p.st === 'done').length; const r = await S.give('built', n); if (!r.ok) { hint('金蛋不夠，去打工賺吧', true); return; } const done = cityState(S.econ().built).filter(p => p.st === 'done'); if (done.length > before) { const p = done[done.length - 1]; banner(`🏗 ${p.name} 蓋好了！`, 3); shout(`${p.name}落成！謝謝大家一起蓋！`); } else hint(`投入 ${n} 顆金蛋蓋城市`); });
-    else if (b.dataset.donate) act(async () => { if (!at('mayor')) { hint('要走到市長旁邊才能捐', true); return; } const n = +b.dataset.donate; const r = await S.give('donated', n); if (!r.ok) { hint('金蛋不夠，去打工賺吧', true); return; } const L = E.donate.lines; mayorLine = pick(n <= 5 ? L.small : n <= 20 ? L.mid : L.big); shout(mayorLine); }); });
+    if (b.dataset.cat) act(async () => { const cat = b.dataset.cat; if (b.dataset.off) { const r = await S.unequip(cat); hint(r.ok ? '脫下了' : whyOf(r), !r.ok); return; } const it = E.outfits[cat].items[b.dataset.id]; const owned = S.econ().owned.includes(cat + ':' + b.dataset.id) || it.price === 0;
+      if (!owned && !at('boutique')) { hint('買新衣服要走進服飾店', true); return; } const r = await S.buy(cat, b.dataset.id); if (!r.ok) { hint(whyOf(r), true); return; } hint(r.equip ? `換上${it.name}` : `買了${it.name}，花 ${it.price} 顆金蛋`); });
+    else if (b.dataset.build) act(async () => { if (!at('site')) { hint('要走到工地旁邊才能投', true); return; } const n = +b.dataset.build, before = cityState(S.econ().built).filter(p => p.st === 'done').length; const r = await S.give('built', n); if (!r.ok) { hint(whyOf(r), true); return; } const done = cityState(S.econ().built).filter(p => p.st === 'done'); if (done.length > before) { const p = done[done.length - 1]; banner(`🏗 ${p.name} 蓋好了！`, 3); shout(`${p.name}落成！謝謝大家一起蓋！`); } else hint(`投入 ${n} 顆金蛋蓋城市`); });
+    else if (b.dataset.donate) act(async () => { if (!at('mayor')) { hint('要走到市長旁邊才能捐', true); return; } const n = +b.dataset.donate; const r = await S.give('donated', n); if (!r.ok) { hint(whyOf(r), true); return; } const L = E.donate.lines; mayorLine = pick(n <= 5 ? L.small : n <= 20 ? L.mid : L.big); shout(mayorLine); }); });
   // 全站數字更新時：蓋城市的模型、全城加成解鎖的公告（每台裝置每階只公告一次）
   const TIER_KEY = 'pi-tier-seen'; let seen = (() => { try { return +localStorage.getItem(TIER_KEY) || 0; } catch (e) { return 0; } })();
   let fest = false; // 「城市嘉年華」解鎖了沒（每幀都會問，先算好）

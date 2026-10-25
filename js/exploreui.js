@@ -19,7 +19,7 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
   const enterSpot = () => { if (G.near) openShop(TAB[G.near.kind]); };
   $('btnXPrompt').addEventListener('click', enterSpot);
   // ── 金蛋商店面板與政策清單（一次開一個）──
-  function openShop(tab) { $('xlist').hidden = true; $('livePanel').hidden = true; $('xbList').setAttribute('aria-pressed', 'false'); $('xbLive').setAttribute('aria-pressed', 'false'); shop.setTab(tab); $('shopPanel').hidden = false; markAct(); document.body.classList.add('list-open'); }
+  function openShop(tab) { S.refresh().then(() => { if (!$('shopPanel').hidden) shop.render(); }); $('xlist').hidden = true; $('livePanel').hidden = true; $('xbList').setAttribute('aria-pressed', 'false'); $('xbLive').setAttribute('aria-pressed', 'false'); shop.setTab(tab); $('shopPanel').hidden = false; markAct(); document.body.classList.add('list-open'); }
   function closePanels() { $('shopPanel').hidden = true; $('xlist').hidden = true; $('livePanel').hidden = true; $('xbList').setAttribute('aria-pressed', 'false'); $('xbLive').setAttribute('aria-pressed', 'false'); markAct(); document.body.classList.remove('list-open'); }
   function markAct() { const open = !$('shopPanel').hidden; for (const [id, t] of [['btnXFit', 'fit'], ['btnXCity', 'city'], ['btnXDonate', 'donate']]) $(id).setAttribute('aria-pressed', String(open && shop.tab === t)); }
   for (const [id, t] of [['btnXFit', 'fit'], ['btnXCity', 'city'], ['btnXDonate', 'donate']]) $(id).addEventListener('click', () => { if (!$('shopPanel').hidden && shop.tab === t) closePanels(); else openShop(t); });

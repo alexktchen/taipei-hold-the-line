@@ -101,7 +101,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     $('onlineList').innerHTML = online > 1 ? `<p><b>${fmt(online)}</b> 人在線・<b>${fmt(playingCount())}</b> 人正在打工</p><ol class="plist">${sortedPeople().map(p => personRow(p)).join('')}</ol>` : '目前只有你，邀朋友一起來打工。';
     $('lobbyStats').innerHTML = `<div><b>${fmt(online)}</b><span>人在線</span></div><div><b>${fmt(globals.shifts)}</b><span>班打工完成</span></div><div><b>${fmt(globals.eggs)}</b><span>顆金蛋入籃</span></div>` + (globals.visitors != null ? `<div class="vis"><b>${fmt(globals.visitors)}</b><span>人來過${globals.visitorsToday ? `・今天新來 ${fmt(globals.visitorsToday)}` : ''}</span></div>` : '');
     $('mine').textContent = h.shifts ? `你已經打了 ${h.shifts} 班、搬了 ${fmt(h.eggs)} 顆金蛋${h.clears ? `、${h.clears} 班三波全過` : ''}，錢包還有 ${fmt(S.econ().wallet)} 顆（到逛城市花）。` : '你還沒打過工。';
-    $('modeNote').textContent = S.state.mode === 'supabase' ? (S.state.noShiftCols ? '已連線：可以一起打工；打工戰績欄位還沒建好，暫時只記在這台裝置。' : '已連線：可以一起打工，戰績和所有人共享。') : S.state.mode === 'remote' ? '這個環境只能單人開工；戰績會計入共享總數。' : '本機模式：沒有連到共享後端，只能單人開工，戰績只存在這個瀏覽器。';
+    $('modeNote').textContent = S.state.mode === 'supabase' ? (S.state.noShiftCols ? '已連線：可以一起打工；雲端的打工戰績欄位還沒建好，這段時間打工不會記金蛋。' : '已連線：可以一起打工，金蛋和戰績記在雲端。') : S.state.mode === 'remote' ? '這個環境只能單人開工；戰績會計入共享總數。' : '沒有連上雲端：只能單人開工，金蛋和戰績都不會記錄（金蛋只記在雲端）。';
     const multi = room.available(); for (const id of ['btnQuick', 'btnCreate', 'btnJoin']) $(id).disabled = !multi; $('joinCode').disabled = !multi;
     $('adminBox').hidden = !(S.state.canEdit && S.state.mode === 'remote'); renderRoom(); }
   $('classes').addEventListener('click', e => { const b = e.target.closest('button[data-id]'); if (!b) return; chosenCls = b.dataset.id; clsPicked = true; $('classes').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.id === chosenCls))); profileChanged(); });
@@ -263,18 +263,18 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   const WHY = { clear: '收工！三波全過', timeup: '配額不夠，這班收工', wipe: '全員倒下，這班收工', host: '房主離線，這班中止', quit: '提早收工' };
   async function onEnd(res) { if (!res) return; lastRes = res; const role = G.role;
     if (role === 'host') { room.sendDown(game.makeSnapshot()); room.sendDown({ t: 'end', res }); room.setStage('wait'); }
-    const mine = res.players[G.me]; const counted = mine && !mine.npc && res.why !== 'host' && res.why !== 'quit' && G.me >= 0; let g0 = myGrade(), g1 = null, pay = 0;
-    if (counted) { g1 = gradeAfter(g0, res); const P2 = C.pay; pay = Math.round((res.cleared * P2.wave + mine.gold * P2.egg + mine.power * P2.kill + mine.rescues * P2.rescue + (res.clear ? P2.clearBonus : 0)) * (0.5 + res.hazard)); await S.recordShift(mine, res.clear, { lv: g1.lv, pts: g1.pts }, res.stage); }
+    const mine = res.players[G.me]; const counted = mine && !mine.npc && res.why !== 'host' && res.why !== 'quit' && G.me >= 0; let g0 = myGrade(), g1 = null, pay = 0, saved = null;
+    if (counted) { g1 = gradeAfter(g0, res); const P2 = C.pay; pay = Math.round((res.cleared * P2.wave + mine.gold * P2.egg + mine.power * P2.kill + mine.rescues * P2.rescue + (res.clear ? P2.clearBonus : 0)) * (0.5 + res.hazard)); saved = await S.recordShift(mine, res.clear, { lv: g1.lv, pts: g1.pts }, res.stage); }
     globals = S.totals(); renderStrip(); renderDistricts(); setPhasePresence();
-    clearTimeout(resultT); resultT = setTimeout(() => showResult(res, mine, g0, g1, pay), SH.resultLinger * 1000); }
-  function showResult(res, mine, g0, g1, pay) { const st = C.stages.find(s => s.id === res.stage) || C.stages[0];
+    clearTimeout(resultT); resultT = setTimeout(() => showResult(res, mine, g0, g1, pay, saved), SH.resultLinger * 1000); }
+  function showResult(res, mine, g0, g1, pay, saved) { const st = C.stages.find(s => s.id === res.stage) || C.stages[0];
     $('resTitle').textContent = res.clear ? `🎉 ${WHY.clear}` : res.why === 'timeup' || res.why === 'wipe' ? `第 ${res.waveNo} 波：${WHY[res.why]}` : res.why === 'quit' && G.role === 'client' && G.me >= 0 && res.players[G.me] && !res.players[G.me].npc ? '房主提早收工' : WHY[res.why] || WHY.timeup;
     $('resWhy').textContent = `${st.name}・危險度 ${Math.round(res.hazard * 100)}%・過了 ${res.cleared}／${res.waves} 波`;
     $('resWaves').innerHTML = Array.from({ length: res.waves }, (_, k) => { const g = res.golds[k], q = res.quotas[k], ok = g != null && q != null && g >= q && (k < res.cleared); return `<li class="${g == null ? '' : ok ? 'ok' : 'bad'}"><span>第 ${k + 1} 波</span><b>${g ?? '–'}<small>／${q ?? '–'}</small></b></li>`; }).join('');
     $('resTeam').innerHTML = res.players.map((p, i) => `<tr class="${i === G.me ? 'me' : ''}"><td><span>${(C.heroes[p.cls] || C.heroes.chief).icon}</span> ${esc(p.nick)}${p.npc ? ' <small>NPC</small>' : i === G.me ? ' <small>你</small>' : ''}</td><td><b>${p.gold}</b></td><td>${p.power}</td><td>${p.rescues}</td><td>${p.downs}</td></tr>`).join('');
     if (g1) { const max = gradeMax(g1.lv); $('resMe').innerHTML = `<div class="pay"><span>打工點數</span><b>+${fmt(pay)}</b></div><div class="gr"><span>打工職級</span><b>${esc(GR.names[g1.lv])}</b> <span>${g1.promoted ? `升級！${esc(GR.names[g0.lv])} → ${esc(GR.names[g1.lv])}` : g1.demoted ? `降級：${esc(GR.names[g0.lv])} → ${esc(GR.names[g1.lv])}` : `${g0.pts} → ${g1.pts}／${max}`}（${g1.d >= 0 ? '+' : ''}${g1.d}）</span><span class="bar"><i style="width:${Math.min(100, g1.pts / max * 100).toFixed(1)}%"></i></span></div>`; }
     else $('resMe').innerHTML = `<div class="gr"><span>${G.me < 0 ? '這班你在旁邊看，沒有算進戰績。' : '這班沒有算進戰績，打工職級不變。'}</span></div>`;
-    $('resDistrict').textContent = mine && !mine.npc && g1 ? districtLine(mine.gold, myDistrict()) : '';
+    $('resDistrict').textContent = mine && !mine.npc && g1 ? (saved && !saved.ok ? (saved.why === 'offline' ? '⚠ 沒連上雲端，這班的金蛋沒有記錄（金蛋只記在雲端）。' : '⚠ 連線不穩，這班的金蛋沒存到雲端。') : districtLine(mine.gold, myDistrict())) : '';
     const client = G.role === 'client'; $('btnAgain').disabled = client; $('btnAgain').textContent = client ? '等房主開下一班⋯' : room.code ? '同一房再打一班' : '再打一班';
     $('resultBox').hidden = false; }
   $('btnAgain').addEventListener('click', () => { if (G.role === 'client') return; if (room.code && room.isHost) startRoomShift(); else startSolo(); });

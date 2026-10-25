@@ -115,8 +115,8 @@
 - 衣服：`outfit` 字串「帽子.背心.配件」（沒穿寫 `-`），`owned` 是 `cat:id` 逗號清單。`people.makeWalker(role, pos, cls, fit)` 依字串加帽子、換背心顏色、加配件（換帽子時職業帽拿掉、手上道具保留）。打工：房間 presence `fit` → 開工設定 roster `fit`；逛城市：位置訊息 `o`。收到的字串只認 config 裡有的 id。
 - 蓋城市：全站 `built` 加總（每人不超過自己的 eggs）依序蓋 `config.econ.city`。位置是各島 3 棟小房子之一（`house` 0～2）；main.js 的 `placeCity()` 依狀態畫小房子／工地（`crane`）／建築，並加名牌。蓋城市投入的金蛋再算一次進 12 區對抗。
 - 政治獻金（惡搞）：全站 `donated` 加總解鎖 `tiers`。打工加成由房主開工時算好放進開工設定 `boost`（解鎖幾階，房客照收），game.js `boostOf()` 套用（受傷減免、配額、特殊技次數）。自己捐了市長回一句（面板裡與地圖上都有），新解鎖時公告一次（每台裝置記 `pi-tier-seen`）；市長每講 4 次感謝獻金榜第一名。
-- **上線前要跑 `supabase/economy.sql`**（可重複執行；有「花的不能比賺的多」的 check）。沒跑時花費只記在本機、全站數字只算自己（錢包旁會寫「只記在這台裝置」）。
-- 已知限制：跟打工戰績一樣，數字由玩家自己的瀏覽器寫（RLS 只限本人那一列），有心人能改自己的 eggs 再花。要防就把「搬進籃子」與「花費」改成 RPC，由伺服器端加減。
+- **上線前要跑 `supabase/economy.sql`**（可重複執行；有「花的不能比賺的多」的 check）。沒跑時商店不能花（錢包旁會寫「雲端的金蛋帳本還沒開」）。後來改成金蛋只記雲端，見第 12 節。
+- 已知限制：`hero_shift` 的金蛋數還是玩家瀏覽器報的（一班上限 300），RLS 也還允許本人直接改自己那一列；要完全防作弊得把打工模擬搬到伺服器。
 - 警語（`config.econ.legal`）放在商店面板底部：金蛋不是錢、不能買賣；政治獻金不是真的捐款，跟任何候選人、政黨、選舉都無關。
 
 ### 11. 再補充：兩個世界、打工現場、萬聖節套裝、回訪直接進城市
@@ -129,3 +129,9 @@
 - **填海造島**：`config.econ.city` 裡 `kind: 'island'` 的項目（`axial` 是新島的六角座標、`link` 接到哪一區、`ground`／`landmark` 外觀）。施工中：工地名牌在 `link` 那座島靠新島的岸邊（`shoreOf`），海上是隨進度長大的沙洲（`reclaim`，每 10% 換一次）；完工：`growIsland` 用 `islands.js` 的 `buildExtraIsland` 蓋島與橋，`nav.addIsland` 把島面、橋與地標碰撞加進走路網格。新島不是行政區，不算 12 區對抗。
 - **城市看得到打工場現況**：`ui.js` 的 `stageInfo()`（現在的場、下一個場、換場倒數、總攻擊倒數，和大廳 `renderStageLine` 同一套）傳給 `exploreui.js`；左上 `#xStage` 小卡每次 `tick` 更新（只在文字變了才寫），`renderLive()` 面板分三段：現在的打工場、正在打的班、魔王圖鑑。`main.js liveSigns(groups, nowSid)`：現在的場一直掛黃牌（`.live.idle`），有 live 就變紅；換場時 `renderStage` 偵測到就重掛。
 - **過場順暢化**：`warp()` 先顯示雲（還在畫面外）、下一幀才加 `in`，CSS 轉場才會跑（同一幀顯示又加 class 會直接跳到蓋滿）；雲不用 `filter: drop-shadow`（每幀重算），改 `box-shadow`＋`will-change`；蓋滿時 `covered` 不畫 3D，`prewarm()` 用 `renderer.compileAsync` 在雲後編好新世界的 shader（最多等 0.6 秒）；`startPull` 改照 `performance.now()` 走；`body.warping` 時名牌淡出、不跑 `updateLabels`。
+
+### 12. 金蛋只記雲端、GM 發金蛋
+- `store.js`：`localStorage pi.hero.v1` 只存 `nick`／`cls`／`district`（回訪判斷用）；金蛋、戰績、花費、穿著一律從雲端那一列來（`refreshHeroes` 直接套用，讀的途中自己剛寫過就跳過這一輪）。舊版存在本機的金蛋與花費，第一次連上時比雲端多就整列寫上去一次（`migrateLegacy`），之後本機不再存。
+- 打完一班 `recordShift` → RPC `hero_shift`（資料庫裡 +1 班、+金蛋，一班最多 300 顆）；花金蛋 `buy`／`give`／換穿著 → RPC `hero_spend`（錢包不夠丟 `poor`）。資料庫還沒有這兩個函式時（`PGRST202`）退回整列 upsert；`saveHero` 只寫身分欄位，不會用舊數字蓋掉雲端的金蛋。沒連上雲端：`recordShift` 回 `{ ok:false, why:'offline' }`，結算顯示沒記錄；商店不能花。
+- `gift` 欄位＝GM 發的金蛋：錢包算進去，打工榜、全體戰績、12 區對抗不算。觸發器 `heroes_keep_gift` 讓 anon／authenticated 改不了它；`admin_gift(p_hero, p_n)`（security definer，要 `is_admin()`）給後台用；後台「英雄資料」可以用暱稱搜尋、按「＋金蛋」。也可以跑 `supabase/gm_gift.sql`。
+- 打開商店時 `S.refresh()` 重讀一次雲端（10 秒內不重讀），GM 剛發的金蛋馬上看得到。
