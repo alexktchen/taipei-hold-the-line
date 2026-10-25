@@ -1,4 +1,4 @@
-/* 全版 UI：大廳（打工／逛城市兩個分頁；開工、快速配對、房間）、開工中的 HUD／同事名單／動作鈕／手機搖桿、結算與打工職級、政策卡、熱線與快訊。逛城市的畫面在 exploreui.js、金蛋商店在 shop.js。 */
+/* 全版 UI：兩個世界——城市（逛城市，exploreui.js）與打工場（大廳：開工、快速配對、房間），用雲切換（main.js 的 warp）；開工中的 HUD／同事名單／動作鈕／手機搖桿、結算與打工職級、政策卡、熱線與快訊。逛城市的畫面在 exploreui.js、金蛋商店在 shop.js。 */
 import { CONFIG as C } from './config.js';
 import { HOTLINE } from './hotline.js';
 import { nextNews, genHotline } from './news.js';
@@ -7,7 +7,7 @@ import { createRoom } from './room.js';
 import { createExploreUI } from './exploreui.js';
 import { createShop } from './shop.js';
 const SH = C.shift, GR = C.grades, $ = id => document.getElementById(id);
-export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
+export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, stageCenter, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const num = v => typeof v === 'number' && Number.isFinite(v), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, n) : '';
@@ -36,11 +36,13 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   const myProfile = () => { const g = myGrade(); return { nick: nickVal(), cls: chosenCls, district: myDistrict(), grade: g.lv, pts: g.pts, fit: myFit() }; };
   function profileChanged() { renderGoWho(); if (room.code) room.setProfile(myProfile()); S.setPresence({ nick: nickVal(), cls: chosenCls }); }
   $('homeDistrict').addEventListener('change', () => { districtPicked = true; renderDistricts(); profileChanged(); });
-  function renderGoWho() { const h = S.hero() || {}, random = !districtPicked && !h.district; $('goWho').textContent = `以${C.heroes[chosenCls].name}替${districtName(myDistrict())}${mode === 'explore' ? '逛城市' : '打工'}${random ? '（區是隨機選的，可以換）' : ''}。`; }
+  function renderGoWho() { const h = S.hero() || {}, random = !districtPicked && !h.district; $('goWho').textContent = `以${C.heroes[chosenCls].name}替${districtName(myDistrict())}打工${random ? '（區是隨機選的，可以換）' : ''}。`; }
   // ── 玩法分頁：打工（4 人一隊搬金蛋）／守城（原本的塔防，大家同框）；選過的記在裝置上 ──
-  const MODE_KEY = 'pi-mode'; let mode = (() => { try { return ['explore', 'td'].includes(localStorage.getItem(MODE_KEY)) ? 'explore' : 'shift'; } catch (e) { return 'shift'; } })();
-  function setMode(m) { mode = m === 'explore' ? 'explore' : 'shift'; try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* 無痕 */ } renderLobby(); }
-  $('modes').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
+  // ── 兩個世界：city＝逛城市、work＝打工場（大廳與開工）──
+  // 來過的人（這台裝置存過名字或職業）重新整理後不跳大廳，直接從雲端降落到自己的區；第一次來才看到大廳（警語、取名字、選職業）；拿邀請連結進來的直接到打工場
+  const WORLD_KEY = C.explore.worldKey, RETURNING = (() => { try { const h = JSON.parse(localStorage.getItem('pi.hero.v1') || 'null'); return !!(h && (h.nick || h.cls)); } catch (e) { return false; } })();
+  let world = RETURNING && !new URLSearchParams(location.search).get('room') ? 'city' : 'work';
+  const setWorld = w => { world = w; try { localStorage.setItem(WORLD_KEY, w); } catch (e) { /* 無痕 */ } renderHowto(); };
   // 怎麼玩：數字都從 config 帶，改參數不用改文案
   const HOWTO = () => [
     ['選職業、選你的區', `${Object.keys(C.heroes).length} 種職業各有武器和一招特殊技（一班 ${SH.specials} 次）。搬進籃子的金蛋都算進你選的行政區。`],
@@ -66,8 +68,9 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     ['工具列', '下方可以換時段（清晨、白天、黃昏、夜晚）、開關名牌、停住時間、鳥瞰全城、打開政策清單（點一項就走過去）。快捷鍵：E 進去、B 鳥瞰、L 清單、F 跟著自己、H 全景。'],
   ];
   const LEAD = { shift: '打工場是幾座相鄰的島，金蛋籃在中間那座島的廣場上。網軍會從岸邊一波波上岸，打倒魔王會掉金蛋，搬進籃子湊滿配額才算過關，三波都過就收工。進場後點右上角的「?」也能隨時看。', explore: '帶著你的角色在政策島上散步：看政策建築、走進服飾店買衣服、到工地投金蛋蓋城市、找市長捐政治獻金。其他正在逛的人也在同一張地圖上。' };
-  function renderHowto() { const list = mode === 'explore' ? HOWTO_X() : HOWTO(); $('howto').innerHTML = $('howtoHelp').innerHTML = list.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join(''); $('howtoLead').textContent = LEAD[mode]; }
-  renderHowto(); $('lobbyBox').dataset.mode = mode;
+  const li = list => list.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('');
+  function renderHowto() { $('howto').innerHTML = li(HOWTO()); $('howtoLead').textContent = LEAD.shift; $('howtoHelp').innerHTML = li(world === 'city' ? HOWTO_X() : HOWTO()); $('helpTitle').textContent = world === 'city' ? '逛城市怎麼玩' : '打工怎麼玩'; }
+  renderHowto();
   $('bossList').innerHTML = C.bossTypes.map(k => C.animals[k]).map(A => `<li><b>${esc(A.name)}</b><span>${esc(A.desc)}</span></li>`).join('');
   const closeHelp = () => { $('helpOverlay').hidden = true; };
   $('btnHelp').addEventListener('click', () => { $('helpOverlay').hidden = false; }); $('btnHelpClose').addEventListener('click', closeHelp); $('helpOverlay').addEventListener('click', e => { if (e.target === $('helpOverlay')) closeHelp(); });
@@ -88,10 +91,9 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   // ── 大廳 ──
   function renderGrade() { const g = myGrade(), max = gradeMax(g.lv); $('gradeCard').innerHTML = `<div class="gl"><span class="k">打工職級</span><b>${esc(GR.names[g.lv])}</b><span class="pts">${g.pts}／${max}</span></div><span class="bar"><i style="width:${Math.min(100, g.pts / max * 100).toFixed(1)}%"></i></span><small>危險度 ${Math.round((hazardOf(g.lv, g.pts) + (isFinalNow() ? C.election.hazardBonus : 0)) * 100)}%・過關 +${GR.clear}${g.lv >= GR.failSafeBelow ? '、沒過會扣點' : '、現在沒過也不扣點'}</small>`; }
   function renderStageLine() { const now = stageNow(), nx = stageNext(); $('stageLine').innerHTML = `現在的打工場：<b>${esc(now.name)}</b>（${now.islands.length} 座島）<span>・${hms(rotMs - Date.now() % rotMs)} 後換成${esc(nx.name)}</span>`;
-    const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊${mode === 'explore' ? '' : `、危險度 +${Math.round(C.election.hazardBonus * 100)}%`}）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
-  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; $('lobbyBox').dataset.mode = mode; $('modes').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === mode))); $('lobbyTitle').textContent = mode === 'explore' ? '去城市裡走走。' : '今天也來搬金蛋。'; renderHowto(); if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls && C.heroes[h.cls]) chosenCls = h.cls; if (!districtPicked && h.district && DISTRICTS.some(i => i.id === h.district)) $('homeDistrict').value = h.district; renderGoWho(); /* 已存的職業只當預設值，使用者點選過就以點選為準 */
+    const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊、危險度 +${Math.round(C.election.hazardBonus * 100)}%）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
+  function renderLobby() { const h = S.hero() || {}; const me = S.state.me;  if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls && C.heroes[h.cls]) chosenCls = h.cls; if (!districtPicked && h.district && DISTRICTS.some(i => i.id === h.district)) $('homeDistrict').value = h.district; renderGoWho(); /* 已存的職業只當預設值，使用者點選過就以點選為準 */
     $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}<em>${esc(H.weapon)}</em></b><small>${esc(H.desc)}</small><small class="sp">特殊技「${esc(H.special.name)}」：${esc(H.special.desc)}</small></span></button>`).join('');
-    shop.renderLobby();
     renderGrade(); renderStageLine();
     $('onlineList').innerHTML = online > 1 ? `<p><b>${fmt(online)}</b> 人在線・<b>${fmt(playingCount())}</b> 人正在打工</p><ol class="plist">${sortedPeople().map(p => personRow(p)).join('')}</ol>` : '目前只有你，邀朋友一起來打工。';
     $('lobbyStats').innerHTML = `<div><b>${fmt(online)}</b><span>人在線</span></div><div><b>${fmt(globals.shifts)}</b><span>班打工完成</span></div><div><b>${fmt(globals.eggs)}</b><span>顆金蛋入籃</span></div>` + (globals.visitors != null ? `<div class="vis"><b>${fmt(globals.visitors)}</b><span>人來過${globals.visitorsToday ? `・今天新來 ${fmt(globals.visitorsToday)}` : ''}</span></div>` : '');
@@ -108,12 +110,20 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   // ── 金蛋商店（shop.js）與逛城市（exploreui.js）：共用這裡的小工具 ──
   const xOn = () => explore.G.on;
   const shop = createShop({ S, esc, fmt, hint, banner, placeCity, shout: t => game.shout(t), islandName: districtName, near: () => explore.G.near, goTo: k => xui.goTo(k),
+    who: { get: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict() }), districts: () => DISTRICTS, goHome: () => { explore.respawn({ district: myDistrict() }); follow.start('xme', false); renderFollowBtn(); hint(`回到${districtName(myDistrict())}`); },
+      setDistrict: id => { if (!DISTRICTS.some(d => d.id === id)) return; $('homeDistrict').value = id; districtPicked = true; renderDistricts(); profileChanged(); S.saveHero({ district: id }); }, setCls: id => { if (!C.heroes[id]) return; chosenCls = id; clsPicked = true; profileChanged(); }, setNick: v => { $('nick').value = String(v || '').trim().slice(0, 24); profileChanged(); } },
     onChange: () => { globals = S.totals(); renderStrip(); renderDistricts(); if (room.code) room.setProfile(myProfile()); xui.refit(); } });
   callbacks.mayorExtra = m => { if (G.phase === 'lobby') shop.onSpeech(m, callbacks.say); };
   const xui = createExploreUI({ explore, S, shop, callbacks: xCallbacks, shared: { esc, fmt, hint, banner, districtName, online: () => online, touch: matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0,
     profile: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict(), fit: myFit() }), follow, bird, followed: () => renderFollowBtn(), policyPos, policies: () => policies, islandOf, card: (p, isl) => showCard(p, isl),
     enter: async () => { if (room.code) { await room.leave(); dropRoomParam(); } $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); input.clear(); renderFollowBtn(); },
-    exit: () => { follow.stop(); input.clear(); renderLobby(); $('lobby').hidden = false; overview(); renderFollowBtn(); hint(''); } } });
+    goWork: () => goWork(), liveSigns, stageCenter, lookStage: sid => frameStage(sid, false) } });
+  // ── 換世界：雲湧進來、鏡頭拉遠，切換後雲散開、鏡頭推近 ──
+  function showLobby() { renderLobby(); $('lobby').hidden = false; frameStage(stageNow().id, true); renderFollowBtn(); hint(''); }
+  function goCity(covered, sky) { if (G.phase !== 'lobby' && G.phase !== 'result') return Promise.resolve(false);
+    return warp(sky ? '🏙 歡迎回來' : '🏙 回到城市', async () => { if (G.phase === 'result') { $('resultBox').hidden = true; game.backToLobby(); } $('lobby').hidden = true; setWorld('city'); await xui.start(); }, { covered, sky }); }
+  function goWork() { if (!xOn()) return Promise.resolve(false); return warp('🥚 前往打工場', async () => { xui.leave(); setWorld('work'); input.clear(); showLobby(); }); }
+  $('btnToCity').addEventListener('click', () => goCity()); $('btnResCity').addEventListener('click', () => goCity());
   // ── 政策卡：編號標題、摘要、為什麼、細項、主責局處、遊戲裡的狀態（市長巡迴、相關議題）、相關政策 ──
   let cardPol = null, cardIsl = null, cardTimer = 0; const tagOf = p => String(p.tag || '').replace(/^#/, ''); const md = s => s.split('-').slice(1).map(Number).join('/');
   function mayorLine(pol) { const M = G.mayor, st = game.mayorStops(), n = st.length, me = st.findIndex(x => x.pol.id === pol.id); if (!M || me < 0) return ''; const who = esc(C.mayor.name);
@@ -216,7 +226,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   function setPhasePresence() { if (room.code) { room.setStage(G.phase !== 'lobby' && G.phase !== 'result' ? 'shift' : 'wait'); return; } S.setPresence({ phase: G.phase !== 'lobby' && G.phase !== 'result' ? 'shift' : 'lobby', nick: nickVal(), cls: chosenCls }); }
   function onShift(kind) { const inShift = kind === 'start'; document.body.classList.toggle('in-shift', inShift); $('shiftHud').hidden = !inShift; $('teamPanel').hidden = !inShift; $('actionBar').hidden = !inShift; $('joy').hidden = !inShift || !touch || G.me < 0;
     $('btnPause').hidden = !(inShift && G.role === 'solo'); $('btnQuit').hidden = !inShift; G.paused = false; $('btnPause').textContent = '暫停'; $('btnPause').setAttribute('aria-pressed', 'false');
-    if (inShift) { if (!follow.start('hero', true)) stageView(); renderSpecial(); renderTeam(); renderShift(); hint(''); } else { follow.stop(); overview(); }
+    if (inShift) { if (!follow.start('hero', true)) stageView(); renderSpecial(); renderTeam(); renderShift(); hint(''); } else { follow.stop(); frameStage(stageNow().id, false); }
     renderFollowBtn(); setPhasePresence(); }
   // ═══════════════ 開工中的畫面：上方這一波、左邊同事、右下動作 ═══════════════
   const SPN = { fog: '🌫 起大霧', rush: '🌙 暴走夜' };
@@ -265,7 +275,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     const client = G.role === 'client'; $('btnAgain').disabled = client; $('btnAgain').textContent = client ? '等房主開下一班⋯' : room.code ? '同一房再打一班' : '再打一班';
     $('resultBox').hidden = false; }
   $('btnAgain').addEventListener('click', () => { if (G.role === 'client') return; if (room.code && room.isHost) startRoomShift(); else startSolo(); });
-  $('btnResLobby').addEventListener('click', () => { $('resultBox').hidden = true; game.backToLobby(); renderLobby(); $('lobby').hidden = false; });
+  $('btnResLobby').addEventListener('click', () => { $('resultBox').hidden = true; game.backToLobby(); showLobby(); });
   $('btnQuit').addEventListener('click', async () => { if (xOn()) { xui.leave(); return; } if (G.phase === 'lobby') return; if (G.phase !== 'result' && !confirm(G.role === 'host' ? '你是房主，收工的話這班所有人都會結束。確定嗎？' : '確定要提早收工嗎？這班不會算進戰績。')) return;
     if (G.phase === 'result') { $('btnResLobby').click(); return; } if (G.role === 'client') { await room.leave(); game.abort('quit'); renderRoom(); } else game.abort('quit'); });
   // ═══════════════ 鏡頭按鈕 ═══════════════
@@ -284,6 +294,17 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   setInterval(() => { if (G.role === 'host' && room.isHost && G.phase !== 'lobby' && G.phase !== 'result') room.sendDown(game.makeSnapshot()); }, 1000 / C.net.snapHz);
   let lastUp = null, lastUpAt = 0;
   setInterval(() => { if (G.role !== 'client' || !room.code || G.phase === 'lobby' || G.phase === 'result') return; const m = game.myInput(); if (!m) return; const now = Date.now(); const moved = !lastUp || Math.hypot(m.x - lastUp.x, m.z - lastUp.z) > 0.03 || Math.abs(m.y - lastUp.y) > 0.25 || m.f !== lastUp.f; if (!moved && now - lastUpAt < C.net.heartbeat * 1000) return; lastUp = m; lastUpAt = now; room.sendUp(m); }, 1000 / C.net.upHz);
+  // ═══════════════ 打工現場：單人或房主把這一班的摘要送給正在逛城市的人（live 頻道）═══════════════
+  // 換波、金蛋、魔王、有人倒下時才送（最快 send 秒一次），沒變化時 heartbeat 秒一次；收工送 le（r=1 三波全過）
+  const LV = C.explore.live; let liveSig = '', liveAt = 0, liveUp = false;
+  function liveMsg() { const alive = G.enemies.filter(e => !e.dead); return { t: 'ls', st: G.stage.id, ph: G.phase, w: G.waveNo, tl: Math.round(G.phase === 'wave' ? G.timeLeft : G.t), g: G.gold, q: G.quota, sp: G.special || '', hz: Math.round(G.hazard * 100),
+    b: [...new Set(alive.filter(e => e.A && e.A.boss).map(e => e.type))].slice(0, 5), e: alive.length, p: G.players.map(P => [P.cls, P.npc ? 1 : 0, P.down ? 1 : 0]), nk: (G.players.find(P => !P.npc) || {}).nick || '' }; }
+  setInterval(() => { const running = (G.role === 'solo' || G.role === 'host') && ['intro', 'wave', 'inter'].includes(G.phase) && G.stage;
+    if (!running) { if (liveUp) { S.liveSend({ t: 'le', r: G.result && G.result.clear ? 1 : 0 }); liveUp = false; setTimeout(() => { if (!liveUp) S.liveOn('h', false); }, 800); } return; }
+    if (!liveUp) { liveUp = S.liveOn('h', true); liveSig = ''; liveAt = 0; if (!liveUp) return; }
+    const m = liveMsg(), sig = [m.ph, m.w, m.g, m.q, m.sp, m.b.join(','), m.p.map(p => p[2]).join('')].join('|'), now = Date.now();
+    if ((sig !== liveSig && now - liveAt > LV.send * 1000) || now - liveAt > LV.heartbeat * 1000) { if (S.liveSend(m)) { liveSig = sig; liveAt = now; } } }, 1000);
+  S.onLive(m => { if (m && m.t === 'lq' && liveUp) liveAt = 0; }); // 有人剛進城市：下一秒就送一次
   // ═══════════════ 在線名單 ═══════════════
   const STATUS = { shift: '打工中', explore: '逛城市中', room: '在房間等', lobby: '在大廳', away: '暫離' };
   function statusOf(p) { return p.away ? 'away' : p.phase; }
@@ -294,7 +315,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   function renderPlayers() { $('plTitle').textContent = `${fmt(online)} 人在線・${fmt(playingCount())} 人在打工${globals.visitors != null ? `・累計 ${fmt(globals.visitors)} 人來過` : ''}`; const html = sortedPeople().map(p => personRow(p)).join('') || '<li class="empty">目前只有你</li>'; if ($('plList').dataset.html !== html) { $('plList').innerHTML = html; $('plList').dataset.html = html; } }
   const setPlayers = open => { $('playersPanel').hidden = !open; $('btnOnline').setAttribute('aria-expanded', String(open)); if (open) renderPlayers(); };
   $('btnOnline').addEventListener('click', () => setPlayers($('playersPanel').hidden)); $('btnPlClose').addEventListener('click', () => setPlayers(false));
-  const joinFromList = e => { const b = e.target.closest('button[data-room]'); if (!b) return; setPlayers(false); $('lobby').hidden = false; roomAction(() => room.join(b.dataset.room), r => `加入房間 ${r.code}`); };
+  const joinFromList = async e => { const b = e.target.closest('button[data-room]'); if (!b) return; setPlayers(false); if (xOn()) await goWork(); $('lobby').hidden = false; roomAction(() => room.join(b.dataset.room), r => `加入房間 ${r.code}`); };
   $('plList').addEventListener('click', joinFromList); $('onlineList').addEventListener('click', joinFromList);
   // ═══════════════ 快捷鍵 ═══════════════
   document.addEventListener('keydown', ev => { if (/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return; const k = ev.key.toLowerCase();
@@ -303,12 +324,15 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     if (k === 'q') { ev.preventDefault(); doSpecial(); } else if (k === 'e' || ev.key === ' ') { ev.preventDefault(); doThrow(); } else if (k >= '1' && k <= String(C.emotes.length)) doEmote(C.emotes[+k - 1].k); else if (k === 'h') $('btnHome').click(); else if (k === 'f') { follow.start('hero', false); renderFollowBtn(); } else if (k === 'p') togglePause(); });
   const fsBtn = $('btnFull'); if (!document.fullscreenEnabled) fsBtn.hidden = true; fsBtn.addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => { hint('這個環境不允許全螢幕', true); }); }); document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? '⤡ 離開全螢幕' : '⤢ 全螢幕'; });
   $('btnLogToggle').addEventListener('click', () => { $('logPanel').classList.toggle('open'); });
-  $('btnSolo').addEventListener('click', startSolo); $('btnXStart').addEventListener('click', () => xui.start());
+  $('btnSolo').addEventListener('click', startSolo);
   $('nick').addEventListener('input', profileChanged);
   $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteProj').textContent = C.site.proj; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
-  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); shop.sync(); if (!$('lobby').hidden) shop.renderLobby(); if (xOn() && !$('shopPanel').hidden) shop.render(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
+  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); shop.sync(); if (xOn() && !$('shopPanel').hidden) shop.render(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
   S.onOnline((n, names, list) => { online = n; people = list || []; renderStrip(); if (!$('lobby').hidden) renderLobby(); if (!$('playersPanel').hidden) renderPlayers(); });
+  // 上次在城市：先用雲蓋住畫面（不先閃一下大廳），載入完直接散開到城市
+  if (world === 'city') { $('lobby').hidden = true; const cw = $('cloudwipe'); cw.hidden = false; cw.className = 'cloudwipe cover'; $('cwText').textContent = '🏙 歡迎回來'; } else if (!RETURNING) $('firstNote').hidden = false;
   S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', cls: (h && h.cls) || null, phase: 'lobby', away: document.hidden }); renderLobby();
+    if (world === 'city') { goCity(true, true); return; } showLobby();
     const code = new URLSearchParams(location.search).get('room'); if (code && room.available()) roomAction(() => room.join(code), r => `加入房間 ${r.code}`); else if (code) hint(REASON.offline, true); });
   renderFollowBtn(); hint('');
   // ── 市民熱線（右側卡片輪播）與城市快訊（底部跑馬燈）──

@@ -7,11 +7,12 @@
    金蛋經濟欄位：donated（政治獻金）、built（蓋城市投入）、spent（衣服花掉）、outfit（穿著，帽子.背心.配件）、owned（買過的衣服）；要先跑 supabase/economy.sql，沒跑的話只記在這台裝置。
    錢包 = eggs − donated − built − spent；只有打工會增加 eggs。
    逛城市的多人同框走全站 play 頻道（broadcast），只有在逛城市時才加入（playOn），打工房間不用它。
+   打工現場走全站 live 頻道：正在打工的房主／單人送這班的摘要，逛城市的人收（liveOn 依用途計數，兩邊都不用了才離開）。
    介面：init(), onGlobal(fn), onLeaderboard(fn), hero(), saveHero(patch), recordShift(mine, clear, grade), econ(), buy(), unequip(), give(), listIssues(), addIssue(issue), listPolicies(), addPolicy(p), districtBoard(), setPresence(patch), playOn(on), send(msg), onNet(fn) */
 window.PIStore = (function () {
   const LS_HERO = 'pi.hero.v1';
   const state = { db: null, user: null, uid: null, canWrite: null, canEdit: false, me: { name: '', avatarUrl: '', color: '' },
-    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, playSub: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], visitors: null, visitorsToday: null, sb: null, presenceCh: null, presence: {}, noShiftCols: false, noDistrict: false, noEconCols: false };
+    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [], live: [] }, playCh: null, playSub: null, liveCh: null, liveSub: null, liveUsers: new Set(), onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], visitors: null, visitorsToday: null, sb: null, presenceCh: null, presence: {}, noShiftCols: false, noDistrict: false, noEconCols: false };
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const loadLocalHero = () => safe(() => JSON.parse(localStorage.getItem(LS_HERO) || 'null'), null);
   const saveLocalHero = (h) => safe(() => localStorage.setItem(LS_HERO, JSON.stringify(h)), null);
@@ -105,9 +106,9 @@ window.PIStore = (function () {
   // 打完一班：mine = 結算裡自己那一格（金蛋數等），grade = 打完後的職級 { lv, pts }
   async function recordShift(mine, clear, grade, stage) { const h = state.hero || {}; await saveHero({ shifts: n0(h.shifts) + 1, eggs: n0(h.eggs) + n0(mine && mine.gold), clears: n0(h.clears) + (clear ? 1 : 0), grade: grade.lv, grade_pts: grade.pts, lastStage: stage || null }); }
   // ── 金蛋經濟 ──
-  const EC = () => PI_CONFIG.econ, CATS = ['hat', 'color', 'acc'];
+  const EC = () => PI_CONFIG.econ, CATS = ['hat', 'color', 'acc', 'suit'];
   const itemOf = (cat, id) => { const c = EC().outfits[cat]; return c && typeof id === 'string' && Object.hasOwn(c.items, id) ? c.items[id] : null; };
-  // 穿著字串「帽子.背心.配件」，沒穿的寫 -；不認得的 id 一律當沒穿
+  // 穿著字串「帽子.背心.配件.套裝」，沒穿的寫 -；不認得的 id 一律當沒穿
   function fitObj(v) { const a = typeof v === 'string' ? v.split('.') : []; const o = {}; CATS.forEach((c, i) => { o[c] = itemOf(c, a[i]) ? a[i] : ''; }); return o; }
   function fitStr(v) { const o = typeof v === 'object' && v ? v : fitObj(v); return CATS.map(c => itemOf(c, o[c]) ? o[c] : '-').join('.'); }
   function ownedList(v) { return [...new Set((typeof v === 'string' ? v.split(',') : []).filter(k => { const [c, id] = k.split(':'); return itemOf(c, id); }))].slice(0, 40); }
@@ -119,7 +120,7 @@ window.PIStore = (function () {
     const board = k => list.filter(x => capped(x, k) > 0).sort((a, b) => capped(b, k) - capped(a, k)).slice(0, EC().donate.boardMax).map(x => ({ id: x.id, nick: str(x.nick, 24), cls: x.cls, n: capped(x, k) }));
     return { wallet: wallet(), eggs: n0(h.eggs), myBuilt: n0(h.built), myDonated: n0(h.donated), outfit: fitStr(h.outfit), owned: ownedList(h.owned), built, donated, donors: board('donated'), builders: board('built'), local: state.mode === 'local' || state.noShiftCols || state.noEconCols }; }
   async function buy(cat, id) { const it = itemOf(cat, id); if (!it) return { ok: false, why: 'item' }; const h = state.hero || {}, own = ownedList(h.owned), key = cat + ':' + id, fit = fitObj(h.outfit); fit[cat] = id;
-    if (own.includes(key)) { await saveHero({ outfit: fitStr(fit) }); return { ok: true, equip: true }; }
+    if (own.includes(key) || it.price === 0) { await saveHero({ outfit: fitStr(fit) }); return { ok: true, equip: true }; } // 買過的、免費的（萬聖節免費套裝）直接換上
     if (wallet() < it.price) return { ok: false, why: 'poor' }; await saveHero({ spent: n0(h.spent) + it.price, owned: [...own, key].join(','), outfit: fitStr(fit) }); return { ok: true }; }
   async function unequip(cat) { const h = state.hero || {}, fit = fitObj(h.outfit); fit[cat] = ''; await saveHero({ outfit: fitStr(fit) }); return { ok: true }; }
   async function give(kind, n) { n = Math.floor(n0(n)); if (!(kind === 'built' || kind === 'donated') || n <= 0) return { ok: false, why: 'amount' }; if (n > wallet()) return { ok: false, why: 'poor' }; const h = state.hero || {}; await saveHero({ [kind]: n0(h[kind]) + n }); return { ok: true, n }; }
@@ -129,10 +130,16 @@ window.PIStore = (function () {
       ch.on('broadcast', { event: 'm' }, ({ payload }) => { if (payload && typeof payload === 'object') for (const fn of state.subs.net) fn(payload); });
       ch.subscribe(st => { if (st === 'SUBSCRIBED' && state.playSub === ch) state.playCh = ch; }); return true; }
     if (state.playSub) { sb.removeChannel(state.playSub); state.playSub = null; state.playCh = null; } return true; }
+  function liveOn(who, on) { const sb = state.sb; if (!sb || !state.uid) return false; if (on) state.liveUsers.add(who); else state.liveUsers.delete(who);
+    if (state.liveUsers.size && !state.liveSub) { const ch = sb.channel('live', { config: { broadcast: { self: false } } }); state.liveSub = ch;
+      ch.on('broadcast', { event: 'm' }, ({ payload }) => { if (payload && typeof payload === 'object') for (const fn of state.subs.live) fn(payload); });
+      ch.subscribe(st => { if (st === 'SUBSCRIBED' && state.liveSub === ch) state.liveCh = ch; }); }
+    else if (!state.liveUsers.size && state.liveSub) { sb.removeChannel(state.liveSub); state.liveSub = null; state.liveCh = null; } return true; }
+  function liveSend(msg) { if (!state.liveCh || !state.uid) return false; state.liveCh.send({ type: 'broadcast', event: 'm', payload: { ...msg, id: state.uid } }).catch(() => {}); return true; }
   function send(msg) { if (!state.playCh || !state.uid) return false; state.playCh.send({ type: 'broadcast', event: 'm', payload: { ...msg, id: state.uid } }).catch(() => {}); return true; }
   async function addPolicy(policy) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增政策'); await state.db.doc('policies/' + policy.id).set(policy); }
   async function addIssue(issue) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增議題'); await state.db.doc('issues/' + issue.id).set(issue); }
-  return { init, hero, saveHero, recordShift, econ, wallet, buy, unequip, give, fitStr, playOn, send, onNet: fn => { state.subs.net.push(fn); }, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
+  return { init, hero, saveHero, recordShift, econ, wallet, buy, unequip, give, fitStr, playOn, send, onNet: fn => { state.subs.net.push(fn); }, liveOn, liveSend, onLive: fn => { state.subs.live.push(fn); }, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
     onPolicies: fn => { state.subs.policies.push(fn); fn(listPolicies()); },
     onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames, state.onlinePeople); }, setPresence,
     onGlobal: fn => { state.subs.global.push(fn); fn(totals()); },

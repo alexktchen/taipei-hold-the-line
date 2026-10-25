@@ -155,7 +155,8 @@ export const CONFIG = {
   // ═══ 逛城市：自己的角色（穿著金蛋買的衣服）在政策島上散步；服飾店買衣服、工地投金蛋蓋城市、找市長捐政治獻金。其他正在逛的人也看得到 ═══
   explore: {
     speed: 1.2, radius: 0.14, pathNodes: 40000,   // 走路速度（每秒幾個世界單位）、碰撞半徑、跨島找路最多展開幾格
-    boutiques: ['xinyi', 'daan', 'zhongshan', 'beitou', 'wanhua', 'songshan', 'wenshan'], // 這幾座島的第 1 棟小房子（商店）是服飾店
+    // 服飾店：[島, 第幾棟小房子 0～2]（一律畫成商店）。要選鏡頭看得到的位置：廣場島的 1、2 號在地標兩側，會被大地標（例如市政府）擋住
+    boutiques: [['datong', 0], ['daan', 0], ['zhongshan', 0], ['beitou', 0], ['wanhua', 0], ['songshan', 0], ['wenshan', 0]],
     near: { boutique: 1.0, site: 1.05, mayor: 0.9 }, // 走到幾格內出現「進去」按鈕
     clockStart: 600, clockRate: 6,  // 逛城市的時鐘：從 10:00 開始，每秒走幾分鐘（遊戲時間）
     times: [ { min: 360, icon: '🌅', label: '清晨 06' }, { min: 720, icon: '☀️', label: '白天 12' }, { min: 1080, icon: '🌇', label: '黃昏 18' }, { min: 1260, icon: '🌙', label: '夜晚 21' } ],
@@ -164,13 +165,48 @@ export const CONFIG = {
     multi: { sendEvery: 0.5, sendPerPlayer: 0.1, sendMax: 4, heartbeat: 6, timeout: 20, presenceGrace: 5, maxRemote: 40, snapDist: 4, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.12 },
     emotes: [ { k: 'hi', icon: '👋', say: '嗨！' }, { k: 'yay', icon: '🎉', say: '讚啦！' }, { k: 'love', icon: '❤️', say: '台北加油！' }, { k: 'thx', icon: '🙏', say: '謝啦！' } ],
     five: { k: 'five', icon: '🙌', say: '擊掌！' },
-    guideKey: 'pi-guide-explore',
+    guideKey: 'pi-guide-explore', worldKey: 'pi-world', // worldKey：上次在哪個世界（city 逛城市／work 打工場），下次直接回去
+    // 打工現場：正在打工的房主（或單人）每 send 秒最多送一次這班的摘要（換波、魔王出現或倒下時才送），沒變化時 heartbeat 秒送一次；逛城市的人 expire 秒沒收到就移除
+    live: { send: 3, heartbeat: 10, expire: 25, maxShifts: 30, ghostMax: 5 },
   },
   // ═══ 金蛋經濟：金蛋只有打工賺（搬進籃子的才算），可以買衣服、大家一起蓋城市、捐政治獻金（遊戲裡的惡搞）═══
   // 錢包 = 累計金蛋 − 衣服花掉的 − 蓋城市投入的 − 政治獻金。衣服在逛城市時走進服飾店買（買過的隨時能換）；id 不能改（存在玩家資料裡）；同一類一次穿一件。
+  // 穿著字串：帽子.背心.配件.套裝（舊的三段式照樣認得）
   econ: {
     legal: '金蛋是遊戲點數，只能靠打工搬進籃子賺，不是錢、不能買也不能換錢。「政治獻金」是二創惡搞的遊戲玩法，不是真的捐款，跟任何候選人、政黨、選舉都無關。',
     outfits: {
+      // 萬聖節系列套裝：price 0 的 10 套免費、隨時隨地換；其他的在服飾店用金蛋買。穿上會蓋過帽子、背心、配件（脫下套裝就回到原本的穿著）
+      suit: { label: '萬聖節', items: {
+        pumpkin: { name: '南瓜頭里長', icon: '🎃', price: 0, desc: '頭殼空空，里民大會照開。' },
+        zombie:  { name: '加班殭屍', icon: '🧟', price: 0, desc: '連續加班 72 小時，只想打卡下班。' },
+        vampire: { name: '吸血鬼房東', icon: '🧛', price: 0, desc: '不吸血，只吸房租。' },
+        ghost:   { name: '颱風假許願鬼', icon: '👻', price: 0, desc: '每年夏天都在市府門口飄：求放一天就好。' },
+        witch:   { name: '嗶卡掃把巫婆', icon: '🧙', price: 0, desc: '掃把要先嗶卡才能起飛，餘額不足就用走的。' },
+        mummy:   { name: '公文木乃伊', icon: '🩹', price: 0, desc: '被層層公文包起來，章蓋到一半。' },
+        boba:    { name: '全糖珍奶怪', icon: '🧋', price: 0, desc: '全糖去冰，喝一口就想去打工。' },
+        cone:    { name: '又在挖馬路', icon: '🚧', price: 0, desc: '這條路上個月才挖過，這個月再挖一次。' },
+        truck:   { name: '給愛麗絲垃圾車', icon: '🎵', price: 0, desc: '音樂一響，全里的人都衝出來。' },
+        bat:     { name: '夜市收攤蝙蝠', icon: '🦇', price: 0, desc: '夜市收攤才下班，白天倒掛補眠。' },
+        bag:      { name: '鹹酥雞紙袋怪', icon: '🛍️', price: 18, desc: '頭上套著油油的紙袋，九層塔味三公尺外就聞得到。' },
+        cutlet:   { name: '比臉大雞排', icon: '🍗', price: 25, desc: '雞排比臉還大，拿來擋太陽剛好。' },
+        poncho:   { name: '機車雨衣俠', icon: '🛵', price: 15, desc: '雨衣一穿，傾盆大雨照樣上班。' },
+        delivery: { name: '宵夜外送鬼', icon: '📦', price: 20, desc: '半夜兩點還在送鹹酥雞。' },
+        card:     { name: '餘額不足卡', icon: '💳', price: 22, desc: '嗶——餘額不足，請加值。' },
+        firework: { name: '跨年煙火頭', icon: '🎆', price: 40, desc: '頭上一棟樓，倒數十秒就開始放。' },
+        bear:     { name: '台灣黑熊', icon: '🐻', price: 35, desc: '胸口一道 V，出來逛街順便宣導保育。' },
+        leopard:  { name: '石虎', icon: '🐆', price: 35, desc: '過馬路請走斑馬線，車子請慢行。' },
+        pigeon:   { name: '路口鴿子王', icon: '🐦', price: 20, desc: '路口麵包屑歸我管。' },
+        nightshift: { name: '大夜班店員', icon: '🏪', price: 15, desc: '凌晨三點微波便當的專家。' },
+        parking:  { name: '停車格怪', icon: '🅿️', price: 25, desc: '走到哪裡都自帶車位，被畫線了就走不了。' },
+        duck:     { name: '巨大黃色鴨鴨', icon: '🦆', price: 30, desc: '漂到哪裡，哪裡就塞車。' },
+        taro:     { name: '芋圓頭', icon: '🍡', price: 20, desc: '九份樓梯爬完，頭上就長出芋圓。' },
+        tofu:     { name: '臭豆腐頭', icon: '🧈', price: 25, desc: '遠遠就聞得到，靠近才知道好吃。' },
+        prince:   { name: '電音三太子', icon: '👑', price: 60, desc: '戴墨鏡下凡，說是來逛夜市。' },
+        megaphone:{ name: '宣傳車大聲公', icon: '📣', price: 30, desc: '一早就在巷口喊「拜託拜託」。' },
+        pumpbus:  { name: '南瓜公車', icon: '🚌', price: 50, desc: '午夜十二點一到，就變回一般公車。' },
+        skeleton: { name: '加班到只剩骨頭', icon: '💀', price: 30, desc: '績效考核前一週的樣子。' },
+        alien:    { name: '來看房的外星人', icon: '👽', price: 30, desc: '看完台北房價，決定回火星。' },
+        lantern:  { name: '天燈頭', icon: '🏮', price: 25, desc: '願望寫在臉上：加薪、放假、房價跌。' } } },
       hat: { label: '帽子', items: {
         helmet: { name: '工地安全帽', icon: '⛑️', price: 10 }, straw: { name: '斗笠', icon: '👒', price: 10 }, cap: { name: '棒球帽', icon: '🧢', price: 15 }, beanie: { name: '毛帽', icon: '🧶', price: 15 },
         chef: { name: '廚師帽', icon: '👨‍🍳', price: 25 }, bunny: { name: '兔耳朵', icon: '🐰', price: 35 }, egg: { name: '頭頂金蛋', icon: '🥚', price: 50 }, crown: { name: '金蛋皇冠', icon: '👑', price: 80 } } },
@@ -182,7 +218,7 @@ export const CONFIG = {
     },
     // 蓋城市：在逛城市時走到工地投金蛋。所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己行政區的 12 區對抗。
     city: [
-      { id: 'fountain', name: '金蛋噴水池',     island: 'xinyi',      house: 1, model: 'garden',     cost: 30 },
+      { id: 'fountain', name: '金蛋噴水池',     island: 'xinyi',      house: 0, model: 'garden',     cost: 30 }, // 市政府右前方（1 號在市政府左邊，會被大樓擋住）
       { id: 'market2',  name: '夜市二館',       island: 'shilin',     house: 0, model: 'nightmarket', cost: 60 },
       { id: 'stage',    name: '河岸舞台',       island: 'datong',     house: 2, model: 'stage',      cost: 100 },
       { id: 'nursery',  name: '科技園區托嬰',   island: 'neihu',      house: 0, model: 'nursery',    cost: 140 },

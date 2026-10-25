@@ -3,7 +3,7 @@
    金蛋只有打工賺；這裡只花。數字都在 config.econ。 */
 import { CONFIG as C } from './config.js';
 const E = C.econ, $ = id => document.getElementById(id);
-export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, islandName, onChange, near, goTo }) {
+export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, islandName, onChange, near, goTo, who }) {
   let tab = 'fit', busy = false, mayorLine = '';
   const cats = Object.entries(E.outfits);
   const at = kind => { const n = near(); return !!(n && n.kind === kind); };
@@ -17,11 +17,16 @@ export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, island
     $('walletNote').textContent = e.local ? '（只記在這台裝置）' : `累計賺 ${fmt(e.eggs)} 顆`;
     $('shopTabs').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     $('shopBody').innerHTML = tab === 'fit' ? fitHtml(e) : tab === 'city' ? cityHtml(e) : donateHtml(e); }
-  function fitHtml(e) { const fit = e.outfit.split('.'), own = new Set(e.owned), shop = at('boutique');
+  function fitHtml(e) { const parts = e.outfit.split('.'), worn = {}, own = new Set(e.owned), shop = at('boutique'); ['hat', 'color', 'acc', 'suit'].forEach((c, i) => { worn[c] = parts[i] && parts[i] !== '-' ? parts[i] : ''; });
     return (shop ? '<p class="where ok">👕 歡迎光臨服飾店！買了就一直是你的，同一類一次穿一件，其他玩家看得到。</p>' : `<p class="where">買新衣服要走進服飾店（地圖上標「👕 服飾店」）；買過的隨時能換。${goBtn('boutique', '帶我去最近的服飾店')}</p>`)
-      + cats.map(([cat, c], ci) => { const on = fit[ci] && fit[ci] !== '-' ? fit[ci] : '';
-      return `<div class="fit-row"><span class="k">${esc(c.label)}</span><div class="fit-items">${Object.entries(c.items).map(([id, it]) => { const has = own.has(cat + ':' + id), wear = on === id, can = has || (shop && e.wallet >= it.price);
-        return `<button type="button" class="it${wear ? ' wear' : ''}" data-cat="${cat}" data-id="${id}" aria-pressed="${wear}" ${can ? '' : 'disabled'}>${it.c != null ? `<i class="sw" style="background:#${it.c.toString(16).padStart(6, '0')}"></i>` : `<span class="ic2">${it.icon}</span>`}<b>${esc(it.name)}</b><small>${wear ? '穿著中' : has ? '換上' : `${it.price} 顆`}</small></button>`; }).join('')}${on ? `<button type="button" class="it off" data-cat="${cat}" data-off="1"><span class="ic2">✕</span><b>不穿</b><small>脫下</small></button>` : ''}</div></div>`; }).join(''); }
+      + (who ? (p => `<div class="fit-row who"><span class="k">角色</span><div class="fit-items"><label class="nick">暱稱<input id="shopNick" type="text" maxlength="24" value="${esc(p.nick)}" autocomplete="nickname"></label><label class="nick">我的區（每次都從這區出發，也算進 12 區對抗）<span class="home-row"><select id="shopDistrict">${who.districts().map(d => `<option value="${d.id}"${d.id === p.district ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}</select><button type="button" class="go2" data-home="1">🏠 回我的區</button></span></label>${Object.entries(C.heroes).map(([id, H]) => `<button type="button" class="it${p.cls === id ? ' wear' : ''}" data-cls="${id}" aria-pressed="${p.cls === id}"><span class="ic2">${H.icon}</span><b>${esc(H.name)}</b><small>${p.cls === id ? '現在的職業' : '換職業（免費）'}</small></button>`).join('')}</div></div>`)(who.get()) : '')
+      + ['suit', 'hat', 'color', 'acc'].map(cat => { const c = E.outfits[cat], on = worn[cat], list = Object.entries(c.items);
+        const btn = ([id, it]) => { const free = it.price === 0, has = free || own.has(cat + ':' + id), wear = on === id, can = has || (shop && e.wallet >= it.price);
+          return `<button type="button" class="it${wear ? ' wear' : ''}${it.desc ? ' suit' : ''}" data-cat="${cat}" data-id="${id}" aria-pressed="${wear}" ${can ? '' : 'disabled'} title="${esc(it.desc || it.name)}">${it.c != null ? `<i class="sw" style="background:#${it.c.toString(16).padStart(6, '0')}"></i>` : `<span class="ic2">${it.icon}</span>`}<b>${esc(it.name)}</b><small>${wear ? '穿著中' : free ? '免費換上' : has ? '換上' : `${it.price} 顆`}</small>${it.desc ? `<em>${esc(it.desc)}</em>` : ''}</button>`; };
+        const off = on ? `<button type="button" class="it off" data-cat="${cat}" data-off="1"><span class="ic2">✕</span><b>${cat === 'suit' ? '脫下套裝' : '不穿'}</b><small>脫下</small></button>` : '';
+        if (cat === 'suit') return `<div class="fit-row halloween"><span class="k">🎃 萬聖節</span><div><p class="hw-note">套裝會蓋過帽子、背心、配件。前 10 套免費、隨時能換；其他 ${list.filter(([, it]) => it.price).length} 套在服飾店用金蛋買。</p>
+          <div class="fit-items">${list.filter(([, it]) => !it.price).map(btn).join('')}${off}</div><div class="fit-items paid">${list.filter(([, it]) => it.price).map(btn).join('')}</div></div></div>`;
+        return `<div class="fit-row"><span class="k">${esc(c.label)}</span><div class="fit-items">${list.map(btn).join('')}${off}</div></div>`; }).join(''); }
   function cityList(st, compact) { return `<ol class="city-list${compact ? ' compact' : ''}">${st.map(p => `<li class="${p.st}"><span class="st">${p.st === 'done' ? '✅' : p.st === 'now' ? '🚧' : '🔒'}</span><span class="nm"><b>${esc(p.name)}</b><small>${esc(islandName(p.island))}・${fmt(p.cost)} 顆</small></span>${p.st === 'now' ? `<span class="bar"><i style="width:${(p.got / p.cost * 100).toFixed(1)}%"></i></span><span class="pc">${fmt(p.got)}／${fmt(p.cost)}</span>` : ''}</li>`).join('')}</ol>`; }
   function cityHtml(e) { const st = cityState(e.built), done = st.filter(p => p.st === 'done').length, now = st.find(p => p.st === 'now'), site = at('site');
     return `<p class="shop-lead">全站一起蓋：大家投入的金蛋加總，依序蓋下面這些建築；蓋好的會換掉那座島上的小房子，所有人的地圖上都看得到。你投入的金蛋也會再算一次進你行政區的 12 區對抗。</p>
@@ -36,16 +41,14 @@ export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, island
       ${mayorLine ? `<p class="mayor-say"><span>🎙 ${esc(C.mayor.name)}</span>「${esc(mayorLine)}」</p>` : ''}
       <ol class="tiers">${E.donate.tiers.map((t, i) => `<li class="${i < n ? 'on' : ''}"><span class="st">${i < n ? '✨' : '🔒'}</span><span class="nm"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></span><span class="at">${fmt(t.at)} 顆</span></li>`).join('')}</ol>
       ${e.donors.length ? `<h4>獻金榜</h4><ol class="mini-board">${e.donors.map((h, i) => `<li><span class="r">${i + 1}</span><span class="n">${esc(h.nick || '匿名打工仔')}</span><b>${fmt(h.n)}</b></li>`).join('')}</ol>` : ''}`; }
-  // 大廳的逛城市分頁：錢包、城市建設進度、獻金榜（唯讀）
-  function renderLobby() { const e = S.econ(); $('xWallet').innerHTML = `<span class="egg" aria-hidden="true"></span><b>${fmt(e.wallet)}</b><span>顆金蛋可以花${e.local ? '（只記在這台裝置）' : ''}</span>`;
-    $('xCity').innerHTML = cityList(cityState(e.built), true);
-    $('xDonors').innerHTML = e.donors.length ? e.donors.map((h, i) => `<li><span class="rank">${i + 1}</span><span class="who">${esc(h.nick || '匿名打工仔')}</span><b>${fmt(h.n)}</b></li>`).join('') : '<li class="empty">還沒有人捐。走到市長旁邊就能捐。</li>'; }
   const pick = a => a[Math.floor(Math.random() * a.length)];
   async function act(fn) { if (busy) return; busy = true; try { return await fn(); } finally { busy = false; render(); sync(); onChange && onChange(); } }
   $('shopTabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
   $('shopBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.home && who) { who.goHome(); return; }
+    if (b.dataset.cls && who) { who.setCls(b.dataset.cls); render(); onChange && onChange(); hint(`換成${C.heroes[b.dataset.cls].name}`); return; }
     if (b.dataset.go) { const k = b.dataset.go; if (goTo(k)) hint({ boutique: '往最近的服飾店走', site: '往工地走', mayor: '去找市長' }[k]); else hint('找不到可以去的地方', true); return; }
-    if (b.dataset.cat) act(async () => { const cat = b.dataset.cat; if (b.dataset.off) { await S.unequip(cat); hint('脫下了'); return; } const it = E.outfits[cat].items[b.dataset.id]; const owned = S.econ().owned.includes(cat + ':' + b.dataset.id);
+    if (b.dataset.cat) act(async () => { const cat = b.dataset.cat; if (b.dataset.off) { await S.unequip(cat); hint('脫下了'); return; } const it = E.outfits[cat].items[b.dataset.id]; const owned = S.econ().owned.includes(cat + ':' + b.dataset.id) || it.price === 0;
       if (!owned && !at('boutique')) { hint('買新衣服要走進服飾店', true); return; } const r = await S.buy(cat, b.dataset.id); if (!r.ok) { hint(r.why === 'poor' ? '金蛋不夠，去打工賺吧' : '買不了', true); return; } hint(r.equip ? `換上${it.name}` : `買了${it.name}，花 ${it.price} 顆金蛋`); });
     else if (b.dataset.build) act(async () => { if (!at('site')) { hint('要走到工地旁邊才能投', true); return; } const n = +b.dataset.build, before = cityState(S.econ().built).filter(p => p.st === 'done').length; const r = await S.give('built', n); if (!r.ok) { hint('金蛋不夠，去打工賺吧', true); return; } const done = cityState(S.econ().built).filter(p => p.st === 'done'); if (done.length > before) { const p = done[done.length - 1]; banner(`🏗 ${p.name} 蓋好了！`, 3); shout(`${p.name}落成！謝謝大家一起蓋！`); } else hint(`投入 ${n} 顆金蛋蓋城市`); });
     else if (b.dataset.donate) act(async () => { if (!at('mayor')) { hint('要走到市長旁邊才能捐', true); return; } const n = +b.dataset.donate; const r = await S.give('donated', n); if (!r.ok) { hint('金蛋不夠，去打工賺吧', true); return; } const L = E.donate.lines; mayorLine = pick(n <= 5 ? L.small : n <= 20 ? L.mid : L.big); shout(mayorLine); }); });
@@ -56,6 +59,7 @@ export function createShop({ S, esc, fmt, hint, banner, placeCity, shout, island
     if (n > seen) { const t = E.donate.tiers[n - 1]; if (seen || n === 1) { banner(`✨ 全城加成解鎖：${t.name}（${t.desc}）`, 4); shout(E.donate.lines.tier.replace('{name}', t.name)); mayorLine = E.donate.lines.tier.replace('{name}', t.name); } seen = n; try { localStorage.setItem(TIER_KEY, String(n)); } catch (err) { /* 無痕 */ } } }
   // 市長巡迴時，每講幾次就感謝一下獻金榜第一名
   let speeches = 0; function onSpeech(m, say) { if (++speeches % 4) return; const top = S.econ().donors[0]; if (top && top.nick) say(m, '📣 ' + E.donate.lines.thanks.replace('{nick}', top.nick)); }
+  $('shopBody').addEventListener('change', e => { if (!who) return; if (e.target.id === 'shopNick') { who.setNick(e.target.value); onChange && onChange(); hint('暱稱改好了'); } else if (e.target.id === 'shopDistrict') { who.setDistrict(e.target.value); onChange && onChange(); hint(`之後都從${islandName(e.target.value)}出發；按「回我的區」現在就過去`); } });
   $('shopLegal').textContent = E.legal;
-  return { render, renderLobby, setTab, get tab() { return tab; }, sync, onSpeech, cityState, festival: () => fest };
+  return { render, setTab, get tab() { return tab; }, sync, onSpeech, cityState, festival: () => fest };
 }

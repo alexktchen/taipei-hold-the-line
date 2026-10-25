@@ -6,18 +6,25 @@ export const ROLE_LABEL = { mayor: '市長', citizen: '市民', elder: '長者',
 const SKIN = [0xf3cfae, 0xe6b48f, 0xcf9670, 0xf0c4a0], HAIR = [0x2e2522, 0x4a3426, 0x1f1d22, 0x6b4a33], CASUAL = [0x6f7fb5, 0x58a6a6, 0xe8c547, 0xf2a1a1, 0x8fb37a, 0xb58fd0];
 export function createPeople(scene, colors, heroCfgs, outfits = null) {
   // 金蛋買的衣服：fit = 「帽子.背心.配件」字串（id 見 config.econ.outfits），不認得的 id 當沒穿
-  const fitOf = fit => { const a = typeof fit === 'string' ? fit.split('.') : [], ok = (c, id) => outfits && outfits[c] && Object.hasOwn(outfits[c].items, id); return { hat: ok('hat', a[0]) ? a[0] : '', color: ok('color', a[1]) ? outfits.color.items[a[1]].c : null, acc: ok('acc', a[2]) ? a[2] : '' }; };
+  const fitOf = fit => { const a = typeof fit === 'string' ? fit.split('.') : [], ok = (c, id) => outfits && outfits[c] && Object.hasOwn(outfits[c].items, id);
+    return { hat: ok('hat', a[0]) ? a[0] : '', color: ok('color', a[1]) ? outfits.color.items[a[1]].c : null, acc: ok('acc', a[2]) ? a[2] : '', suit: ok('suit', a[3]) ? a[3] : '' }; };
+  // 萬聖節套裝：膚色、髮色、背心顏色（套裝蓋過帽子、背心、配件）
+  const SUIT = { pumpkin: { vest: 0x3b5a2a }, zombie: { skin: 0x9cc27a, vest: 0x9aa0a8, hair: 0x3b3326 }, vampire: { vest: 0x211d1d, hair: 0x111111, skin: 0xf3e6dc }, ghost: { vest: 0xf7f7f2 }, witch: { vest: 0x6a4c93 },
+    mummy: { skin: 0xefe6d2, vest: 0xefe6d2, hair: 0xefe6d2 }, boba: { vest: 0xd9b48a }, cone: { vest: 0xf28b2e }, truck: { vest: 0xe8c547 }, bat: { vest: 0x2b2b30, hair: 0x1d1a22 },
+    bag: { vest: 0xdb6a41 }, cutlet: { vest: 0xfbfbf7 }, poncho: { vest: 0x8fd3e8 }, delivery: { vest: 0xf28b2e }, card: { vest: 0x2f6f9f }, firework: { vest: 0x26365c }, bear: { vest: 0x1d1a1a, hair: 0x1d1a1a, pants: 0x1d1a1a }, leopard: { vest: 0xc9955a, hair: 0xc9955a },
+    pigeon: { vest: 0x9aa0a8 }, nightshift: { vest: 0xfbfbf7 }, parking: { vest: 0x3b3a42 }, duck: { vest: 0xf2d23c }, taro: { vest: 0x9a7ab5 }, tofu: { vest: 0xfbfbf7 }, prince: { vest: 0xc23b2a, pants: 0xc23b2a }, megaphone: { vest: 0xdb6a41 },
+    pumpbus: { vest: 0xe8781e }, skeleton: { vest: 0x1d1a1a, pants: 0x1d1a1a, skin: 0xf4f1ea, hair: 0x1d1a1a }, alien: { skin: 0x9cd67a, vest: 0xc9d1d8, hair: 0x9cd67a }, lantern: { vest: 0xc23b2a } };
   const G = { leg: new RoundedBoxGeometry(1, 1, 1, 2, 0.3), body: new THREE.CapsuleGeometry(0.5, 0.6, 4, 10), arm: new RoundedBoxGeometry(1, 1, 1, 2, 0.35), head: new THREE.SphereGeometry(0.5, 16, 12), cap: new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), eye: new THREE.SphereGeometry(0.5, 8, 6), box: new RoundedBoxGeometry(1, 1, 1, 2, 0.2), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 10), cone: new THREE.ConeGeometry(0.5, 1, 14), torus: new THREE.TorusGeometry(0.5, 0.09, 6, 18), shadow: new THREE.CircleGeometry(0.5, 20) };
   G.shadow.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x2a2018, transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 });
   let rnd = mulberry(41);
   function plan(role, heroCls, fit) {
-    const P = []; const H = heroCls ? heroCfgs[heroCls] : null; const F = H ? fitOf(fit) : { hat: '', color: null, acc: '' };
-    const skin = SKIN[Math.floor(rnd() * SKIN.length)]; let hair = HAIR[Math.floor(rnd() * HAIR.length)];
+    const P = []; const H = heroCls ? heroCfgs[heroCls] : null; const F = H ? fitOf(fit) : { hat: '', color: null, acc: '', suit: '' }; const SU = SUIT[F.suit] || null;
+    let skin = SKIN[Math.floor(rnd() * SKIN.length)]; let hair = HAIR[Math.floor(rnd() * HAIR.length)];
     let shirt = CASUAL[Math.floor(rnd() * CASUAL.length)], pants = [0x3b3a42, 0x4a5a78, 0x6b5a4a][Math.floor(rnd() * 3)]; let sc = 1;
     if (role === 'child') sc = 0.78; if (role === 'elder') hair = 0xd9d4cc; if (role === 'worker') shirt = 0x4a5a78;
-    if (H) { sc = 1.16; shirt = 0xfbfbf7; pants = 0x2f3a4a; hair = 0x241c1a; }
+    if (H) { sc = 1.16; shirt = 0xfbfbf7; pants = 0x2f3a4a; hair = 0x241c1a; if (SU) { if (SU.skin) skin = SU.skin; if (SU.hair) hair = SU.hair; if (SU.pants) pants = SU.pants; } }
     const MAYOR = role === 'mayor'; if (MAYOR) { sc = 1.22; shirt = 0x26365c; pants = 0x26365c; hair = 0x15110f; }
     const add = (g, off, s, c, ch = null, r = null) => P.push({ g, off, s, c, ch, r });
     add('leg', [-0.032, 0.065, 0], [0.05, 0.13, 0.058], pants, 'legL'); add('leg', [0.032, 0.065, 0], [0.05, 0.13, 0.058], pants, 'legR');
@@ -29,7 +36,7 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
     add('cyl', [0, 0.268, 0], [0.05, 0.03, 0.05], skin);
     if (!H && !MAYOR) { add('box', [0, 0.157, 0], [0.139, 0.016, 0.119], 0x3b3a42); add('box', [0, 0.255, 0.035], [0.075, 0.022, 0.05], 0xfbfbf7); }
     add('head', [0, 0.345, 0], [0.19, 0.178, 0.172], skin, 'head');
-    const hatted = ['child', 'cyclist', 'hiker', 'worker', 'farmer'].includes(role) || (H && (F.hat || ['chief', 'driver', 'fireman'].includes(heroCls))) || MAYOR;
+    const hatted = ['child', 'cyclist', 'hiker', 'worker', 'farmer'].includes(role) || (H && (F.hat || F.suit || ['chief', 'driver', 'fireman'].includes(heroCls))) || MAYOR;
     add('cap', [0, 0.352, -0.006], [0.206, MAYOR ? 0.18 : hatted ? 0.17 : 0.19, 0.204], hair, 'head', [MAYOR ? -0.36 : -0.32, 0, 0]);
     if (!hatted) { const styles = role === 'elder' ? ['short', 'bun', 'short'] : role === 'youth' ? ['beanie', 'long', 'pony', 'puff'] : ['short', 'long', 'bun', 'pony', 'short', 'puff']; const st = styles[Math.floor(rnd() * styles.length)];
       if (st === 'long') add('box', [0, 0.31, -0.07], [0.19, 0.13, 0.05], hair, 'head', [0.12, 0, 0]); if (st === 'bun') add('eye', [0, 0.44, -0.07], [0.075, 0.07, 0.07], hair, 'head'); if (st === 'pony') add('eye', [0, 0.33, -0.115], [0.055, 0.1, 0.05], hair, 'head', [0.35, 0, 0]);
@@ -75,17 +82,17 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
       add('eye', [0.077, 0.148, 0], [0.04, 0.04, 0.04], 0xf0c4a0, 'armR');
       add('box', [0, 0.035, 0], [0.24, 0.07, 0.18], 0xb48560, 'soap'); add('box', [0, 0.04, 0.091], [0.15, 0.035, 0.004], 0xfff1de, 'soap'); }
     if (H) { const c = H.color;
-      add('box', [0, 0.205, 0.004], [0.13, 0.112, 0.106], F.color != null ? F.color : c); add('box', [0, 0.235, 0.058], [0.03, 0.05, 0.004], 0xfbfbf7);
-      if (heroCls === 'chief' && !F.hat) { add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], c, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], c, 'head'); add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]); }
-      if (heroCls === 'driver' && !F.hat) { add('cap', [0, 0.39, 0], [0.205, 0.11, 0.195], c, 'head'); add('cyl', [0, 0.385, 0.08], [0.18, 0.008, 0.1], 0x211d1d, 'head'); add('torus', [0, 0.19, 0.1], [0.11, 0.11, 0.11], 0x211d1d, 'carry', [0.5, 0, 0]); add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
-      if (heroCls === 'fireman' && !F.hat) { add('cap', [0, 0.385, 0], [0.22, 0.15, 0.21], c, 'head'); add('cyl', [0, 0.36, 0.02], [0.25, 0.012, 0.24], c, 'head'); add('box', [0, 0.41, 0], [0.03, 0.06, 0.16], 0xe8c547, 'head'); add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); }
+      add('box', [0, 0.205, 0.004], [0.13, 0.112, 0.106], SU ? SU.vest : F.color != null ? F.color : c); add('box', [0, 0.235, 0.058], [0.03, 0.05, 0.004], 0xfbfbf7);
+      if (heroCls === 'chief' && !F.hat && !F.suit) { add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], c, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], c, 'head'); add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]); }
+      if (heroCls === 'driver' && !F.hat && !F.suit) { add('cap', [0, 0.39, 0], [0.205, 0.11, 0.195], c, 'head'); add('cyl', [0, 0.385, 0.08], [0.18, 0.008, 0.1], 0x211d1d, 'head'); add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
+      if (heroCls === 'fireman' && !F.hat && !F.suit) { add('cap', [0, 0.385, 0], [0.22, 0.15, 0.21], c, 'head'); add('cyl', [0, 0.36, 0.02], [0.25, 0.012, 0.24], c, 'head'); add('box', [0, 0.41, 0], [0.03, 0.06, 0.16], 0xe8c547, 'head'); add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); }
       if (heroCls === 'volunteer') { add('box', [0, 0.17, 0.05], [0.11, 0.15, 0.03], 0xf2b5c6); add('box', [0, 0.17, 0.11], [0.1, 0.07, 0.08], 0xb48560, 'carry'); add('torus', [0, 0.23, 0.11], [0.08, 0.08, 0.08], 0x7a5a3a, 'carry', [0, Math.PI / 2, 0]); add('eye', [0.02, 0.22, 0.12], [0.05, 0.04, 0.05], 0x8fb37a, 'carry'); }
       if (heroCls === 'engineer') { for (const dx of [-0.038, 0.038]) add('torus', [dx, 0.35, 0.09], [0.05, 0.044, 0.05], 0x211d1d, 'head'); add('box', [0, 0.352, 0.091], [0.026, 0.006, 0.006], 0x211d1d, 'head'); add('box', [0, 0.19, 0.1], [0.1, 0.012, 0.07], 0x211d1d, 'carry'); add('box', [0, 0.23, 0.065], [0.1, 0.07, 0.008], 0x211d1d, 'carry', [-0.3, 0, 0]); add('box', [0, 0.23, 0.07], [0.085, 0.055, 0.004], 0x86a8a6, 'carry', [-0.3, 0, 0]); } }
-    if (H && F.hat) { // 換了帽子：職業的手持道具照樣拿著
+    if (H && (F.hat || F.suit)) { // 換了帽子或套裝：職業的手持道具照樣拿著
       if (heroCls === 'chief') add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]);
-      if (heroCls === 'driver') { add('torus', [0, 0.19, 0.1], [0.11, 0.11, 0.11], 0x211d1d, 'carry', [0.5, 0, 0]); add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
+      if (heroCls === 'driver') { add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
       if (heroCls === 'fireman') { add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); } }
-    switch (F.hat) {
+    switch (F.suit ? '' : F.hat) {
       case 'helmet': add('cap', [0, 0.395, 0], [0.21, 0.13, 0.2], 0xf1c232, 'head'); add('cyl', [0, 0.39, 0.02], [0.22, 0.01, 0.22], 0xf1c232, 'head'); break;
       case 'straw': add('cone', [0, 0.43, 0], [0.36, 0.11, 0.36], 0xd9b56a, 'head'); add('cyl', [0, 0.385, 0], [0.22, 0.014, 0.22], 0xc49a4e, 'head'); break;
       case 'cap': add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], 0x4a6fa5, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], 0x4a6fa5, 'head'); add('eye', [0, 0.45, 0], [0.03, 0.03, 0.03], 0xfbfbf7, 'head'); break;
@@ -95,10 +102,78 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
       case 'egg': add('eye', [0, 0.49, 0], [0.09, 0.12, 0.09], 0xf2c14e, 'head'); add('eye', [0.02, 0.51, 0.03], [0.02, 0.03, 0.01], 0xfff3c4, 'head'); break;
       case 'crown': add('cyl', [0, 0.445, 0], [0.16, 0.05, 0.16], 0xf2c14e, 'head'); for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; add('cone', [Math.sin(a) * 0.068, 0.485, Math.cos(a) * 0.068], [0.035, 0.05, 0.035], 0xf2c14e, 'head'); } add('eye', [0, 0.45, 0.08], [0.024, 0.024, 0.01], 0xc23b2a, 'head'); break;
     }
-    switch (F.acc) {
+    switch (F.suit ? '' : F.acc) {
       case 'scarf': add('torus', [0, 0.262, 0], [0.09, 0.09, 0.16], 0xdb6a41, null, [Math.PI / 2, 0, 0]); add('box', [0.03, 0.225, 0.06], [0.03, 0.06, 0.012], 0xdb6a41, null, [0, 0, -0.2]); break;
       case 'sash': add('box', [0, 0.205, 0.06], [0.026, 0.17, 0.006], 0xf2c14e, null, [0, 0, 0.72]); add('box', [0, 0.205, -0.056], [0.026, 0.17, 0.006], 0xf2c14e, null, [0, 0, -0.72]); break;
       case 'cape': add('box', [0, 0.19, -0.072], [0.15, 0.17, 0.012], 0xc23b2a, null, [0.14, 0, 0]); add('box', [0, 0.27, -0.06], [0.15, 0.02, 0.03], 0xa3301f); break;
+    }
+    // 萬聖節套裝（惡搞）
+    const D = 0x211d1d;
+    switch (F.suit) {
+      case 'pumpkin': add('eye', [0, 0.35, 0], [0.25, 0.22, 0.24], 0xe8781e, 'head'); for (const sx of [-1, 1]) add('eye', [sx * 0.075, 0.35, 0.01], [0.14, 0.2, 0.2], 0xd8681a, 'head');
+        add('cyl', [0, 0.47, 0], [0.03, 0.06, 0.03], 0x4f7a3a, 'head'); add('box', [0.035, 0.47, 0], [0.05, 0.01, 0.03], 0x6fa14a, 'head', [0, 0.4, 0.3]);
+        for (const sx of [-1, 1]) add('box', [sx * 0.045, 0.375, 0.118], [0.032, 0.032, 0.01], 0x2a1505, 'head', [0, 0, 0.785]); add('box', [0, 0.345, 0.122], [0.018, 0.018, 0.01], 0x2a1505, 'head', [0, 0, 0.785]);
+        add('box', [0, 0.31, 0.118], [0.1, 0.02, 0.01], 0x2a1505, 'head'); for (const dx of [-0.025, 0.025]) add('box', [dx, 0.318, 0.121], [0.014, 0.014, 0.008], 0xe8781e, 'head'); break;
+      case 'zombie': add('box', [0, 0.215, 0.062], [0.022, 0.08, 0.006], 0xc23b2a); add('box', [0.04, 0.17, 0.06], [0.03, 0.025, 0.006], 0x9cc27a); add('box', [-0.045, 0.24, 0.06], [0.02, 0.02, 0.006], 0x9cc27a);
+        for (const sx of [-1, 1]) add('eye', [sx * 0.036, 0.334, 0.082], [0.032, 0.012, 0.006], 0x5a7a46, 'head');
+        for (const [dx, rz] of [[-0.05, 0.4], [0, 0], [0.05, -0.4]]) add('cone', [dx, 0.45, -0.01], [0.04, 0.07, 0.04], 0x3b3326, 'head', [0, 0, rz]);
+        add('box', [0, 0.2, 0.1], [0.09, 0.06, 0.07], 0xfbfbf7, 'carry'); add('box', [0, 0.235, 0.1], [0.092, 0.008, 0.072], 0xe8e2d4, 'carry'); break;
+      case 'vampire': add('box', [0, 0.2, -0.075], [0.17, 0.2, 0.014], 0x1a1418, null, [0.14, 0, 0]); add('box', [0, 0.2, -0.066], [0.15, 0.18, 0.006], 0xa3201c, null, [0.14, 0, 0]);
+        for (const sx of [-1, 1]) add('box', [sx * 0.068, 0.29, -0.035], [0.06, 0.08, 0.012], 0xa3201c, null, [0, sx * 0.5, 0]);
+        add('cone', [0, 0.42, 0.075], [0.045, 0.04, 0.02], 0x111111, 'head', [Math.PI, 0, 0]); for (const sx of [-1, 1]) add('box', [sx * 0.012, 0.309, 0.087], [0.008, 0.016, 0.004], 0xffffff, 'head');
+        add('eye', [0, 0.17, 0.1], [0.08, 0.09, 0.08], 0xc9a050, 'carry'); add('box', [0, 0.215, 0.1], [0.03, 0.02, 0.03], 0x8a6a2a, 'carry'); break; // 手上一袋房租
+      case 'ghost': add('eye', [0, 0.36, 0], [0.26, 0.27, 0.25], 0xf7f7f2, 'head'); add('cone', [0, 0.17, 0], [0.36, 0.38, 0.34], 0xf7f7f2);
+        for (const sx of [-1, 1]) add('eye', [sx * 0.045, 0.37, 0.122], [0.035, 0.05, 0.01], D, 'head'); add('eye', [0, 0.31, 0.123], [0.03, 0.04, 0.01], D, 'head');
+        add('cyl', [0, 0.22, 0.13], [0.01, 0.2, 0.01], 0x7a5a3e, 'carry'); add('box', [0, 0.33, 0.13], [0.15, 0.09, 0.008], 0xfff8e0, 'carry'); for (const yy of [0.345, 0.315]) add('box', [0, yy, 0.135], [0.11, 0.012, 0.004], yy > 0.33 ? 0x2f6f9f : 0xc23b2a, 'carry'); break; // 舉著「求颱風假」牌子
+      case 'witch': add('cyl', [0, 0.4, 0], [0.34, 0.012, 0.34], 0x2b2238, 'head'); add('cone', [0, 0.5, -0.01], [0.2, 0.24, 0.2], 0x2b2238, 'head', [-0.2, 0, 0]); add('cyl', [0, 0.42, 0], [0.21, 0.022, 0.21], 0x8a6fc0, 'head');
+        add('cyl', [0.09, 0.15, 0.06], [0.012, 0.34, 0.012], 0x8a6a4a, null, [0.4, 0, 0.5]); add('cone', [0.17, 0.03, 0.13], [0.07, 0.09, 0.07], 0xd9b56a, null, [0.4, 0, 0.5]); add('box', [0.04, 0.24, 0.0], [0.035, 0.022, 0.01], 0x58a6a6, null, [0.4, 0, 0.5]); break; // 掃把上綁著感應卡
+      case 'mummy': for (const [y, rz] of [[0.14, 0.12], [0.18, -0.15], [0.22, 0.1], [0.26, -0.12]]) add('box', [0, y, 0.003], [0.145, 0.012, 0.124], 0xd9cfb8, null, [0, 0, rz]);
+        for (const [y, rz] of [[0.3, 0.15], [0.4, -0.12], [0.43, 0.2]]) add('box', [0, y, 0], [0.2, 0.014, 0.185], 0xd9cfb8, 'head', [0, 0, rz]); add('box', [-0.03, 0.352, 0.07], [0.09, 0.016, 0.05], 0xd9cfb8, 'head', [0, 0, 0.35]);
+        for (const sx of [-1, 1]) add('box', [sx * 0.077, 0.19, 0], [0.04, 0.012, 0.042], 0xd9cfb8, sx < 0 ? 'armL' : 'armR');
+        add('box', [0, 0.2, 0.1], [0.1, 0.07, 0.012], 0x5a7fb5, 'carry'); add('box', [0.025, 0.21, 0.107], [0.025, 0.025, 0.004], 0xc23b2a, 'carry'); break; // 抱著蓋到一半的公文
+      case 'boba': add('cyl', [0, 0.17, 0], [0.21, 0.27, 0.21], 0xd9b48a); add('cyl', [0, 0.21, 0], [0.215, 0.05, 0.215], 0xfbfbf7); add('cyl', [0, 0.31, 0], [0.22, 0.015, 0.22], 0xf6efe3);
+        for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 1.6 - Math.PI * 0.8; add('eye', [Math.sin(a) * 0.1, 0.06 + (k % 2) * 0.03, Math.cos(a) * 0.1], [0.032, 0.032, 0.032], 0x2a1a14); }
+        add('cyl', [0.05, 0.5, 0], [0.03, 0.22, 0.03], 0xdb6a41, 'head', [0, 0, -0.35]); break;
+      case 'cone': add('box', [0, 0.405, 0], [0.27, 0.025, 0.27], 0xf28b2e, 'head'); add('cone', [0, 0.49, 0], [0.24, 0.3, 0.24], 0xf28b2e, 'head'); add('cyl', [0, 0.49, 0], [0.155, 0.025, 0.155], 0xfbfbf7, 'head'); add('cyl', [0, 0.55, 0], [0.1, 0.02, 0.1], 0xfbfbf7, 'head');
+        for (const y of [0.18, 0.225]) add('box', [0, y, 0.06], [0.132, 0.014, 0.006], 0xe8f0d0); add('cyl', [0.1, 0.17, 0.06], [0.012, 0.25, 0.012], 0x7a5a3e); add('box', [0.1, 0.045, 0.06], [0.05, 0.06, 0.01], 0x9aa0a8); break; // 拿著鏟子準備再挖一次
+      case 'truck': add('box', [0, 0.19, 0], [0.21, 0.18, 0.26], 0xe8c547); add('box', [0, 0.24, 0.131], [0.15, 0.06, 0.004], 0x86a8a6); add('box', [0, 0.13, 0], [0.215, 0.02, 0.265], 0x4f8a3f);
+        for (const sx of [-1, 1]) { add('eye', [sx * 0.07, 0.15, 0.132], [0.025, 0.025, 0.01], 0xfff3c4); for (const sz of [-0.08, 0.08]) add('cyl', [sx * 0.108, 0.07, sz], [0.05, 0.02, 0.05], D, null, [0, 0, Math.PI / 2]); }
+        for (const [x, y] of [[0.08, 0.5], [-0.07, 0.53]]) { add('eye', [x, y, 0], [0.04, 0.03, 0.03], D, 'head'); add('box', [x + 0.016, y + 0.04, 0], [0.008, 0.07, 0.008], D, 'head'); } break; // 頭上飄著音符
+      case 'bat': for (const sx of [-1, 1]) { add('box', [sx * 0.15, 0.25, -0.06], [0.18, 0.13, 0.012], 0x2b2238, null, [0, sx * 0.4, sx * 0.35]); add('cone', [sx * 0.06, 0.47, 0], [0.05, 0.09, 0.03], 0x2b2238, 'head', [0, 0, sx * -0.2]); add('box', [sx * 0.012, 0.309, 0.087], [0.008, 0.014, 0.004], 0xffffff, 'head'); }
+        add('cyl', [0.09, 0.2, 0.08], [0.01, 0.14, 0.01], 0xc49a4e, 'armR'); for (const y of [0.24, 0.27]) add('eye', [0.09, y, 0.08], [0.03, 0.03, 0.03], 0xb5652a, 'armR'); break; // 手上一串夜市烤肉
+      // ── 以下是要花金蛋的萬聖節套裝 ──
+      case 'bag': add('box', [0, 0.36, 0], [0.25, 0.27, 0.24], 0xc9a46a, 'head'); add('box', [0, 0.495, 0], [0.26, 0.02, 0.25], 0xb8935a, 'head'); for (const sx of [-1, 1]) add('box', [sx * 0.045, 0.38, 0.121], [0.035, 0.025, 0.01], D, 'head');
+        for (const [x, y] of [[0.06, 0.31], [-0.07, 0.44], [0.08, 0.45]]) add('eye', [x, y, 0.121], [0.04, 0.03, 0.006], 0xa9844a, 'head'); add('cyl', [0.09, 0.2, 0.08], [0.008, 0.14, 0.008], 0xc49a4e, 'armR'); break;
+      case 'cutlet': add('box', [0, 0.2, 0.075], [0.26, 0.3, 0.03], 0xc9852e, null, [0.1, 0, 0.15]); for (const [x, y] of [[-0.07, 0.27], [0.05, 0.14], [0.08, 0.28], [-0.04, 0.12]]) add('eye', [x, y, 0.095], [0.05, 0.04, 0.02], 0xb5752a, null); break;
+      case 'poncho': add('cone', [0, 0.16, 0], [0.34, 0.36, 0.3], 0x8fd3e8); add('cap', [0, 0.37, -0.01], [0.23, 0.2, 0.22], 0x8fd3e8, 'head'); add('box', [0, 0.32, 0.1], [0.12, 0.012, 0.012], 0x6ab7cc, 'head'); break;
+      case 'delivery': add('box', [0, 0.24, -0.11], [0.2, 0.2, 0.16], 0xf28b2e); add('box', [0, 0.24, -0.028], [0.205, 0.03, 0.005], 0xfbfbf7); add('cap', [0, 0.39, 0], [0.21, 0.13, 0.2], 0xf28b2e, 'head'); add('box', [0, 0.36, 0.1], [0.16, 0.035, 0.012], 0x2b2b30, 'head'); break;
+      case 'card': add('box', [0, 0.2, 0.068], [0.2, 0.26, 0.012], 0x2f6f9f, null, [0, 0, 0.08]); add('box', [-0.04, 0.25, 0.075], [0.04, 0.03, 0.004], 0xe8c547, null, [0, 0, 0.08]); add('box', [0, 0.13, 0.075], [0.14, 0.02, 0.004], 0xc23b2a, null, [0, 0, 0.08]); break;
+      case 'firework': add('box', [0, 0.45, 0], [0.09, 0.12, 0.09], 0xbfd6df, 'head'); add('box', [0, 0.53, 0], [0.065, 0.08, 0.065], 0x9fc4c6, 'head'); add('cyl', [0, 0.6, 0], [0.012, 0.08, 0.012], 0x9aa0a8, 'head');
+        for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add('eye', [Math.cos(a) * 0.09, 0.64 + (k % 2) * 0.02, Math.sin(a) * 0.09], [0.03, 0.03, 0.03], [0xfcea8b, 0xdb6a41, 0x58a6a6, 0xf2a1a1][k % 4], 'head'); } break;
+      case 'bear': add('cap', [0, 0.37, -0.01], [0.23, 0.22, 0.22], 0x1d1a1a, 'head', [-0.2, 0, 0]); for (const sx of [-1, 1]) { add('eye', [sx * 0.08, 0.465, -0.01], [0.06, 0.06, 0.04], 0x1d1a1a, 'head'); add('box', [sx * 0.025, 0.245, 0.06], [0.012, 0.07, 0.006], 0xf6efe3, null, [0, 0, sx * 0.6]); } break;
+      case 'leopard': add('cap', [0, 0.37, -0.01], [0.23, 0.21, 0.22], 0xc9955a, 'head', [-0.2, 0, 0]); for (const sx of [-1, 1]) { add('cone', [sx * 0.07, 0.465, 0], [0.05, 0.07, 0.03], 0xc9955a, 'head'); add('box', [sx * 0.02, 0.43, 0.06], [0.01, 0.05, 0.01], 0xf6efe3, 'head'); }
+        for (const [x, y] of [[-0.04, 0.17], [0.04, 0.23], [0.0, 0.14], [-0.03, 0.25]]) add('eye', [x, y, 0.06], [0.022, 0.022, 0.006], 0x5a3a1e); add('cyl', [0, 0.12, -0.1], [0.022, 0.18, 0.022], 0xc9955a, null, [1.1, 0, 0]); break;
+      case 'pigeon': add('eye', [0, 0.36, 0], [0.24, 0.24, 0.23], 0x8a8f99, 'head'); add('cyl', [0, 0.27, 0], [0.16, 0.04, 0.16], 0x4f8a7a); add('cone', [0, 0.35, 0.13], [0.04, 0.06, 0.04], 0xe8b04a, 'head', [Math.PI / 2, 0, 0]);
+        for (const sx of [-1, 1]) add('eye', [sx * 0.05, 0.38, 0.11], [0.03, 0.03, 0.01], 0xe8781e, 'head'); break;
+      case 'nightshift': add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], 0x4f8a3f, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], 0x4f8a3f, 'head'); for (const [y, c] of [[0.18, 0x4f8a3f], [0.215, 0xdb6a41], [0.25, 0x4f8a3f]]) add('box', [0, y, 0.06], [0.132, 0.014, 0.006], c);
+        add('box', [0.035, 0.235, 0.064], [0.03, 0.02, 0.004], 0xfbfbf7); break;
+      case 'parking': for (const sz of [-1, 1]) add('box', [0, 0.006, sz * 0.18], [0.27, 0.004, 0.025], 0xfbfbf7); for (const sx of [-1, 1]) add('box', [sx * 0.13, 0.006, 0], [0.025, 0.004, 0.36], 0xfbfbf7);
+        add('cyl', [0, 0.47, 0], [0.01, 0.1, 0.01], 0x9aa0a8, 'head'); add('box', [0, 0.54, 0], [0.1, 0.1, 0.012], 0x2f6f9f, 'head'); add('box', [-0.012, 0.54, 0.007], [0.014, 0.065, 0.004], 0xfbfbf7, 'head'); add('box', [0.008, 0.56, 0.007], [0.03, 0.03, 0.004], 0xfbfbf7, 'head'); break;
+      case 'duck': add('eye', [0, 0.18, 0], [0.26, 0.24, 0.28], 0xf2d23c); add('eye', [0, 0.36, 0], [0.24, 0.24, 0.23], 0xf2d23c, 'head'); add('box', [0, 0.33, 0.13], [0.1, 0.03, 0.07], 0xf28b2e, 'head'); for (const sx of [-1, 1]) add('eye', [sx * 0.05, 0.39, 0.11], [0.025, 0.025, 0.01], D, 'head'); add('cone', [0, 0.2, -0.14], [0.08, 0.08, 0.06], 0xf2d23c, null, [-1.2, 0, 0]); break;
+      case 'taro': for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; add('eye', [Math.cos(a) * 0.07, 0.45 + (k % 3) * 0.02, Math.sin(a) * 0.07], [0.06, 0.05, 0.06], k % 2 ? 0x9a7ab5 : 0xe8b46a, 'head'); } add('eye', [0, 0.5, 0], [0.06, 0.05, 0.06], 0xb79ad0, 'head'); break;
+      case 'tofu': add('box', [0, 0.37, 0], [0.24, 0.24, 0.24], 0xc98a3a, 'head'); for (const [x, y] of [[-0.05, 0.42], [0.06, 0.33], [0.03, 0.44], [-0.06, 0.31]]) add('eye', [x, y, 0.121], [0.025, 0.025, 0.006], 0x8a5a22, 'head'); for (const sx of [-1, 1]) add('box', [sx * 0.045, 0.375, 0.122], [0.03, 0.018, 0.006], D, 'head');
+        for (let k = 0; k < 3; k++) add('eye', [(k - 1) * 0.05, 0.53 + k * 0.03, 0], [0.04, 0.04, 0.04], 0xf6f6f2, 'head'); break;
+      case 'prince': add('eye', [0, 0.37, 0], [0.3, 0.29, 0.28], 0xf6d0c0, 'head'); for (const sx of [-1, 1]) add('eye', [sx * 0.08, 0.33, 0.115], [0.05, 0.03, 0.01], 0xf2a1a1, 'head'); add('box', [0, 0.385, 0.14], [0.2, 0.045, 0.01], D, 'head');
+        add('cyl', [0, 0.52, 0], [0.18, 0.06, 0.18], 0xf2c14e, 'head'); for (let k = 0; k < 3; k++) add('eye', [(k - 1) * 0.06, 0.52, 0.09], [0.025, 0.025, 0.01], 0xc23b2a, 'head'); add('cone', [0, 0.16, 0], [0.34, 0.32, 0.3], 0xc23b2a); add('cyl', [0, 0.04, 0], [0.33, 0.02, 0.3], 0xf2c14e); break;
+      case 'megaphone': add('cone', [0, 0.47, 0.06], [0.11, 0.16, 0.11], 0xfbfbf7, 'head', [-1.25, 0, 0]); add('cyl', [0, 0.45, -0.02], [0.04, 0.06, 0.04], 0xc23b2a, 'head', [-1.25, 0, 0]); add('box', [0, 0.205, 0.06], [0.026, 0.17, 0.006], 0xfbfbf7, null, [0, 0, 0.72]); break;
+      case 'pumpbus': add('eye', [0, 0.17, 0], [0.32, 0.28, 0.32], 0xe8781e); for (const sx of [-1, 1]) add('box', [sx * 0.06, 0.2, 0.155], [0.07, 0.05, 0.01], 0x86a8a6); add('cyl', [0, 0.33, 0], [0.03, 0.05, 0.03], 0x4f7a3a);
+        add('cap', [0, 0.39, 0], [0.205, 0.11, 0.195], 0x2f6f9f, 'head'); add('cyl', [0, 0.385, 0.08], [0.18, 0.008, 0.1], D, 'head'); break;
+      case 'skeleton': add('box', [0, 0.2, 0.062], [0.012, 0.11, 0.006], 0xf4f1ea); for (let k = 0; k < 3; k++) add('box', [0, 0.17 + k * 0.03, 0.061], [0.09 - k * 0.008, 0.008, 0.006], 0xf4f1ea);
+        for (const sx of [-1, 1]) { add('eye', [sx * 0.036, 0.35, 0.084], [0.038, 0.036, 0.008], D, 'head'); add('box', [sx * 0.077, 0.2, 0.02], [0.008, 0.08, 0.004], 0xf4f1ea, sx < 0 ? 'armL' : 'armR'); add('box', [sx * 0.032, 0.07, 0.03], [0.008, 0.1, 0.004], 0xf4f1ea, sx < 0 ? 'legL' : 'legR'); }
+        add('box', [0, 0.33, 0.088], [0.012, 0.016, 0.006], D, 'head'); break;
+      case 'alien': for (const sx of [-1, 1]) { add('cyl', [sx * 0.04, 0.48, 0], [0.008, 0.08, 0.008], 0x6aa04a, 'head', [0, 0, sx * -0.25]); add('eye', [sx * 0.06, 0.53, 0], [0.03, 0.03, 0.03], 0xfcea8b, 'head'); add('eye', [sx * 0.04, 0.355, 0.083], [0.05, 0.035, 0.01], D, 'head', [0, 0, sx * -0.3]); }
+        add('box', [0, 0.2, 0.1], [0.06, 0.05, 0.06], 0xfbfbf7, 'carry'); add('cone', [0, 0.25, 0.1], [0.07, 0.04, 0.07], 0xdb6a41, 'carry'); break; // 手上捧著一棟小房子
+      case 'lantern': add('cyl', [0, 0.48, 0], [0.2, 0.2, 0.2], 0xfff0c2, 'head'); add('cyl', [0, 0.585, 0], [0.16, 0.012, 0.16], 0xe8c547, 'head'); for (const y of [0.45, 0.5]) add('box', [0, y, 0.1], [0.06, 0.012, 0.006], 0xc23b2a, 'head'); add('box', [0.03, 0.475, 0.1], [0.012, 0.05, 0.006], 0xc23b2a, 'head'); break;
     }
     // 頭身比：頭部零件以頭心放大並上移（Q 版大頭）
     const HC = 0.345, HK = 1.28, HUP = 0.032;

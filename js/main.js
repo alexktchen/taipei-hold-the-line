@@ -36,9 +36,9 @@ const TRIM = { granite: 'bollard', lawn: 'hedge', gravel: 'hoarding', street: 'b
 for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
   const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
   model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42]);
-  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { const kind = ['shop', 'house', 'house2'][i % 3], cp = C.econ.city.find(p => p.island === isl.id && p.house === i); // 蓋城市的位置先空著，由 placeCity 決定放小房子、工地或蓋好的建築
+  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { const bq = C.explore.boutiques.some(([id, h]) => id === isl.id && h === i), kind = bq ? 'shop' : ['shop', 'house', 'house2'][i % 3], cp = C.econ.city.find(p => p.island === isl.id && p.house === i); // 蓋城市的位置先空著，由 placeCity 決定放小房子、工地或蓋好的建築
     if (cp) CITY_POS.set(cp.id, { x: c.x + sx, z: c.z + sz, size: lay.size, kind, seed: isl.number * 3 + i }); else model(kind, c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.38]);
-    if (i === 0 && !cp && C.explore.boutiques.includes(isl.id)) BOUTIQUES.push({ x: c.x + sx, z: c.z + sz, island: isl.id }); });
+    if (bq && !cp) BOUTIQUES.push({ x: c.x + sx, z: c.z + sz, island: isl.id }); });
   // 島緣：沒有橋的邊放圍欄／樹籬／矮牆
   const nb = neighbors.get(isl.id); const bridgeDirs = nb.filter(n => n.id).map(n => dirOf(n.dq, n.dr)); for (const L of links) if (L.a === isl.id || L.b === isl.id) { const mine = L.a === isl.id ? L.pa : L.pb; const v = mine.clone().sub(c).setY(0).normalize(); bridgeDirs.push([v.x, v.z]); } const trim = TRIM[isl.ground];
   for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.3, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.3, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
@@ -137,7 +137,20 @@ const game = createGame({ scene, graph, nav, centers, people, animals, islands: 
 gameRef = game; game.setStops(policyStops); game.spawnMayor(); people.build([...game.spawnResidents(), game.G.mayor]);
 // 逛城市：自己的角色與其他正在逛的人；居民與市長照樣由打工那邊帶著走；名牌與說話泡泡共用
 const xCallbacks = { tag: (...a) => callbacks.tag(...a), say: (...a) => callbacks.say(...a) };
-const explore = createExplore({ scene, nav, people, centers, callbacks: xCallbacks, rebuild: list => game.setExtraWalkers(list), boutiques: () => BOUTIQUES, site: () => citySite, mayor: () => game.G.mayor });
+// 打工現場：某個打工場岸外的海面（魔王浮在那裡），朝外的方向（dx,dz）與要面向的島心（fx,fz）
+const stageSpotCache = new Map();
+function stageSpots(sid) { if (stageSpotCache.has(sid)) return stageSpotCache.get(sid); const st = C.stages.find(s => s.id === sid), out = []; if (!st) return out; const bc = centers.get(st.basket), all = [...centers.values()];
+  for (const id of st.islands) { if (id === st.basket) continue; const c = centers.get(id); let dx = c.x - bc.x, dz = c.z - bc.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+    for (const da of [0, 0.7, -0.7]) { const ax = dx * Math.cos(da) - dz * Math.sin(da), az = dx * Math.sin(da) + dz * Math.cos(da), x = c.x + ax * (R + 1.1), z = c.z + az * (R + 1.1);
+      if (nav.walkable(x, z) || all.some(o => o !== c && Math.hypot(o.x - x, o.z - z) < R + 0.6)) continue; out.push({ x, z, dx: ax, dz: az, fx: c.x, fz: c.z }); break; } }
+  if (!out.length) out.push({ x: bc.x, z: bc.z + R + 1.1, dx: 0, dz: 1, fx: bc.x, fz: bc.z }); stageSpotCache.set(sid, out); return out; }
+const explore = createExplore({ scene, nav, people, centers, animals, callbacks: xCallbacks, rebuild: list => game.setExtraWalkers(list), boutiques: () => BOUTIQUES, site: () => citySite, mayor: () => game.G.mayor, stageSpots });
+// 打工場頭上的牌子：「🔴 打工中 2 隊」（只在逛城市時顯示）
+const liveLabels = new Map();
+function liveSigns(groups) { for (const [sid, L] of [...liveLabels]) if (!groups.has(sid)) { L.el.remove(); labels.splice(labels.indexOf(L), 1); liveLabels.delete(sid); }
+  for (const [sid, g] of groups) { const st = C.stages.find(s => s.id === sid); if (!st) continue; let L = liveLabels.get(sid); const txt = `打工中 ${g.n} 隊${g.bosses.length ? `・魔王 ${g.bosses.length} 種` : ''}`;
+    if (!L) { const c = centers.get(st.basket); L = addLabel(txt, new THREE.Vector3(c.x, TOP + 1.7, c.z + C.plaza.basketZ), 'policy live', '🔴', 2.2); liveLabels.set(sid, L); }
+    if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.w = 0; } } }
 callbacks.speech = m => { if (callbacks.mayorExtra) callbacks.mayorExtra(m); };
 // 相機
 function fit() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
@@ -148,6 +161,22 @@ let fly = null; overview(true);
 // 打工場全景：把這個場用到的島都框進畫面
 function stageView() { const st = game.G.stage; if (!st) { overview(false); return; } stopFollow(); const c = new THREE.Vector3(); for (const id of st.islands) c.add(centers.get(id)); c.divideScalar(st.islands.length); c.y = TOP; let r = 0; for (const id of st.islands) r = Math.max(r, centers.get(id).distanceTo(c)); const d = (r + R + 1) * (narrow() ? 3.1 : 2.3), pol = THREE.MathUtils.degToRad(52);
   controls.target.copy(c); fly = { from: camera.position.clone(), to: new THREE.Vector3(c.x + Math.sin(0.08) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.08) * Math.sin(pol) * d), t: 0 }; }
+// 打工場的大廳：鏡頭框住這個場（instant＝直接切過去，不飛）
+function frameStage(sid, instant) { const st = C.stages.find(s => s.id === sid); if (!st) { overview(instant); return; } stopFollow(); const c = new THREE.Vector3(); for (const id of st.islands) c.add(centers.get(id)); c.divideScalar(st.islands.length); c.y = TOP; let r = 0; for (const id of st.islands) r = Math.max(r, centers.get(id).distanceTo(c)); const d = (r + R + 1) * (narrow() ? 3.1 : 2.3), pol = THREE.MathUtils.degToRad(52);
+  controls.target.copy(c); const to = new THREE.Vector3(c.x + Math.sin(0.08) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.08) * Math.sin(pol) * d); if (instant) { fly = null; camera.position.copy(to); } else fly = { from: camera.position.clone(), to, t: 0 }; }
+// 換世界：雲從四周湧進來蓋住畫面、鏡頭往上拉遠（zoom out）；蓋滿時切換；雲散開、鏡頭從高處推近新的世界
+let pull = null, warping = false; const UP = new THREE.Vector3(0, 1, 0);
+const cw = document.getElementById('cloudwipe'); { const P = [[8, 18, 46, -60, -50], [32, 6, 40, -10, -70], [62, 10, 48, 20, -70], [90, 22, 44, 70, -50], [4, 52, 42, -80, 0], [96, 56, 46, 80, 0], [14, 86, 50, -60, 60], [44, 94, 46, 0, 80], [76, 88, 50, 50, 70], [30, 40, 38, -40, -20], [68, 44, 40, 40, -10], [50, 64, 44, 0, 40], [22, 66, 36, -50, 30], [82, 66, 38, 50, 30]];
+  for (const [x, y, w, ox, oy] of P) { const d = document.createElement('i'); d.className = 'puff'; d.style.cssText = `--x:${x}%;--y:${y}%;--w:${w}vmax;--ox:${ox}vw;--oy:${oy}vh;--d:${(Math.hypot(ox, oy) / 100 * 0.12).toFixed(2)}s`; cw.insertBefore(d, document.getElementById('cwText')); } } // 雲疊在霧上面、字在最上面
+const wait = ms => new Promise(r => setTimeout(r, ms)), still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function startPull(from, to, tilt, dur) { const off = camera.position.clone().sub(controls.target); pull = { t: 0, dur, from, to, tilt, dir: off.normalize() }; stepPull(0); }
+function stepPull(raw) { if (!pull) return; pull.t = Math.min(1, pull.t + raw / pull.dur); const k = pull.t * pull.t * (3 - 2 * pull.t), len = pull.from + (pull.to - pull.from) * k, tl = pull.tilt > 0 ? pull.tilt * k : -pull.tilt * (1 - k);
+  const dir = pull.dir.clone().lerp(UP, tl).normalize(); camera.position.copy(controls.target).addScaledVector(dir, len); if (pull.t >= 1) pull = null; }
+async function warp(label, fn, opt = {}) { if (warping) return false; warping = true; document.getElementById('cwText').textContent = label; cw.hidden = false;
+  try { if (!opt.covered) { cw.className = 'cloudwipe in'; fly = null; const L = camera.position.distanceTo(controls.target); if (!still()) startPull(L, Math.min(66, L * 2.6), 0.45, 0.9); await wait(still() ? 250 : 950); } else cw.className = 'cloudwipe cover';
+    await fn(); fly = null; const L = camera.position.distanceTo(controls.target), sky = !!opt.sky; // sky：重新整理後從更高的雲端降落
+    if (!still()) startPull(Math.min(66, L * (sky ? 4.5 : 2.6)), L, sky ? -0.75 : -0.45, sky ? 1.9 : 1.1);
+    cw.className = 'cloudwipe out'; await wait(still() ? 250 : sky ? 1700 : 1100); } finally { cw.className = 'cloudwipe'; cw.hidden = true; warping = false; } return true; }
 // 跟隨鏡頭：鏡頭目標平順追著對象走，保留玩家自己轉的角度與遠近；跟隨中關掉平移，避免和追蹤打架
 const FOLLOW = { target: null, kind: null };
 function followGetter(kind) { const G = game.G; if (kind === 'mayor') return () => G.mayor && G.mayor.pos; if (kind === 'hero') return () => { const P = game.me(); return P && P.pos; }; if (kind === 'basket') return () => G.basket && new THREE.Vector3(G.basket.x, TOP, G.basket.z); if (kind === 'xme') return () => explore.G.me && explore.G.me.pos; return () => null; }
@@ -181,7 +210,7 @@ function flyTo(islandId) { const c = centers.get(islandId); if (!c) return; cont
 // 鳥瞰：鏡頭到城市中心正上方往下看；關掉就回到跟著自己
 function bird(on) { if (on) { stopFollow(); controls.target.copy(center); fly = { from: camera.position.clone(), to: center.clone().add(new THREE.Vector3(0.01, C.explore.birdHeight, C.explore.birdBack)), t: 0 }; } else if (explore.G.on) startFollow('xme', true); else overview(false); }
 const policyPos = id => { const st = policyStops.find(x => x.pol.id === id); return st && { x: st.pos.x, z: st.pos.z }; };
-const ui = createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
+const ui = createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, stageCenter: sid => { const st = C.stages.find(s => s.id === sid); const c = st && centers.get(st.basket); return c && { x: c.x, z: c.z + C.plaza.basketZ }; }, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
   follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } }, input: { stick, clear: () => { keys.clear(); stick.x = stick.y = 0; }, aim: () => { fwd.copy(controls.target).sub(camera.position).setY(0).normalize(); return [fwd.x, fwd.z]; } } });
 // 迴圈：天色與霧跟著波次（一般波早→午→下午、暴走夜是晚上、起大霧時霧拉近）
 let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = scene.fog.near, fogFar = scene.fog.far; const G = game.G; const FOG0 = [scene.fog.near, scene.fog.far];
@@ -192,11 +221,11 @@ function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = no
   const shift = G.phase !== 'lobby', XG = explore.G, wantMin = XG.on ? XG.clock : !shift ? 720 : G.special === 'rush' ? C.shift.rush.time : C.shift.dayTimes[Math.max(0, Math.min(2, G.waveNo - 1))]; if (XG.on && !XG.tween) dayMin = XG.clock; else { let d = wantMin - dayMin; if (XG.on) d = ((d % 1440) + 2160) % 1440 - 720; dayMin = (((dayMin + d * Math.min(1, raw * (XG.on ? 2.5 : 1.2))) % 1440) + 1440) % 1440; if (XG.on && Math.abs(d) < 2) { XG.tween = false; dayMin = XG.clock; } } env.setTime(dayMin); // 逛城市：時鐘照走，按時段時平順轉過去
   const fog = shift && G.special === 'fog'; fogNear += ((fog ? C.shift.fog.near : FOG0[0]) - fogNear) * Math.min(1, raw * 1.5); fogFar += ((fog ? C.shift.fog.far : FOG0[1]) - fogFar) * Math.min(1, raw * 1.5); scene.fog.near = fogNear; scene.fog.far = fogFar;
   if (fly) { fly.t = Math.min(1, fly.t + raw * 1.2); const k = fly.t * fly.t * (3 - 2 * fly.t); camera.position.lerpVectors(fly.from, fly.to, k); if (fly.t >= 1) fly = null; }
-  updateFollow(raw); controls.update();
+  updateFollow(raw); stepPull(raw); controls.update();
   { const me = G.phase !== 'lobby' && FOLLOW.kind === 'hero' ? game.me() : FOLLOW.kind === 'xme' ? explore.G.me : null; CUT.uCutOn.value = me ? 1 : 0; if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.25, me.pos.z); CUT.uCutY.value = TOP + 0.22; } } // 擋住自己的建築變半透明
   renderer.render(scene, camera); updateLabels();
   acc += raw; if (acc > 0.2) { acc = 0; ui.tick(); }
   requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 { const ld = document.getElementById('loading'); if (ld) requestAnimationFrame(() => requestAnimationFrame(() => { ld.classList.add('done'); setTimeout(() => ld.remove(), 450); })); } // 第一幀畫完再收掉載入畫面
-window.PI = { game, explore, nav, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)) }; // 除錯用
+window.PI = { game, explore, nav, layout: LAYOUT, cityPos: CITY_POS, boutiques: BOUTIQUES, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)) }; // 除錯用

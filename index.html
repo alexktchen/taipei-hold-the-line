@@ -59,6 +59,10 @@
     <div class="emotes" id="xEmotes" role="group" aria-label="打招呼"></div>
     <div class="act-row"><button id="btnXFit" type="button" class="act xbtn" aria-pressed="false"><span class="pi">👕</span><b>衣櫃</b></button><button id="btnXCity" type="button" class="act xbtn" aria-pressed="false"><span class="pi">🏗</span><b>蓋城市</b></button><button id="btnXDonate" type="button" class="act xbtn" aria-pressed="false"><span class="pi">💰</span><b>獻金</b></button></div>
   </section>
+  <aside class="xlist panel live-panel" id="livePanel" hidden aria-label="打工現場">
+    <div class="xl-head"><div><div class="eyebrow">LIVE・打工現場</div><b>現在大家在打的班</b></div><button class="close" id="liveClose" type="button" aria-label="關閉">×</button></div>
+    <div class="xl-body" id="liveBody"></div>
+  </aside>
   <aside class="xlist panel shop-panel" id="shopPanel" hidden aria-label="金蛋商店">
     <div class="xl-head"><div class="wallet"><span class="egg" aria-hidden="true"></span><div><span class="k">你的金蛋</span><b id="wallet">0</b><small id="walletNote"></small></div></div><button class="close" id="btnShopClose" type="button" aria-label="關閉">×</button></div>
     <div class="shop-tabs" id="shopTabs" role="tablist" aria-label="金蛋怎麼花"><button type="button" role="tab" data-tab="fit" aria-selected="true">👕 衣服</button><button type="button" role="tab" data-tab="city" aria-selected="false">🏗 蓋城市</button><button type="button" role="tab" data-tab="donate" aria-selected="false">💰 獻金</button></div>
@@ -109,7 +113,8 @@
     <button type="button" class="xb" id="xbPause" aria-pressed="false" title="停住時間"><span class="i">⏸️</span>時間</button>
     <button type="button" class="xb" id="xbBird" aria-pressed="false"><span class="i">🛰️</span>鳥瞰</button>
     <button type="button" class="xb" id="xbList" aria-pressed="false"><span class="i">☰</span>清單</button>
-    <button type="button" class="xb primary" id="xbLobby"><span class="i">🏠</span>回大廳</button>
+    <button type="button" class="xb live" id="xbLive" aria-pressed="false" title="別人正在打的班"><span class="i">🔴</span>打工現場<em id="xbLiveN"></em></button>
+    <button type="button" class="xb primary" id="xbWork"><span class="i">🥚</span>去打工</button>
   </nav>
   <div class="guide" id="guide" hidden><div class="g-box" role="dialog" aria-modal="true" aria-labelledby="guideTitle"><div class="eyebrow">QUICK START</div><h2 id="guideTitle"></h2><ol id="guideSteps"></ol><button id="guideOk" class="go" type="button">知道了</button></div></div>
   <aside class="hotline panel" id="hotline" aria-label="市民熱線">
@@ -119,25 +124,25 @@
   </aside>
   <div class="ticker" id="ticker" aria-label="城市快訊"><span class="tk-label">城市快訊</span><div class="tk-track"><span class="tk-text" id="tkText"></span></div></div>
   <div class="banner" id="banner" role="status" aria-live="polite"></div>
+  <div class="cloudwipe" id="cloudwipe" hidden aria-hidden="true"><div class="cw-fog"></div><div class="cw-text" id="cwText"></div></div>
   <div class="hint" id="hint"></div>
 
   <div class="overlay" id="lobby">
-    <div class="box lobby" id="lobbyBox" data-mode="shift">
+    <div class="box lobby" id="lobbyBox">
       <div class="parody" role="note"><b id="parodyTitle">二創惡搞作品｜非官方</b><span id="parodyLong"></span></div>
       <div class="lobby-head">
-        <div class="eyebrow">LOBBY・大廳</div>
-        <div class="modes" id="modes" role="tablist" aria-label="玩法"><button type="button" role="tab" data-mode="shift" aria-selected="true"><span>🥚 打工</span><small>4 人一隊打魔王、搬金蛋</small></button><button type="button" role="tab" data-mode="explore" aria-selected="false"><span>🏙 逛城市</span><small>買衣服、蓋城市、找市長・大家在同一張地圖</small></button></div>
-        <div class="lh-row"><h2 id="lobbyTitle">今天也來搬金蛋。</h2></div>
+        <div class="eyebrow">WORK・打工場大廳</div>
+        <div class="lh-row"><h2 id="lobbyTitle">今天也來搬金蛋。</h2><button id="btnToCity" class="go2 tocity" type="button"><span class="cl" aria-hidden="true">☁️</span>🏙 進城市逛逛<small>買衣服、蓋城市、看大家打工</small></button></div>
+        <p class="first-note" id="firstNote" hidden>👋 第一次來：取個暱稱、選職業和你的區（逛城市從這區出發、也算進 12 區對抗），然後按「進城市逛逛」或直接開工。下次打開會直接回到城市。</p>
         <p class="stage-line shift-only" id="stageLine"></p>
         <p class="count" id="countdown"></p>
       </div>
       <section class="quick" aria-label="開工">
         <label class="field">暱稱<input id="nick" type="text" maxlength="24" placeholder="會顯示在排行榜" autocomplete="nickname"></label>
-        <label class="field">你的行政區（12 區對抗）<select id="homeDistrict"></select></label>
+        <label class="field">你的行政區（12 區對抗；逛城市也從這區出發）<select id="homeDistrict"></select></label>
         <div class="grade shift-only" id="gradeCard"></div>
         <div class="classes" id="classes"></div>
-        <div class="x-actions explore-only" id="xActions"><div class="x-wallet" id="xWallet"></div><button id="btnXStart" class="go" type="button">開始逛城市<small>穿著你買的衣服，其他在逛的人也看得到你</small></button></div>
-        <div class="q-actions shift-only" id="quickActions">
+                <div class="q-actions shift-only" id="quickActions">
           <button id="btnSolo" class="go" type="button">立刻開工<small>單人＋3 位 NPC 同事</small></button>
           <button id="btnQuick" class="go2" type="button">快速配對<small>加入別人的房，或開公開房等人</small></button>
           <button id="btnCreate" class="go2" type="button">開房間<small>拿房號邀朋友</small></button>
@@ -152,9 +157,9 @@
         <p class="note q-note"><span id="goWho"></span> <span id="mine" class="shift-only"></span> <span id="modeNote"></span></p>
       </section>
       <div class="lobby-grid">
-        <div class="col"><div class="shift-only"><h3>魔王圖鑑</h3><ul class="bosses" id="bossList"></ul><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div></div><div class="explore-only"><h3>城市建設</h3><div id="xCity"></div></div><h3>現在在線</h3><div class="note" id="onlineList"></div></div>
+        <div class="col"><div class="shift-only"><h3>魔王圖鑑</h3><ul class="bosses" id="bossList"></ul><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div></div><h3>現在在線</h3><div class="note" id="onlineList"></div></div>
         <div class="col"><h3>12 區對抗（金蛋＋蓋城市）</h3><ol class="dboard" id="dboard"></ol></div>
-        <div class="col"><div class="shift-only"><h3>打工榜</h3><ol class="board" id="board"></ol></div><div class="explore-only"><h3>獻金榜（遊戲金蛋・惡搞）</h3><ol class="board" id="xDonors"></ol></div></div>
+        <div class="col"><div class="shift-only"><h3>打工榜</h3><ol class="board" id="board"></ol></div></div>
       </div>
       <section class="howto" aria-labelledby="howtoTitle"><h3 id="howtoTitle">怎麼玩</h3><p class="lead" id="howtoLead"></p><ol id="howto"></ol></section>
       <details class="admin" id="adminBox" hidden>
@@ -189,7 +194,7 @@
       <table class="res-team"><thead><tr><th>同事</th><th>金蛋</th><th>勸退</th><th>救人</th><th>倒下</th></tr></thead><tbody id="resTeam"></tbody></table>
       <div class="res-me" id="resMe"></div>
       <p class="res-d" id="resDistrict"></p>
-      <div class="res-btns"><button id="btnAgain" class="go" type="button">再打一班</button><button id="btnResLobby" type="button">回大廳</button></div>
+      <div class="res-btns"><button id="btnAgain" class="go" type="button">再打一班</button><button id="btnResLobby" type="button">回大廳</button><button id="btnResCity" type="button">🏙 回城市花金蛋</button></div>
     </div>
   </div>
   <div class="overlay help" id="helpOverlay" hidden><div class="box help-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><button class="close" id="btnHelpClose" type="button" aria-label="關閉">×</button><div class="eyebrow">HOW TO PLAY</div><h2 id="helpTitle">怎麼玩</h2><ol class="howto-list" id="howtoHelp"></ol></div></div>
