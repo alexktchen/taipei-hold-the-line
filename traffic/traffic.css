@@ -76,7 +76,7 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} :focus-vi
 
 @media (max-width:760px){
   .brand{padding:8px 12px} .brand h1{font-size:18px} .brand .future{font-size:9px}
-  .cam{top:auto;bottom:calc(92px + var(--sa-b));right:max(10px,var(--sa-r));max-width:none;padding:6px} .cam button{padding:5px 9px;font-size:12px}
+  .cam{top:52px;bottom:auto;right:max(10px,var(--sa-r));max-width:none;padding:5px;flex-direction:column;gap:4px} .cam button{padding:5px 9px;font-size:12px}
   .stats{top:auto;left:max(10px,var(--sa-l));bottom:calc(92px + var(--sa-b));min-width:0;grid-template-columns:repeat(2,auto);gap:0 10px} .stats b{font-size:14px} .stats .wide{display:none}
   .legend{top:12px;bottom:auto;right:max(10px,var(--sa-r));gap:6px;font-size:10px;padding:5px 8px} .legend i{width:12px}
   .bar{bottom:calc(26px + var(--sa-b));left:10px;right:10px;transform:none;max-width:none}
