@@ -482,3 +482,28 @@ body.in-td .gstrip,body.in-td .hotline,body.in-td .parody-badge{display:none}
   .wave-toast{top:52px;left:10px;right:10px;transform:none;width:auto;max-width:none;padding:8px 12px} .wave-toast b{font-size:15px} .wave-toast span{font-size:12px}
 }
 @media (prefers-reduced-motion: reduce){ .act.auto .sw,.act.auto .sw i{transition:none} }
+/* ═══ 金蛋商店（大廳）：錢包、買衣服、蓋城市、政治獻金 ═══ */
+.shop{margin-top:14px;border:2px solid #efe2a6;background:#fffdf3;border-radius:20px;padding:12px 14px}
+.shop-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.wallet{display:flex;align-items:center;gap:10px} .wallet .egg{width:30px;height:38px} .wallet .k{display:block;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.08em} .wallet b{font-size:28px;font-weight:900;color:#a87b00;font-variant-numeric:tabular-nums;margin-right:6px} .wallet small{font-size:11px;color:var(--muted)}
+.shop-tabs{display:flex;gap:6px} .shop-tabs button{border:2px solid #211d1d;background:#fff;border-radius:999px;padding:6px 14px;font-weight:900;font-size:14px;cursor:pointer} .shop-tabs button[aria-selected="true"]{background:#f2c14e;box-shadow:0 3px 0 #211d1d}
+.shop-body{margin-top:10px} .shop-lead{margin:0 0 8px;font-size:12px;color:var(--muted);line-height:1.5} .shop h4{margin:10px 0 4px;font-size:12px;letter-spacing:.08em;color:var(--muted)}
+.fit-row{display:grid;grid-template-columns:40px 1fr;gap:8px;align-items:start;margin-bottom:8px} .fit-row .k{font-size:12px;font-weight:900;padding-top:10px}
+.fit-items{display:flex;flex-wrap:wrap;gap:6px}
+.fit-items .it{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:6px;align-items:center;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:5px 10px 5px 7px;min-width:104px;cursor:pointer}
+.fit-items .it .ic2,.fit-items .it .sw{grid-row:1/3;font-size:20px;line-height:1} .fit-items .it .sw{width:18px;height:18px;border-radius:50%;border:1.5px solid #211d1d;display:block}
+.fit-items .it b{font-size:12px} .fit-items .it small{font-size:11px;color:#a87b00;font-weight:700}
+.fit-items .it.wear{border-color:var(--coral);background:#fdeee6} .fit-items .it.wear small{color:var(--coral)} .fit-items .it:disabled{opacity:.45;cursor:default} .fit-items .it.off small{color:var(--muted)}
+.city-sum{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px} .city-sum b{font-size:22px;font-weight:900;color:#a87b00} .city-sum span{font-size:12px;color:var(--muted)}
+.city-list,.tiers{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px}
+.city-list li,.tiers li{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:10px;font-size:12px} .city-list .nm,.tiers .nm{flex:1;min-width:0} .city-list .nm b,.tiers .nm b{display:block;font-size:13px} .city-list small,.tiers small{color:var(--muted);font-size:11px}
+.city-list li.now{grid-column:1/-1;background:#fff3c4;border:1.5px solid #efe2a6} .city-list li.lock{opacity:.55} .city-list li.done .nm b{color:#4f8a3f}
+.city-list .bar{flex:1.4;height:9px;border-radius:5px;background:#efe2a6;overflow:hidden} .city-list .bar i{display:block;height:100%;background:#f2c14e} .city-list .pc{font-weight:900;font-variant-numeric:tabular-nums;font-size:12px}
+.tiers li.on{background:#eaf5df} .tiers .at{font-weight:900;font-size:12px;color:#a87b00}
+.give{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px} .give .go2{border-radius:999px;padding:8px 16px;font-weight:900}
+.mayor-say{margin:10px 0 0;background:#fff;border:2px solid #211d1d;border-radius:14px;padding:8px 12px;font-weight:700;font-size:14px} .mayor-say span{display:block;font-size:11px;color:var(--coral);font-weight:900}
+.mini-board{list-style:none;margin:0;padding:0;display:grid;gap:2px} .mini-board li{display:flex;gap:8px;align-items:center;font-size:12px} .mini-board .r{width:18px;color:var(--muted);font-weight:900} .mini-board .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .mini-board b{color:#a87b00}
+.shop-legal{margin:10px 0 0;font-size:11px}
+.nameplate.policy.city em{background:#f2c14e;color:#211d1d} .nameplate.policy.city{pointer-events:none;cursor:default} .nameplate.policy.city.now{background:#fff3c4}
+@media (max-width:900px){ .shop{padding:10px} .shop-tabs{width:100%} .shop-tabs button{flex:1;padding:6px 6px;font-size:13px} .city-list,.tiers{grid-template-columns:1fr} .fit-items .it{min-width:0;flex:1 1 calc(50% - 6px)} .fit-row{grid-template-columns:1fr} .fit-row .k{padding-top:0} }
+@media (max-width:900px){ .give .go2{flex:1 1 40%} }

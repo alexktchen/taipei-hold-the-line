@@ -153,9 +153,17 @@
         </div>
         <p class="note q-note"><span id="goWho"></span> <span id="mine" class="shift-only"></span><span id="tdMine" class="td-only"></span> <span id="modeNote"></span></p>
       </section>
+      <section class="shop" id="shop" aria-label="金蛋商店">
+        <div class="shop-head">
+          <div class="wallet"><span class="egg" aria-hidden="true"></span><div><span class="k">你的金蛋</span><b id="wallet">0</b><small id="walletNote"></small></div></div>
+          <div class="shop-tabs" id="shopTabs" role="tablist" aria-label="金蛋怎麼花"><button type="button" role="tab" data-tab="fit" aria-selected="true">👕 買衣服</button><button type="button" role="tab" data-tab="city" aria-selected="false">🏗 蓋城市</button><button type="button" role="tab" data-tab="donate" aria-selected="false">💰 政治獻金</button></div>
+        </div>
+        <div class="shop-body" id="shopBody"></div>
+        <p class="note shop-legal" id="shopLegal"></p>
+      </section>
       <div class="lobby-grid">
         <div class="col"><div class="shift-only"><h3>魔王圖鑑</h3><ul class="bosses" id="bossList"></ul><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div></div><div class="td-only"><h3>守城戰績</h3><div class="lobby-stats" id="tdStats"></div></div><h3>現在在線</h3><div class="note" id="onlineList"></div></div>
-        <div class="col"><h3>12 區對抗（金蛋）</h3><ol class="dboard" id="dboard"></ol></div>
+        <div class="col"><h3>12 區對抗（金蛋＋蓋城市）</h3><ol class="dboard" id="dboard"></ol></div>
         <div class="col"><div class="shift-only"><h3>打工榜</h3><ol class="board" id="board"></ol></div><div class="td-only"><h3>守城榜（擊退）</h3><ol class="board" id="tdBoard"></ol></div></div>
       </div>
       <section class="howto" aria-labelledby="howtoTitle"><h3 id="howtoTitle">怎麼玩</h3><p class="lead" id="howtoLead"></p><ol id="howto"></ol></section>

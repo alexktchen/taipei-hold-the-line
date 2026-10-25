@@ -5,8 +5,9 @@ import { nextNews, genHotline } from './news.js';
 import { ICONS, policyIcon } from './icons.js';
 import { createRoom } from './room.js';
 import { createTDUI } from './tdui.js';
+import { createShop } from './shop.js';
 const SH = C.shift, GR = C.grades, $ = id => document.getElementById(id);
-export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
+export function createUI({ game, td, tdCallbacks, placeCity, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const num = v => typeof v === 'number' && Number.isFinite(v), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, n) : '';
@@ -30,7 +31,9 @@ export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView
   const randomDistrict = DISTRICTS[Math.floor(Math.random() * DISTRICTS.length)].id;
   $('homeDistrict').innerHTML = DISTRICTS.map(i => `<option value="${i.id}">${i.name}</option>`).join(''); $('homeDistrict').value = randomDistrict;
   const myDistrict = () => $('homeDistrict').value || null, nickVal = () => $('nick').value.trim().slice(0, 24) || C.heroes[chosenCls].name;
-  const myProfile = () => { const g = myGrade(); return { nick: nickVal(), cls: chosenCls, district: myDistrict(), grade: g.lv, pts: g.pts }; };
+  const myFit = () => S.econ().outfit;
+  const boostTiers = () => { const d = S.econ().donated; return C.econ.donate.tiers.filter(t => d >= t.at).length; }; // 政治獻金全城加成：解鎖了幾階
+  const myProfile = () => { const g = myGrade(); return { nick: nickVal(), cls: chosenCls, district: myDistrict(), grade: g.lv, pts: g.pts, fit: myFit() }; };
   function profileChanged() { renderGoWho(); if (room.code) room.setProfile(myProfile()); S.setPresence({ nick: nickVal(), cls: chosenCls }); }
   $('homeDistrict').addEventListener('change', () => { districtPicked = true; renderDistricts(); profileChanged(); });
   function renderGoWho() { const h = S.hero() || {}, random = !districtPicked && !h.district; $('goWho').textContent = `以${C.heroes[chosenCls].name}替${districtName(myDistrict())}${mode === 'td' ? '出戰' : '打工'}${random ? '（區是隨機選的，可以換）' : ''}。`; }
@@ -88,7 +91,7 @@ export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView
     const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊${mode === 'td' ? '' : `、危險度 +${Math.round(C.election.hazardBonus * 100)}%`}）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
   function renderLobby() { const h = S.hero() || {}; const me = S.state.me; $('lobbyBox').dataset.mode = mode; $('modes').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === mode))); $('lobbyTitle').textContent = mode === 'td' ? '守住市政府。' : '今天也來搬金蛋。'; renderHowto(); if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls && C.heroes[h.cls]) chosenCls = h.cls; if (!districtPicked && h.district && DISTRICTS.some(i => i.id === h.district)) $('homeDistrict').value = h.district; renderGoWho(); /* 已存的職業只當預設值，使用者點選過就以點選為準 */
     $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => { const T = C.td.heroes[id]; return mode === 'td' && T ? `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}</b><small>${esc(T.desc)}</small><small class="sp">傷害 ${T.dmg}・射程 ${T.range}${T.chain ? `・連鎖 ${T.chain}` : ''}${T.slow ? '・減速' : ''}${T.regen ? '・回滿意度' : ''}</small></span></button>` : `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}<em>${esc(H.weapon)}</em></b><small>${esc(H.desc)}</small><small class="sp">特殊技「${esc(H.special.name)}」：${esc(H.special.desc)}</small></span></button>`; }).join('');
-    tdui.renderLobby();
+    tdui.renderLobby(); shop.render();
     renderGrade(); renderStageLine();
     $('onlineList').innerHTML = online > 1 ? `<p><b>${fmt(online)}</b> 人在線・<b>${fmt(playingCount())}</b> 人正在打工</p><ol class="plist">${sortedPeople().map(p => personRow(p)).join('')}</ol>` : '目前只有你，邀朋友一起來打工。';
     $('lobbyStats').innerHTML = `<div><b>${fmt(online)}</b><span>人在線</span></div><div><b>${fmt(globals.shifts)}</b><span>班打工完成</span></div><div><b>${fmt(globals.eggs)}</b><span>顆金蛋入籃</span></div>` + (globals.visitors != null ? `<div class="vis"><b>${fmt(globals.visitors)}</b><span>人來過${globals.visitorsToday ? `・今天新來 ${fmt(globals.visitorsToday)}` : ''}</span></div>` : '');
@@ -105,10 +108,13 @@ export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView
   // ── 守城（tdui.js）：大廳與畫面共用這裡的小工具 ──
   const tdOn = () => td.G.phase === 'round' || td.G.phase === 'result';
   const tdui = createTDUI({ td, S, callbacks: tdCallbacks, shared: { esc, fmt, hint, banner, renderLog, isFinalNow, todayTPE, eveDate, districtName, issues: () => issues, online: () => online,
-    profile: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict() }),
+    profile: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict(), fit: myFit() }),
     enter: async () => { if (room.code) { await room.leave(); dropRoomParam(); } $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); input.clear(); overview(); renderFollowBtn(); },
     exit: () => { follow.stop(); renderLobby(); $('lobby').hidden = false; overview(); renderFollowBtn(); hint(''); },
     refresh: () => { globals = S.totals(); renderStrip(); } } });
+  // ── 金蛋商店（shop.js）：錢包、買衣服、蓋城市、政治獻金 ──
+  const shop = createShop({ S, esc, fmt, hint, banner, placeCity, shout: t => game.shout('📣 ' + t), islandName: districtName, onChange: () => { globals = S.totals(); renderStrip(); renderDistricts(); if (room.code) room.setProfile(myProfile()); } });
+  callbacks.mayorExtra = m => { if (G.phase === 'lobby' && !tdOn()) shop.onSpeech(m, callbacks.say); };
   // ── 政策卡：編號標題、摘要、為什麼、細項、主責局處、遊戲裡的狀態（市長巡迴、相關議題）、相關政策 ──
   let cardPol = null, cardIsl = null, cardTimer = 0; const tagOf = p => String(p.tag || '').replace(/^#/, ''); const md = s => s.split('-').slice(1).map(Number).join('/');
   function mayorLine(pol) { const M = G.mayor, st = game.mayorStops(), n = st.length, me = st.findIndex(x => x.pol.id === pol.id); if (!M || me < 0) return ''; const who = esc(C.mayor.name);
@@ -191,17 +197,17 @@ export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView
   function pickIssues(n) { if (isFinalNow()) { const f = issues.find(i => i.id === C.election.finalIssueId); if (f) return Array(n).fill(f); } const today = todayTPE(); const open = issues.filter(i => i.id !== C.election.finalIssueId && (!i.startsAt || i.startsAt <= today)); const pool = open.length ? open : issues.filter(i => i.id !== C.election.finalIssueId); const out = []; let bag = []; for (let k = 0; k < n; k++) { if (!bag.length) bag = shuffle(pool); out.push(bag.pop() || issues[0]); } return out; }
   function buildCfg(humans) { const iss = pickIssues(SH.waves), waves = iss.map((is, k) => ({ special: Math.random() < (k ? SH.specialChance : SH.specialFirst) ? (Math.random() < 0.5 ? 'fog' : 'rush') : '', issue: is ? is.id : '' }));
     const hz = humans.reduce((a, h) => a + hazardOf(h.grade | 0, h.pts | 0), 0) / humans.length + (isFinalNow() ? C.election.hazardBonus : 0);
-    const roster = humans.slice(0, C.net.roomMax).map((h, i) => ({ slot: i, id: h.id, nick: h.nick || C.heroes[h.cls].name, cls: h.cls, district: h.district || null, npc: false, grade: h.grade | 0 }));
+    const roster = humans.slice(0, C.net.roomMax).map((h, i) => ({ slot: i, id: h.id, nick: h.nick || C.heroes[h.cls].name, cls: h.cls, district: h.district || null, npc: false, grade: h.grade | 0, fit: typeof h.fit === 'string' ? h.fit.slice(0, 60) : '' }));
     const names = shuffle(C.npc.names), classes = Object.keys(C.heroes); while (roster.length < 4) { const used = new Set(roster.map(r => r.cls)), free = classes.filter(c => !used.has(c)), pool = free.length ? free : classes; roster.push({ slot: roster.length, id: 'npc' + roster.length, nick: names[roster.length % names.length], cls: pool[Math.floor(Math.random() * pool.length)], district: null, npc: true, grade: 0 }); }
-    return { v: C.net.protocol, stage: stageNow().id, hazard: clamp(hz, 0.2, 2.3), waves, roster, issues: iss }; }
+    return { v: C.net.protocol, stage: stageNow().id, hazard: clamp(hz, 0.2, 2.3), waves, roster, issues: iss, boost: boostTiers() }; }
   async function startSolo() { if (room.code) await room.leave(); await S.saveHero({ nick: nickVal(), cls: chosenCls, district: myDistrict() }); const cfg = buildCfg([{ id: myUid() || 'me', ...myProfile() }]); cfg.mySlot = 0; begin(cfg, 'solo'); }
   async function startRoomShift() { if (!room.isHost || G.phase !== 'lobby' && G.phase !== 'result') return; clearTimeout(autoT); await S.saveHero({ nick: nickVal(), cls: chosenCls, district: myDistrict() });
-    const humans = room.members.map(m => m.id === myUid() ? { id: m.id, ...myProfile() } : m); const cfg = buildCfg(humans); wireCfg = { v: cfg.v, stage: cfg.stage, hazard: cfg.hazard, waves: cfg.waves, roster: cfg.roster };
+    const humans = room.members.map(m => m.id === myUid() ? { id: m.id, ...myProfile() } : m); const cfg = buildCfg(humans); wireCfg = { v: cfg.v, stage: cfg.stage, hazard: cfg.hazard, waves: cfg.waves, roster: cfg.roster, boost: cfg.boost };
     room.setStage('shift'); room.sendDown({ t: 'go', cfg: wireCfg }); gotGo.clear(); for (const r of cfg.roster) if (!r.npc) gotGo.add(r.id); cfg.mySlot = cfg.roster.findIndex(r => r.id === myUid()); begin(cfg, 'host'); }
   function cleanCfg(cfg) { if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.roster) || !Array.isArray(cfg.waves)) return null;
-    const roster = cfg.roster.slice(0, 4).map((r, i) => ({ slot: i, id: clean(r && r.id, 64), nick: clean(r && r.nick, 24) || '同事', cls: r && Object.hasOwn(C.heroes, r.cls) ? r.cls : 'chief', district: r && DISTRICTS.some(d => d.id === r.district) ? r.district : null, npc: !!(r && r.npc), grade: clamp((r && r.grade) | 0, 0, TOP_LV) }));
+    const roster = cfg.roster.slice(0, 4).map((r, i) => ({ slot: i, id: clean(r && r.id, 64), nick: clean(r && r.nick, 24) || '同事', cls: r && Object.hasOwn(C.heroes, r.cls) ? r.cls : 'chief', district: r && DISTRICTS.some(d => d.id === r.district) ? r.district : null, npc: !!(r && r.npc), grade: clamp((r && r.grade) | 0, 0, TOP_LV), fit: clean(r && r.fit, 60) }));
     const waves = cfg.waves.slice(0, SH.waves).map(w => ({ special: w && ['fog', 'rush'].includes(w.special) ? w.special : '', issue: clean(w && w.issue, 32) })); while (waves.length < SH.waves) waves.push({ special: '', issue: '' });
-    return { v: cfg.v | 0, stage: C.stages.some(s => s.id === cfg.stage) ? cfg.stage : C.stages[0].id, hazard: num(cfg.hazard) ? clamp(cfg.hazard, 0.2, 2.3) : 0.5, roster, waves }; }
+    return { v: cfg.v | 0, stage: C.stages.some(s => s.id === cfg.stage) ? cfg.stage : C.stages[0].id, hazard: num(cfg.hazard) ? clamp(cfg.hazard, 0.2, 2.3) : 0.5, roster, waves, boost: clamp(cfg.boost | 0, 0, C.econ.donate.tiers.length) }; }
   function onGo(raw) { if (G.role === 'client' && G.phase !== 'lobby' && G.phase !== 'result') return; const c = cleanCfg(raw); if (!c) return; if (c.v !== C.net.protocol) { hint('房主的遊戲版本和你不同，請重新整理頁面再加入', true); return; } c.mySlot = c.roster.findIndex(r => r.id === myUid() && !r.npc); c.issues = c.waves.map(w => issues.find(i => i.id === w.issue) || issues[0]); room.R.st = 'shift'; begin(c, 'client'); if (c.mySlot < 0) hint('這班已經開工，你先在旁邊看，下一班就輪到你'); }
   function cleanResult(r) { if (!r || typeof r !== 'object') return null; const n = v => num(v) ? Math.max(0, Math.round(v)) : 0;
     return { clear: !!r.clear, why: ['clear', 'timeup', 'wipe', 'host', 'quit'].includes(r.why) ? r.why : 'timeup', stage: C.stages.some(s => s.id === r.stage) ? r.stage : (G.stage || C.stages[0]).id, hazard: num(r.hazard) ? clamp(r.hazard, 0, 3) : G.hazard, waves: SH.waves, waveNo: clamp(n(r.waveNo), 0, SH.waves), cleared: clamp(n(r.cleared), 0, SH.waves),
@@ -301,7 +307,7 @@ export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView
   $('btnSolo').addEventListener('click', startSolo); $('btnGo').addEventListener('click', () => tdui.start());
   $('nick').addEventListener('input', profileChanged);
   $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteProj').textContent = C.site.proj; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
-  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); tdui.renderBoard(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
+  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); tdui.renderBoard(); shop.sync(); if (!$('lobby').hidden) shop.render(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
   S.onOnline((n, names, list) => { online = n; people = list || []; renderStrip(); if (!$('lobby').hidden) renderLobby(); if (!$('playersPanel').hidden) renderPlayers(); });
   S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', cls: (h && h.cls) || null, phase: 'lobby', away: document.hidden }); renderLobby();
     const code = new URLSearchParams(location.search).get('room'); if (code && room.available()) roomAction(() => room.join(code), r => `加入房間 ${r.code}`); else if (code) hint(REASON.offline, true); });

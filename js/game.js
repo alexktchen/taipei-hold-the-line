@@ -39,17 +39,22 @@ export function createGame(ctx) {
   const setBubble = (m, txt) => emit('say', m, txt ? '📣 ' + txt : null);
   function updateMayor(dt) { const m = G.mayor; if (!m) return; m.hit.position.set(m.pos.x, m.pos.y + 0.3, m.pos.z);
     if (G.phase !== 'lobby') { if (m.bubbleT > 0) { m.bubbleT -= dt; if (m.bubbleT <= 0) setBubble(m, null); } m.moving = false; return; }
+    if (m.shoutT > 0) { m.shoutT -= dt; if (m.shoutT <= 0 && m.state !== 'speech') setBubble(m, null); }
     if (!stops.length) return;
     if (m.state === 'walk') { if (!m.route) { m.wait -= dt; if (m.wait > 0) return; const st = stops[m.stop % stops.length]; const node = graph.nodeNear(st.island, st.pos); const np = graph.nodes[node].p; const front = np.clone().lerp(st.pos.clone().setY(np.y), MC.approach); m.route = makeRoute([m.pos.clone(), ...routeTo(m.pos, node).pts.slice(1), front]); m.s = 0; m.onBox = false; m.pose = null; }
       if (walk(m, dt, MC.speed)) { const st = stops[m.stop % stops.length]; m.state = 'speech'; m.speechT = MC.speechSeconds; m.onBox = true; m.pose = 'wave'; m.yaw = Math.atan2(st.pos.x - m.pos.x, st.pos.z - m.pos.z) + Math.PI; setBubble(m, slogan(st.pol)); m.current = st; emit('speech', m);
         for (const w of G.residents) if (!w.away && d2v(w.pos, m.pos) < MC.cheerRadius) { w.cheer = MC.speechSeconds; w.yaw = Math.atan2(m.pos.x - w.pos.x, m.pos.z - w.pos.z); } } }
     else if (m.state === 'speech') { m.speechT -= dt; if (m.speechT <= 0) { m.state = 'walk'; m.onBox = false; m.pose = null; m.stop = (m.stop + 1) % stops.length; m.wait = MC.pauseSeconds; setBubble(m, null); } } }
   const d2v = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  // 大廳時市長臨時講一句（金蛋商店：獻金回應、建設落成）
+  function shout(txt, secs = 5) { const m = G.mayor; if (!m || !txt) return; setBubble(m, txt); m.shoutT = secs; }
   function mayorSay(key, ...args) { const t = MC.lines[key]; if (!t || !G.mayor) return ''; const txt = fmt(t, ...args); G.mayor.bubbleT = 3.2; G.mayor.pose = 'wave'; setBubble(G.mayor, txt); return txt; }
 
   // ═══════════════ 開工 ═══════════════
   // cfg = { stage, hazard, waves: [{ special, issue }], issues: [議題物件], roster: [{ slot, id, nick, cls, district, npc, grade }], mySlot }
-  function startShift(cfg, role) { clearShift();
+  // 政治獻金的全城加成（房主開工時決定、寫在開工設定 boost＝解鎖了幾階）
+  function boostOf(n) { const b = { dmg: 0, quota: 0, specials: 0 }; for (const t of C.econ.donate.tiers.slice(0, Math.max(0, n | 0))) if (t.shift) for (const k of Object.keys(b)) b[k] += t.shift[k] || 0; return b; }
+  function startShift(cfg, role) { clearShift(); G.boost = boostOf(cfg.boost);
     G.role = role; G.cfg = cfg; G.stage = C.stages.find(s => s.id === cfg.stage) || C.stages[0]; G.hazard = cfg.hazard; G.waves = cfg.waves || []; G.issues = cfg.issues || [];
     const bc = centers.get(G.stage.basket); G.basket = { x: bc.x, z: bc.z + C.plaza.basketZ }; G.spawns = computeSpawns(G.stage);
     const onStage = new Set(G.stage.islands); for (const w of G.residents) w.away = onStage.has(w.home);
@@ -67,9 +72,9 @@ export function createGame(ctx) {
         const [ex, ez] = nav.nearestWalkable(c.x + dx * (R - 0.4), c.z + dz * (R - 0.4)); (da === 0 ? prim : side).push({ wx, wz, ex, ez, island: id }); } }
     const out = prim.length >= 4 ? prim : [...prim, ...side.slice(0, 4 - prim.length + 1)]; return out.length ? out : [{ wx: bc.x, wz: bc.z + R + 1.5, ex: bc.x, ez: bc.z + R - 0.4 }]; }
   function startPos(i, n) { const a = (i / Math.max(1, n)) * Math.PI * 2 + Math.PI / 4; return nav.nearestWalkable(G.basket.x + Math.sin(a) * 0.75, G.basket.z + 0.4 + Math.cos(a) * 0.6); }
-  function makePlayer(r, [x, z]) { const cfg = C.heroes[r.cls] || C.heroes.chief; const w = people.makeWalker('citizen', new V3(x, Y, z), r.cls); w.yaw = 0;
+  function makePlayer(r, [x, z]) { const cfg = C.heroes[r.cls] || C.heroes.chief; const w = people.makeWalker('citizen', new V3(x, Y, z), r.cls, r.fit); w.yaw = 0;
     const P = { slot: r.slot, id: String(r.id || ''), nick: String(r.nick || cfg.name).slice(0, 24), cls: C.heroes[r.cls] ? r.cls : 'chief', cfg, npc: !!r.npc, district: r.district || null, grade: r.grade | 0, local: r.slot === G.me, w, pos: w.pos,
-      hp: PL.hp, down: false, carry: false, inv: 0, hitT: 99, revive: 0, sp: SH.specials, spT: 0, dash: null, gold: 0, power: 0, rescues: 0, downs: 0, cd: Math.random() * 0.3, focus: 0, move: { x: 0, z: 0 }, goal: null, think: Math.random() * 0.3, net: null, firing: false, flash: 0, emoteT: 0 };
+      hp: PL.hp, down: false, carry: false, inv: 0, hitT: 99, revive: 0, sp: SH.specials + (G.boost ? G.boost.specials : 0), spT: 0, dash: null, gold: 0, power: 0, rescues: 0, downs: 0, cd: Math.random() * 0.3, focus: 0, move: { x: 0, z: 0 }, goal: null, think: Math.random() * 0.3, net: null, firing: false, flash: 0, emoteT: 0 };
     w.P = P; retag(P); return P; }
   function retag(P) { tagDel(P.w); const kind = P.local ? 'me' : P.npc ? 'npc' : 'player'; tagAdd(P.w, P.nick, `${P.cfg.icon} ${P.local ? '你' : P.npc ? 'NPC' : P.cfg.name}`, hex(P.cfg.color), kind); P.tagSig = ''; }
   // 守城（td.js）的英雄與其他玩家也一起畫；守城回合中居民交給 td.js 指揮（claimResidents）
@@ -81,7 +86,7 @@ export function createGame(ctx) {
     for (const P of G.players) { tagDel(P.w); for (const o of [P.eggObj, P.buoy, P.ring]) if (o) scene.remove(o); } G.players = []; removeBasket(); }
   function backToLobby() { clearShift(); G.phase = 'lobby'; G.role = null; G.me = -1; G.special = ''; for (const w of G.residents) w.away = false; if (G.mayor) { G.mayor.state = 'walk'; G.mayor.route = null; G.mayor.wait = 1; G.mayor.pose = null; setBubble(G.mayor, null); } rebuildPeople(); emit('shift', 'lobby'); emit('hud'); emit('team'); }
   // ═══════════════ 一波 ═══════════════
-  const quotaFor = n => Math.max(1, Math.round(SH.qBase[n - 1] + SH.qHazard[n - 1] * G.hazard));
+  const quotaFor = n => Math.max(1, Math.round(SH.qBase[n - 1] + SH.qHazard[n - 1] * G.hazard) + (G.boost ? G.boost.quota : 0));
   function nextWave() { G.waveNo++; const w = G.waves[G.waveNo - 1] || {}; G.special = SPECIALS.includes(w.special) ? w.special : ''; G.issue = G.issues[G.waveNo - 1] || G.issues[0] || null; G.quota = quotaFor(G.waveNo); G.gold = 0; G.waveT = 0; G.timeLeft = SH.waveSeconds; G.phase = 'wave';
     Object.assign(G, { bossT: SH.bossFirst, lesserT: SH.lesserFirst, queue: [], goldT: 3, rushGT: 2, rushSwitch: 0, rushTarget: -1, fogGold: [...SH.fog.goldAt], saidHurry: false, bossSaid: new Set(), lastSpawn: -1 });
     ev(['wave', G.waveNo, G.quota, SPECIALS.indexOf(G.special), G.issue ? String(G.issue.id).slice(0, 32) : '']); ev(['say', 'wave', G.waveNo, G.quota]); if (G.special) ev(['say', G.special]); }
@@ -205,7 +210,7 @@ export function createGame(ctx) {
   function spitsStep(dt) { for (const s of G.spits) { s.x += s.vx * dt; s.z += s.vz * dt; s.t -= dt; for (const P of G.players) if (!P.down && Math.hypot(P.pos.x - s.x, P.pos.z - s.z) < 0.26) { hurt(P, s.dmg); s.t = 0; break; } } G.spits = G.spits.filter(s => s.t > 0); }
   function dangerAt(x, z) { for (const w of G.warns) { if (w.c && Math.hypot(x - w.x, z - w.z) < w.r + 0.25) return w; if (!w.c && segDist(x, z, w.x, w.z, w.x2, w.z2) < w.w / 2 + 0.3) return w; } return null; }
   // ── 打工仔受傷、倒下、救起 ──
-  function hurt(P, dmg) { if (P.down || P.inv > 0 || P.dash || G.phase !== 'wave') return; dmg *= SH.dmgK0 + SH.dmgK1 * G.hazard; P.hp -= dmg; P.hitT = 0; P.inv = PL.invAfterHit; ev(['hurt', P.slot, Math.round(dmg)]); if (P.hp <= 0) knockDown(P); }
+  function hurt(P, dmg) { if (P.down || P.inv > 0 || P.dash || G.phase !== 'wave') return; dmg *= (SH.dmgK0 + SH.dmgK1 * G.hazard) * (1 - (G.boost ? G.boost.dmg : 0)); P.hp -= dmg; P.hitT = 0; P.inv = PL.invAfterHit; ev(['hurt', P.slot, Math.round(dmg)]); if (P.hp <= 0) knockDown(P); }
   function knockDown(P) { P.hp = 0; P.down = true; P.downs++; P.revive = 0; P.goal = null; P.dash = null; P.spT = 0; if (P.carry) { P.carry = false; dropEgg(P.pos.x, P.pos.z, 0.1); } ev(['down', P.slot]); if (G.players.every(q => q.down)) finish(false, 'wipe'); }
   function revives(dt) { for (const P of G.players) { if (!P.down) continue; let mate = null; for (const Q of G.players) if (Q !== P && !Q.down && Math.hypot(Q.pos.x - P.pos.x, Q.pos.z - P.pos.z) <= PL.reviveR) { mate = Q; break; }
     if (mate) { P.revive += dt * (mate.cfg.reviveMul || 1); if (P.revive >= PL.reviveTime) revive(P, mate); } else P.revive = Math.max(0, P.revive - dt * PL.reviveDecay); } }
@@ -434,6 +439,6 @@ export function createGame(ctx) {
     G.fx = G.fx.filter(f => f.ttl > 0); }
   const onPick = hit => { if (G.phase === 'lobby' || G.phase === 'result') return false; if (hit.enemy && !hit.enemy.dead) { focus(hit.enemy); return true; } if (hit.point) { moveTo(hit.point.x, hit.point.z); return true; } return false; };
   return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startShift, backToLobby, abort, toNpc, fromNpc, step, view, makeSnapshot, applySnapshot, applyResult, remoteInput, myInput,
-    setMove, moveTo, focus, useSpecial, throwEgg, emote, onPick, enemyHits, enemyById, rebuildPeople, setExtraWalkers, claimResidents, me: meP, quotaFor,
+    setMove, moveTo, focus, useSpecial, throwEgg, emote, onPick, enemyHits, enemyById, rebuildPeople, setExtraWalkers, claimResidents, shout, me: meP, quotaFor,
     debugSpawn: type => G.phase === 'wave' && C.animals[type] && G.role !== 'client' ? spawnEnemy(type, randomSpawn()) : null }; // 除錯／測試用
 }

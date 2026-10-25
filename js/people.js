@@ -4,14 +4,16 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mulberry } from './env.js';
 export const ROLE_LABEL = { mayor: '市長', citizen: '市民', elder: '長者', child: '學童', parent: '家長', cyclist: '通勤族', officeworker: '上班族', youth: '年輕人', servant: '公務員', researcher: '研究員', farmer: '農夫', traveler: '旅客', worker: '工地人員', hiker: '登山客', hero: '英雄' };
 const SKIN = [0xf3cfae, 0xe6b48f, 0xcf9670, 0xf0c4a0], HAIR = [0x2e2522, 0x4a3426, 0x1f1d22, 0x6b4a33], CASUAL = [0x6f7fb5, 0x58a6a6, 0xe8c547, 0xf2a1a1, 0x8fb37a, 0xb58fd0];
-export function createPeople(scene, colors, heroCfgs) {
+export function createPeople(scene, colors, heroCfgs, outfits = null) {
+  // 金蛋買的衣服：fit = 「帽子.背心.配件」字串（id 見 config.econ.outfits），不認得的 id 當沒穿
+  const fitOf = fit => { const a = typeof fit === 'string' ? fit.split('.') : [], ok = (c, id) => outfits && outfits[c] && Object.hasOwn(outfits[c].items, id); return { hat: ok('hat', a[0]) ? a[0] : '', color: ok('color', a[1]) ? outfits.color.items[a[1]].c : null, acc: ok('acc', a[2]) ? a[2] : '' }; };
   const G = { leg: new RoundedBoxGeometry(1, 1, 1, 2, 0.3), body: new THREE.CapsuleGeometry(0.5, 0.6, 4, 10), arm: new RoundedBoxGeometry(1, 1, 1, 2, 0.35), head: new THREE.SphereGeometry(0.5, 16, 12), cap: new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), eye: new THREE.SphereGeometry(0.5, 8, 6), box: new RoundedBoxGeometry(1, 1, 1, 2, 0.2), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 10), cone: new THREE.ConeGeometry(0.5, 1, 14), torus: new THREE.TorusGeometry(0.5, 0.09, 6, 18), shadow: new THREE.CircleGeometry(0.5, 20) };
   G.shadow.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x2a2018, transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 });
   let rnd = mulberry(41);
-  function plan(role, heroCls) {
-    const P = []; const H = heroCls ? heroCfgs[heroCls] : null;
+  function plan(role, heroCls, fit) {
+    const P = []; const H = heroCls ? heroCfgs[heroCls] : null; const F = H ? fitOf(fit) : { hat: '', color: null, acc: '' };
     const skin = SKIN[Math.floor(rnd() * SKIN.length)]; let hair = HAIR[Math.floor(rnd() * HAIR.length)];
     let shirt = CASUAL[Math.floor(rnd() * CASUAL.length)], pants = [0x3b3a42, 0x4a5a78, 0x6b5a4a][Math.floor(rnd() * 3)]; let sc = 1;
     if (role === 'child') sc = 0.78; if (role === 'elder') hair = 0xd9d4cc; if (role === 'worker') shirt = 0x4a5a78;
@@ -27,7 +29,7 @@ export function createPeople(scene, colors, heroCfgs) {
     add('cyl', [0, 0.268, 0], [0.05, 0.03, 0.05], skin);
     if (!H && !MAYOR) { add('box', [0, 0.157, 0], [0.139, 0.016, 0.119], 0x3b3a42); add('box', [0, 0.255, 0.035], [0.075, 0.022, 0.05], 0xfbfbf7); }
     add('head', [0, 0.345, 0], [0.19, 0.178, 0.172], skin, 'head');
-    const hatted = ['child', 'cyclist', 'hiker', 'worker', 'farmer'].includes(role) || (H && ['chief', 'driver', 'fireman'].includes(heroCls)) || MAYOR;
+    const hatted = ['child', 'cyclist', 'hiker', 'worker', 'farmer'].includes(role) || (H && (F.hat || ['chief', 'driver', 'fireman'].includes(heroCls))) || MAYOR;
     add('cap', [0, 0.352, -0.006], [0.206, MAYOR ? 0.18 : hatted ? 0.17 : 0.19, 0.204], hair, 'head', [MAYOR ? -0.36 : -0.32, 0, 0]);
     if (!hatted) { const styles = role === 'elder' ? ['short', 'bun', 'short'] : role === 'youth' ? ['beanie', 'long', 'pony', 'puff'] : ['short', 'long', 'bun', 'pony', 'short', 'puff']; const st = styles[Math.floor(rnd() * styles.length)];
       if (st === 'long') add('box', [0, 0.31, -0.07], [0.19, 0.13, 0.05], hair, 'head', [0.12, 0, 0]); if (st === 'bun') add('eye', [0, 0.44, -0.07], [0.075, 0.07, 0.07], hair, 'head'); if (st === 'pony') add('eye', [0, 0.33, -0.115], [0.055, 0.1, 0.05], hair, 'head', [0.35, 0, 0]);
@@ -73,12 +75,31 @@ export function createPeople(scene, colors, heroCfgs) {
       add('eye', [0.077, 0.148, 0], [0.04, 0.04, 0.04], 0xf0c4a0, 'armR');
       add('box', [0, 0.035, 0], [0.24, 0.07, 0.18], 0xb48560, 'soap'); add('box', [0, 0.04, 0.091], [0.15, 0.035, 0.004], 0xfff1de, 'soap'); }
     if (H) { const c = H.color;
-      add('box', [0, 0.205, 0.004], [0.13, 0.112, 0.106], c); add('box', [0, 0.235, 0.058], [0.03, 0.05, 0.004], 0xfbfbf7);
-      if (heroCls === 'chief') { add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], c, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], c, 'head'); add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]); }
-      if (heroCls === 'driver') { add('cap', [0, 0.39, 0], [0.205, 0.11, 0.195], c, 'head'); add('cyl', [0, 0.385, 0.08], [0.18, 0.008, 0.1], 0x211d1d, 'head'); add('torus', [0, 0.19, 0.1], [0.11, 0.11, 0.11], 0x211d1d, 'carry', [0.5, 0, 0]); add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
-      if (heroCls === 'fireman') { add('cap', [0, 0.385, 0], [0.22, 0.15, 0.21], c, 'head'); add('cyl', [0, 0.36, 0.02], [0.25, 0.012, 0.24], c, 'head'); add('box', [0, 0.41, 0], [0.03, 0.06, 0.16], 0xe8c547, 'head'); add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); }
+      add('box', [0, 0.205, 0.004], [0.13, 0.112, 0.106], F.color != null ? F.color : c); add('box', [0, 0.235, 0.058], [0.03, 0.05, 0.004], 0xfbfbf7);
+      if (heroCls === 'chief' && !F.hat) { add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], c, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], c, 'head'); add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]); }
+      if (heroCls === 'driver' && !F.hat) { add('cap', [0, 0.39, 0], [0.205, 0.11, 0.195], c, 'head'); add('cyl', [0, 0.385, 0.08], [0.18, 0.008, 0.1], 0x211d1d, 'head'); add('torus', [0, 0.19, 0.1], [0.11, 0.11, 0.11], 0x211d1d, 'carry', [0.5, 0, 0]); add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
+      if (heroCls === 'fireman' && !F.hat) { add('cap', [0, 0.385, 0], [0.22, 0.15, 0.21], c, 'head'); add('cyl', [0, 0.36, 0.02], [0.25, 0.012, 0.24], c, 'head'); add('box', [0, 0.41, 0], [0.03, 0.06, 0.16], 0xe8c547, 'head'); add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); }
       if (heroCls === 'volunteer') { add('box', [0, 0.17, 0.05], [0.11, 0.15, 0.03], 0xf2b5c6); add('box', [0, 0.17, 0.11], [0.1, 0.07, 0.08], 0xb48560, 'carry'); add('torus', [0, 0.23, 0.11], [0.08, 0.08, 0.08], 0x7a5a3a, 'carry', [0, Math.PI / 2, 0]); add('eye', [0.02, 0.22, 0.12], [0.05, 0.04, 0.05], 0x8fb37a, 'carry'); }
       if (heroCls === 'engineer') { for (const dx of [-0.038, 0.038]) add('torus', [dx, 0.35, 0.09], [0.05, 0.044, 0.05], 0x211d1d, 'head'); add('box', [0, 0.352, 0.091], [0.026, 0.006, 0.006], 0x211d1d, 'head'); add('box', [0, 0.19, 0.1], [0.1, 0.012, 0.07], 0x211d1d, 'carry'); add('box', [0, 0.23, 0.065], [0.1, 0.07, 0.008], 0x211d1d, 'carry', [-0.3, 0, 0]); add('box', [0, 0.23, 0.07], [0.085, 0.055, 0.004], 0x86a8a6, 'carry', [-0.3, 0, 0]); } }
+    if (H && F.hat) { // 換了帽子：職業的手持道具照樣拿著
+      if (heroCls === 'chief') add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]);
+      if (heroCls === 'driver') { add('torus', [0, 0.19, 0.1], [0.11, 0.11, 0.11], 0x211d1d, 'carry', [0.5, 0, 0]); add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
+      if (heroCls === 'fireman') { add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); } }
+    switch (F.hat) {
+      case 'helmet': add('cap', [0, 0.395, 0], [0.21, 0.13, 0.2], 0xf1c232, 'head'); add('cyl', [0, 0.39, 0.02], [0.22, 0.01, 0.22], 0xf1c232, 'head'); break;
+      case 'straw': add('cone', [0, 0.43, 0], [0.36, 0.11, 0.36], 0xd9b56a, 'head'); add('cyl', [0, 0.385, 0], [0.22, 0.014, 0.22], 0xc49a4e, 'head'); break;
+      case 'cap': add('cap', [0, 0.39, 0], [0.205, 0.12, 0.195], 0x4a6fa5, 'head'); add('cyl', [0, 0.39, 0.06], [0.2, 0.008, 0.12], 0x4a6fa5, 'head'); add('eye', [0, 0.45, 0], [0.03, 0.03, 0.03], 0xfbfbf7, 'head'); break;
+      case 'beanie': add('cap', [0, 0.376, -0.008], [0.222, 0.17, 0.218], 0xdb6a41, 'head', [-0.2, 0, 0]); add('eye', [0, 0.465, -0.02], [0.045, 0.045, 0.045], 0xfff8f0, 'head'); break;
+      case 'chef': add('cyl', [0, 0.43, 0], [0.17, 0.09, 0.17], 0xfbfbf7, 'head'); add('eye', [0, 0.5, 0], [0.22, 0.1, 0.22], 0xfbfbf7, 'head'); break;
+      case 'bunny': for (const sx of [-1, 1]) { add('eye', [sx * 0.05, 0.5, -0.01], [0.042, 0.14, 0.03], 0xfbfbf7, 'head', [0, 0, sx * -0.18]); add('eye', [sx * 0.05, 0.5, 0.004], [0.022, 0.1, 0.012], 0xf2a1a1, 'head', [0, 0, sx * -0.18]); } break;
+      case 'egg': add('eye', [0, 0.49, 0], [0.09, 0.12, 0.09], 0xf2c14e, 'head'); add('eye', [0.02, 0.51, 0.03], [0.02, 0.03, 0.01], 0xfff3c4, 'head'); break;
+      case 'crown': add('cyl', [0, 0.445, 0], [0.16, 0.05, 0.16], 0xf2c14e, 'head'); for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; add('cone', [Math.sin(a) * 0.068, 0.485, Math.cos(a) * 0.068], [0.035, 0.05, 0.035], 0xf2c14e, 'head'); } add('eye', [0, 0.45, 0.08], [0.024, 0.024, 0.01], 0xc23b2a, 'head'); break;
+    }
+    switch (F.acc) {
+      case 'scarf': add('torus', [0, 0.262, 0], [0.09, 0.09, 0.16], 0xdb6a41, null, [Math.PI / 2, 0, 0]); add('box', [0.03, 0.225, 0.06], [0.03, 0.06, 0.012], 0xdb6a41, null, [0, 0, -0.2]); break;
+      case 'sash': add('box', [0, 0.205, 0.06], [0.026, 0.17, 0.006], 0xf2c14e, null, [0, 0, 0.72]); add('box', [0, 0.205, -0.056], [0.026, 0.17, 0.006], 0xf2c14e, null, [0, 0, -0.72]); break;
+      case 'cape': add('box', [0, 0.19, -0.072], [0.15, 0.17, 0.012], 0xc23b2a, null, [0.14, 0, 0]); add('box', [0, 0.27, -0.06], [0.15, 0.02, 0.03], 0xa3301f); break;
+    }
     // 頭身比：頭部零件以頭心放大並上移（Q 版大頭）
     const HC = 0.345, HK = 1.28, HUP = 0.032;
     for (const pt of P) if (pt.ch === 'head') { pt.off = [pt.off[0] * HK, HC + (pt.off[1] - HC) * HK + HUP, pt.off[2] * HK]; pt.s = pt.s.map(v => v * HK); }
@@ -115,6 +136,6 @@ export function createPeople(scene, colors, heroCfgs) {
     }
     for (const s of Object.values(meshes)) s.mesh.instanceMatrix.needsUpdate = true; if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true;
   }
-  function makeWalker(role, pos, heroCls = null) { return { role, hero: !!heroCls, plan: plan(role, heroCls), pos: pos.clone(), yaw: rnd() * 6.28, moving: false, pose: null, phase: rnd() }; }
+  function makeWalker(role, pos, heroCls = null, fit = '') { return { role, hero: !!heroCls, fit: fit || '', plan: plan(role, heroCls, fit), pos: pos.clone(), yaw: rnd() * 6.28, moving: false, pose: null, phase: rnd() }; }
   return { makeWalker, build, dispose, update, get people() { return people; }, reseed: (s) => { rnd = mulberry(s); } };
 }

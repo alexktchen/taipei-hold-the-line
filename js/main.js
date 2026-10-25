@@ -29,14 +29,15 @@ const { centers, neighbors, views, tops, links, bridges } = buildIslands(scene, 
 const center = new THREE.Vector3(); for (const c of centers.values()) center.add(c); center.divideScalar(centers.size); center.y = TOP;
 const model = createModels(kit, colors); const rnd = mulberry(5);
 // 每座島固定 8 個槽位：前 5 個給政策建築（動態），後 3 個放小房子（靜態）
-const POLICY_SLOTS = 5, LAYOUT = new Map(), STATIC_OBST = []; // STATIC_OBST：打工時不能穿過的建築（地標、小房子），政策建築另外動態加
+const POLICY_SLOTS = 5, LAYOUT = new Map(), STATIC_OBST = [], CITY_POS = new Map(); // STATIC_OBST：打工時不能穿過的建築（地標、小房子），政策建築另外動態加
 const PZ = C.plaza, inPlaza = (x, z, h) => Math.abs(x) < PZ.r + h && z + h > PZ.z - PZ.r && z - h < PZ.z + PZ.len; // 金蛋籃廣場：島中央前方一條走道不放建築
 const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'topiary', boardwalk: 'palm', rubber: 'palm', street: 'poplar', courtyard: 'blossom', meadow: 'willow', lawn: 'round', granite: 'topiary', terracotta: 'round', schoolyard: 'round', gravel: 'round' };
 const TRIM = { granite: 'bollard', lawn: 'hedge', gravel: 'hoarding', street: 'bollard', schoolyard: 'railing', forest: 'logs', softpad: 'picket', terracotta: 'wall', garden: 'hedge', meadow: 'railing', boardwalk: 'rope', rubber: 'picket', courtyard: 'wall' };
 for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
   const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
   model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42]);
-  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { model(['shop', 'house', 'house2'][i % 3], c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.38]); });
+  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { const kind = ['shop', 'house', 'house2'][i % 3], cp = C.econ.city.find(p => p.island === isl.id && p.house === i); // 蓋城市的位置先空著，由 placeCity 決定放小房子、工地或蓋好的建築
+    if (cp) CITY_POS.set(cp.id, { x: c.x + sx, z: c.z + sz, size: lay.size, kind, seed: isl.number * 3 + i }); else model(kind, c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.38]); });
   // 島緣：沒有橋的邊放圍欄／樹籬／矮牆
   const nb = neighbors.get(isl.id); const bridgeDirs = nb.filter(n => n.id).map(n => dirOf(n.dq, n.dr)); for (const L of links) if (L.a === isl.id || L.b === isl.id) { const mine = L.a === isl.id ? L.pa : L.pb; const v = mine.clone().sub(c).setY(0).normalize(); bridgeDirs.push([v.x, v.z]); } const trim = TRIM[isl.ground];
   for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.3, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.3, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
@@ -85,7 +86,7 @@ function placePolicies(list) { pkit.dispose(scene); policyById = new Map(); poli
   for (const pol of list) { const islId = pick(pol); const n = used.get(islId); used.set(islId, n + 1); const c = centers.get(islId), lay = LAYOUT.get(islId); const [sx, sz] = lay.slots[Math.min(n, POLICY_SLOTS - 1)]; pkit.owner = pol.id; pmodel(pol.model || 'kiosk', c.x + sx, c.z + sz, lay.size * 1.08, hash(pol.id) % 7); dyn.push([c.x + sx, c.z + sz, lay.size * 0.4]); policyById.set(pol.id, pol); policyIsland.set(pol.id, islId); policyStops.push({ pol, island: islId, order: C.islands.find(i => i.id === islId).number, pos: new THREE.Vector3(c.x + sx, TOP, c.z + sz) }); }
   pkit.owner = null; policyMeshes = pkit.build(scene); nav.setObstacles(null, dyn); if (gameRef) gameRef.setStops(policyStops); if (labelsReady) refreshPolicyLabels(); }
 placePolicies(C.policies);
-const people = createPeople(scene, colors, C.heroes); const animals = createAnimals(scene, C.animals, { chantSize: C.chant.size }); const tdAnimals = createAnimals(scene, C.td.animals, { chantSize: C.td.round.chantSize });
+const people = createPeople(scene, colors, C.heroes, C.econ.outfits); const animals = createAnimals(scene, C.animals, { chantSize: C.chant.size }); const tdAnimals = createAnimals(scene, C.td.animals, { chantSize: C.td.round.chantSize });
 // 名牌（DOM，螢幕固定大小，每幀投影）：政策標籤為主、可點；行政區只是淡淡的地面字；重疊時優先顯示前面的
 const labelLayer = document.getElementById('labels'); const labels = [];
 function addLabel(txt, pos, cls, num, prio = 1) { const el = document.createElement('div'); el.className = 'nameplate ' + (cls || ''); if (num) { const em = document.createElement('em'); em.textContent = num; el.appendChild(em); } el.appendChild(document.createTextNode(txt)); labelLayer.appendChild(el); const L = { el, pos: pos.clone(), v: new THREE.Vector3(), prio, w: 0, h: 0 }; labels.push(L); return L; }
@@ -99,6 +100,15 @@ let policyLabels = [];
 function refreshPolicyLabels() { for (const L of policyLabels) { L.el.remove(); const i = labels.indexOf(L); if (i >= 0) labels.splice(i, 1); } policyLabels = [];
   for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.st = st; L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
 labelsReady = true; refreshPolicyLabels();
+// 蓋城市（金蛋商店）：還沒輪到＝原本的小房子、正在蓋＝工地、蓋好＝新建築；名牌寫名稱與進度
+const ckit = createKit(TOP), cmodel = createModels(ckit, colors); let citySig = ''; const cityLabels = new Map();
+function placeCity(list) { const sig = list.map(p => p.st).join(','); if (sig !== citySig) { citySig = sig; ckit.dispose(scene);
+    for (const p of list) { const at = CITY_POS.get(p.id); if (!at) continue; cmodel(p.st === 'done' ? p.model : p.st === 'now' ? 'crane' : at.kind, at.x, at.z, at.size * 1.05, at.seed); }
+    ckit.build(scene); }
+  for (const p of list) { const at = CITY_POS.get(p.id); if (!at) continue; let L = cityLabels.get(p.id); const txt = p.st === 'done' ? p.name : p.st === 'now' ? `🚧 ${p.name} ${Math.floor(p.got / p.cost * 100)}%` : '';
+    if (!txt) { if (L) { L.el.remove(); labels.splice(labels.indexOf(L), 1); cityLabels.delete(p.id); } continue; }
+    if (!L) { L = addLabel(txt, new THREE.Vector3(at.x, TOP + 0.95, at.z), 'policy city', '金蛋', 1.5); cityLabels.set(p.id, L); }
+    if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.el.classList.toggle('now', p.st === 'now'); L.w = 0; } } }
 function updateLabels() { const w = stage.clientWidth, h = stage.clientHeight; const boxes = [];
   for (const L of labels) { const f = L.follow; if (f) L.pos.set(f.pos.x, f.pos.y + (f.down ? 0.3 : 0.66 * f.plan.scale * 0.8 + (f.onBox ? 0.07 : 0)) * lastZoom + 0.03, f.pos.z); L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
   const order = labels.filter(L => L.vis).sort((a, b) => b.prio - a.prio || a.v.z - b.v.z);
@@ -125,8 +135,8 @@ const game = createGame({ scene, graph, nav, centers, people, animals, islands: 
 gameRef = game; game.setStops(policyStops); game.spawnMayor(); people.build([...game.spawnResidents(), game.G.mayor]);
 // 守城塔防：居民與市長借用打工那邊的（回合中接手居民、市長每講一次加滿意度）；名牌與說話泡泡共用
 const tdCallbacks = { tag: (...a) => callbacks.tag(...a), say: (...a) => callbacks.say(...a) };
-const td = createTD({ scene, graph, centers, people, animals: tdAnimals, islands: C.islands, callbacks: tdCallbacks, residents: () => game.G.residents, claim: on => game.claimResidents(on), rebuild: list => game.setExtraWalkers(list) });
-callbacks.speech = m => td.onSpeech(m);
+const td = createTD({ scene, graph, centers, people, animals: tdAnimals, islands: C.islands, callbacks: tdCallbacks, residents: () => game.G.residents, claim: on => game.claimResidents(on), rebuild: list => game.setExtraWalkers(list), boost: () => { const d = window.PIStore ? window.PIStore.econ().donated : 0; return C.econ.donate.tiers.filter(t => d >= t.at).length; } });
+callbacks.speech = m => { td.onSpeech(m); if (callbacks.mayorExtra) callbacks.mayorExtra(m); };
 const tdOn = () => td.G.phase === 'round' || td.G.phase === 'result';
 // 相機
 function fit() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
@@ -167,7 +177,7 @@ renderer.domElement.addEventListener('pointerup', e => { if (!down) return; cons
   if (tdOn()) { const th = ray.intersectObjects(tops, false); if (th.length) td.onPick({ island: th[0].object.userData.island, point: th[0].point }); } });
 // UI
 function flyTo(islandId) { const c = centers.get(islandId); if (!c) return; controls.target.copy(c); const pol = THREE.MathUtils.degToRad(48), d = narrow() ? 13 : 10; fly = { from: camera.position.clone(), to: new THREE.Vector3(c.x + Math.sin(0.3) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.3) * Math.sin(pol) * d), t: 0 }; }
-const ui = createUI({ game, td, tdCallbacks, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
+const ui = createUI({ game, td, tdCallbacks, placeCity, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
   follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } }, input: { stick, clear: () => { keys.clear(); stick.x = stick.y = 0; }, aim: () => { fwd.copy(controls.target).sub(camera.position).setY(0).normalize(); return [fwd.x, fwd.z]; } } });
 // 迴圈：天色與霧跟著波次（一般波早→午→下午、暴走夜是晚上、起大霧時霧拉近）
 let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = scene.fog.near, fogFar = scene.fog.far; const G = game.G; const FOG0 = [scene.fog.near, scene.fog.far];

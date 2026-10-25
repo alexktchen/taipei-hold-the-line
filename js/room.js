@@ -11,10 +11,10 @@ export function createRoom({ S, C, on }) {
   const clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, n) : '';
   // 成員名單：依加入時間排序，前 roomMax 位是正式成員
   function readMembers() { const ps = R.ch.presenceState(); const list = []; for (const [id, arr] of Object.entries(ps)) { const p = arr[0] || {}; if (typeof id !== 'string' || id.length > 64) continue;
-      list.push({ id, nick: clean(p.nick, 24), cls: typeof p.cls === 'string' && Object.hasOwn(C.heroes, p.cls) ? p.cls : 'chief', district: typeof p.district === 'string' ? p.district.slice(0, 16) : null, grade: Math.max(0, Math.min(C.grades.names.length - 1, p.grade | 0)), pts: Math.max(0, Math.min(C.grades.topPtsCap, p.pts | 0)), t: Number.isFinite(p.t) ? p.t : Date.now(), host: p.host === 1, v: p.v | 0 }); }
+      list.push({ id, nick: clean(p.nick, 24), cls: typeof p.cls === 'string' && Object.hasOwn(C.heroes, p.cls) ? p.cls : 'chief', district: typeof p.district === 'string' ? p.district.slice(0, 16) : null, fit: clean(p.fit, 60), grade: Math.max(0, Math.min(C.grades.names.length - 1, p.grade | 0)), pts: Math.max(0, Math.min(C.grades.topPtsCap, p.pts | 0)), t: Number.isFinite(p.t) ? p.t : Date.now(), host: p.host === 1, v: p.v | 0 }); }
     list.sort((a, b) => (b.host - a.host) || a.t - b.t || (a.id < b.id ? -1 : 1)); return list; }
   function track() { if (R.ch) R.ch.track({ ...R.profile, t: R.joinedAt, host: R.host ? 1 : 0, v: NC.protocol }).catch(() => {}); }
-  function setProfile(p) { R.profile = { nick: clean(p.nick, 24), cls: p.cls, district: p.district || null, grade: p.grade | 0, pts: p.pts | 0 }; track(); }
+  function setProfile(p) { R.profile = { nick: clean(p.nick, 24), cls: p.cls, district: p.district || null, grade: p.grade | 0, pts: p.pts | 0, fit: clean(p.fit, 60) }; track(); }
   function globalPresence() { if (!R.code) { S.setPresence({ room: null, rh: null, rn: null, rs: null, pub: null }); return; } S.setPresence(R.host ? { phase: R.st === 'shift' ? 'shift' : 'room', room: R.code, rh: 1, rn: Math.min(NC.roomMax, R.members.length), rs: R.st, pub: R.pub ? 1 : 0 } : { phase: R.st === 'shift' ? 'shift' : 'room', room: R.code, rh: null, rn: null, rs: null, pub: null }); }
   function subscribeMain(code) { return new Promise(resolve => { const ch = S.state.sb.channel('shift-' + code, { config: { broadcast: { self: false }, presence: { key: uid() } } }); R.ch = ch;
     ch.on('presence', { event: 'sync' }, onSync);

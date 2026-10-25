@@ -194,6 +194,49 @@ export const CONFIG = {
       five: { k: 'five', icon: '🙌', say: '擊掌！' } },
     heroMode: { manualSeconds: 8, exactRadius: 0.9, storageKey: 'pi-hero-auto' },
   },
+  // ═══ 金蛋經濟：金蛋只有打工賺（搬進籃子的才算），可以買衣服、大家一起蓋城市、捐政治獻金（遊戲裡的惡搞）═══
+  // 錢包 = 累計金蛋 − 衣服花掉的 − 蓋城市投入的 − 政治獻金。衣服 id 不能改（存在玩家資料裡）；同一類一次穿一件。
+  econ: {
+    legal: '金蛋是遊戲點數，只能靠打工搬進籃子賺，不是錢、不能買也不能換錢。「政治獻金」是二創惡搞的遊戲玩法，不是真的捐款，跟任何候選人、政黨、選舉都無關。',
+    outfits: {
+      hat: { label: '帽子', items: {
+        helmet: { name: '工地安全帽', icon: '⛑️', price: 10 }, straw: { name: '斗笠', icon: '👒', price: 10 }, cap: { name: '棒球帽', icon: '🧢', price: 15 }, beanie: { name: '毛帽', icon: '🧶', price: 15 },
+        chef: { name: '廚師帽', icon: '👨‍🍳', price: 25 }, bunny: { name: '兔耳朵', icon: '🐰', price: 35 }, egg: { name: '頭頂金蛋', icon: '🥚', price: 50 }, crown: { name: '金蛋皇冠', icon: '👑', price: 80 } } },
+      color: { label: '背心', items: {
+        mint: { name: '薄荷綠', icon: '🟢', price: 8, c: 0x58a6a6 }, navy: { name: '深藍', icon: '🔵', price: 8, c: 0x26365c }, pink: { name: '櫻花粉', icon: '🌸', price: 12, c: 0xf2a1a1 }, purple: { name: '葡萄紫', icon: '🟣', price: 12, c: 0x8a6fc0 },
+        black: { name: '酷黑', icon: '⚫', price: 15, c: 0x2b2b30 }, gold: { name: '金蛋金', icon: '🟡', price: 40, c: 0xf2c14e } } },
+      acc: { label: '配件', items: {
+        scarf: { name: '圍巾', icon: '🧣', price: 12 }, sash: { name: '彩帶', icon: '🎗️', price: 20 }, cape: { name: '英雄披風', icon: '🦸', price: 45 } } },
+    },
+    // 蓋城市：所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己行政區的 12 區對抗。
+    city: [
+      { id: 'fountain', name: '金蛋噴水池',     island: 'xinyi',      house: 1, model: 'garden',     cost: 30 },
+      { id: 'market2',  name: '夜市二館',       island: 'shilin',     house: 0, model: 'nightmarket', cost: 60 },
+      { id: 'stage',    name: '河岸舞台',       island: 'datong',     house: 2, model: 'stage',      cost: 100 },
+      { id: 'nursery',  name: '科技園區托嬰',   island: 'neihu',      house: 0, model: 'nursery',    cost: 140 },
+      { id: 'teahouse', name: '貓空茶藝館',     island: 'wenshan',    house: 1, model: 'theater',    cost: 190 },
+      { id: 'sports',   name: '南港運動中心',   island: 'nangang',    house: 0, model: 'football',   cost: 250 },
+      { id: 'housing',  name: '青年社宅',       island: 'wanhua',     house: 2, model: 'housing',    cost: 320 },
+      { id: 'dome2',    name: '小巨蛋 2.0',     island: 'songshan',   house: 1, model: 'dome',       cost: 400 },
+      { id: 'clock',    name: '城南鐘樓',       island: 'zhongzheng', house: 0, model: 'clock',      cost: 500 },
+      { id: 'egg101',   name: '金蛋 101',       island: 'daan',       house: 2, model: 'tower101',   cost: 650 },
+    ],
+    buildAmounts: [5, 20, 50],
+    // 政治獻金（惡搞）：全站累計到 at 顆解鎖全城加成，所有人都吃得到；自己捐了市長會回一句
+    donate: { amounts: [5, 20, 50, 100], boardMax: 10,
+      tiers: [
+        { at: 100,  name: '加碼宣傳', desc: '守城：市長每講一次滿意度再 +1%', td: { mayor: 1 } },
+        { at: 300,  name: '便當加菜', desc: '打工：受到的傷害 −10%', shift: { dmg: 0.1 } },
+        { at: 700,  name: '全城動員', desc: '打工：每波配額 −1；守城：居民勸退 +20%', shift: { quota: -1 }, td: { dps: 0.2 } },
+        { at: 1500, name: '神隊友加持', desc: '打工：特殊技多 1 次；守城：大招冷卻 −10 秒', shift: { specials: 1 }, td: { ult: -10 } },
+      ],
+      lines: {
+        small: ['謝謝支持！一顆也是心意', '收到！這顆拿去補路燈', '感謝，金蛋會用在刀口上'],
+        mid: ['感謝！明天就拿去修人行道', '收到！公園多種幾棵樹', '謝謝！捷運站多一台飲水機'],
+        big: ['哇，大金主！政策一定加速', '感謝大力支持，帳目全部公開（遊戲裡的）', '這麼多！我請大家喝珍奶（遊戲裡的）'],
+        tier: '全城加成解鎖：{name}！謝謝大家！', thanks: '感謝 {nick} 的金蛋，政策會更快上路！',
+      } },
+  },
   palette: { coral: 0xdb6a41, ink: 0x211d1d, cream: 0xfff8f4, yellow: 0xfcea8b, green: 0x8fb37a, stone: 0xd9cbb4, accent: 0xdb6a41, gold: 0xf2c14e },
   // 市民熱線（右側卡片）與城市快訊（底部跑馬燈）
   ticker: { hotlineRows: 3, hotlineSeconds: 8, hotlineSlideMs: 700, pxPerSec: 90, mixHotlineEvery: 3, hotlineGenShare: 0.45, weights: { opponent: 0.34, praise: 0.28, crisis: 0.14, city: 0.14, roast: 0.10 } }, // weights：酸對手／誇市長／經濟危機／城市快訊／酸市長的出現比例

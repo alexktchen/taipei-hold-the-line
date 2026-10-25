@@ -4,12 +4,14 @@
    - 其他地方（本機）：退回 localStorage，只記本機。
    打工戰績欄位：shifts（打了幾班）、eggs（搬了幾顆金蛋）、clears（三波全過幾次）、grade／grade_pts（打工職級）。要先跑 supabase/shifts.sql 加欄位；沒跑的話只記在這台裝置，排行榜只看得到自己。
    守城戰績欄位：rounds（守了幾波）、kills（擊退幾隻）、finals（擋下幾次總攻擊），原本的 schema 就有。
+   金蛋經濟欄位：donated（政治獻金）、built（蓋城市投入）、spent（衣服花掉）、outfit（穿著，帽子.背心.配件）、owned（買過的衣服）；要先跑 supabase/economy.sql，沒跑的話只記在這台裝置。
+   錢包 = eggs − donated − built − spent；只有打工會增加 eggs。
    守城的多人同框走全站 play 頻道（broadcast），只有在守城時才加入（playOn），打工房間不用它。
    介面：init(), onGlobal(fn), onLeaderboard(fn), hero(), saveHero(patch), recordShift(mine, clear, grade), recordRound(res), tdTotals(), tdLeaderboard(), listIssues(), addIssue(issue), listPolicies(), addPolicy(p), districtBoard(), setPresence(patch), playOn(on), send(msg), onNet(fn) */
 window.PIStore = (function () {
   const LS_HERO = 'pi.hero.v1';
   const state = { db: null, user: null, uid: null, canWrite: null, canEdit: false, me: { name: '', avatarUrl: '', color: '' },
-    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, playSub: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], visitors: null, visitorsToday: null, sb: null, presenceCh: null, presence: {}, noShiftCols: false, noDistrict: false };
+    hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [] }, playCh: null, playSub: null, onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], visitors: null, visitorsToday: null, sb: null, presenceCh: null, presence: {}, noShiftCols: false, noDistrict: false, noEconCols: false };
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const loadLocalHero = () => safe(() => JSON.parse(localStorage.getItem(LS_HERO) || 'null'), null);
   const saveLocalHero = (h) => safe(() => localStorage.setItem(LS_HERO, JSON.stringify(h)), null);
@@ -34,7 +36,7 @@ window.PIStore = (function () {
   // 12 區對抗：每位打工仔選一個行政區，該區分數 = 選這區的人搬進籃子的金蛋總數
   function districtBoard() {
     const rows = new Map(PI_CONFIG.islands.filter(i => !i.detached).map(i => [i.id, { id: i.id, name: i.name, eggs: 0, shifts: 0, workers: 0 }]));
-    for (const h of roster()) { const r = rows.get(h.district); if (r && n0(h.shifts) > 0) { r.eggs += n0(h.eggs); r.shifts += n0(h.shifts); r.workers += 1; } }
+    for (const h of roster()) { const r = rows.get(h.district); if (r && n0(h.shifts) > 0) { r.eggs += n0(h.eggs) + Math.min(n0(h.built), n0(h.eggs)); r.shifts += n0(h.shifts); r.workers += 1; } } // 蓋城市投入的金蛋再算一次
     return [...rows.values()].sort((a, b) => b.eggs - a.eggs || b.workers - a.workers || PI_CONFIG.islands.findIndex(i => i.id === a.id) - PI_CONFIG.islands.findIndex(i => i.id === b.id));
   }
   function listIssues() { const byId = new Map(PI_CONFIG.issues.map(i => [i.id, i])); for (const i of state.issuesRemote) byId.set(i.id, { ...byId.get(i.id), ...i }); return [...byId.values()].filter(i => !i.hidden); }
@@ -67,15 +69,16 @@ window.PIStore = (function () {
   // ── Supabase（靜態站用）──
   let refreshT = 0;
   const missingCol = (err, re) => err && re.test(err.message || '');
-  async function refreshHeroes() { const B = window.PI_BACKEND; const base = 'id,nick,cls,rounds,kills,finals', cols = () => base + (state.noDistrict ? '' : ',district') + (state.noShiftCols ? '' : ',shifts,eggs,clears,grade,grade_pts');
+  async function refreshHeroes() { const B = window.PI_BACKEND; const base = 'id,nick,cls,rounds,kills,finals', cols = () => base + (state.noDistrict ? '' : ',district') + (state.noShiftCols ? '' : ',shifts,eggs,clears,grade,grade_pts') + (state.noShiftCols || state.noEconCols ? '' : ',donated,built,spent,outfit,owned');
     let { data, error } = await state.sb.from('heroes').select(cols()).limit(B.heroesLimit || 1000);
-    for (let k = 0; k < 2 && error; k++) { if (missingCol(error, /district/)) { state.noDistrict = true; console.warn('[store] heroes 沒有 district 欄位，請執行 supabase/districts.sql'); } else if (missingCol(error, /shifts|eggs|clears|grade/)) { state.noShiftCols = true; console.warn('[store] heroes 沒有打工欄位，請執行 supabase/shifts.sql'); } else break; ({ data, error } = await state.sb.from('heroes').select(cols()).limit(B.heroesLimit || 1000)); }
+    for (let k = 0; k < 3 && error; k++) { if (missingCol(error, /district/)) { state.noDistrict = true; console.warn('[store] heroes 沒有 district 欄位，請執行 supabase/districts.sql'); } else if (missingCol(error, /donated|built|spent|outfit|owned/)) { state.noEconCols = true; console.warn('[store] heroes 沒有金蛋經濟欄位，請執行 supabase/economy.sql'); } else if (missingCol(error, /shifts|eggs|clears|grade/)) { state.noShiftCols = true; console.warn('[store] heroes 沒有打工欄位，請執行 supabase/shifts.sql'); } else break; ({ data, error } = await state.sb.from('heroes').select(cols()).limit(B.heroesLimit || 1000)); }
     if (error) { console.warn('[store] heroes', error.message); return; }
     state.heroes = data || []; const mine = state.heroes.find(h => h.id === state.uid);
     if (mine) { const loc = state.hero || {}; const keep = { district: mine.district || loc.district }; // 本機比較新（剛打完還沒寫回）就保留本機的；打工與守城分開比
       const td = n0(loc.rounds) > n0(mine.rounds) ? { rounds: loc.rounds, kills: loc.kills, finals: loc.finals } : { rounds: n0(mine.rounds), kills: n0(mine.kills), finals: n0(mine.finals) };
       const sh = state.noShiftCols ? {} : n0(loc.shifts) > n0(mine.shifts) ? { shifts: loc.shifts, eggs: loc.eggs, clears: loc.clears, grade: loc.grade, grade_pts: loc.grade_pts } : { shifts: mine.shifts, eggs: mine.eggs, clears: mine.clears, grade: mine.grade, grade_pts: mine.grade_pts };
-      state.hero = { ...loc, nick: loc.nick || mine.nick, cls: loc.cls || mine.cls, ...keep, ...td, ...sh }; saveLocalHero(state.hero); }
+      const spentOf = h => n0(h.donated) + n0(h.built) + n0(h.spent); const ec = state.noShiftCols || state.noEconCols || spentOf(loc) >= spentOf(mine) ? {} : { donated: mine.donated, built: mine.built, spent: mine.spent, outfit: mine.outfit, owned: mine.owned };
+      state.hero = { ...loc, nick: loc.nick || mine.nick, cls: loc.cls || mine.cls, ...keep, ...td, ...sh, ...ec }; saveLocalHero(state.hero); }
     emit('global'); emit('leaderboard'); }
   async function refreshVisitors() { const { data, error } = await state.sb.rpc('visitor_stats'); if (error || !data) return; const n = v => Number.isFinite(Number(v)) ? Number(v) : null; state.visitors = n(data.total); state.visitorsToday = n(data.today); emit('global'); }
   async function initSupabase() { const B = window.PI_BACKEND || {}; if (!B.supabaseUrl || !B.supabaseAnonKey) return false;
@@ -96,15 +99,36 @@ window.PIStore = (function () {
   async function pushHero() { const h = state.hero; if (!h) return false;
     if (state.sb && state.uid) { const row = { id: state.uid, nick: String(h.nick || '').slice(0, 24), cls: h.cls || 'chief', rounds: n0(h.rounds), kills: n0(h.kills), finals: n0(h.finals), last_issue: h.lastStage || h.lastIssue || null, last_at: new Date().toISOString() };
       if (!state.noDistrict) row.district = h.district || null; if (!state.noShiftCols) Object.assign(row, { shifts: n0(h.shifts), eggs: n0(h.eggs), clears: n0(h.clears), grade: n0(h.grade), grade_pts: n0(h.grade_pts) });
+      if (!state.noShiftCols && !state.noEconCols) Object.assign(row, { donated: n0(h.donated), built: n0(h.built), spent: n0(h.spent), outfit: fitStr(h.outfit), owned: ownedList(h.owned).join(',') });
       let { error } = await state.sb.from('heroes').upsert(row);
       if (missingCol(error, /district/)) { state.noDistrict = true; delete row.district; ({ error } = await state.sb.from('heroes').upsert(row)); }
-      if (missingCol(error, /shifts|eggs|clears|grade/)) { state.noShiftCols = true; for (const k of ['shifts', 'eggs', 'clears', 'grade', 'grade_pts']) delete row[k]; ({ error } = await state.sb.from('heroes').upsert(row)); }
+      if (missingCol(error, /donated|built|spent|outfit|owned/)) { state.noEconCols = true; for (const k of ['donated', 'built', 'spent', 'outfit', 'owned']) delete row[k]; ({ error } = await state.sb.from('heroes').upsert(row)); }
+      if (missingCol(error, /shifts|eggs|clears|grade/)) { state.noShiftCols = true; for (const k of ['donated', 'built', 'spent', 'outfit', 'owned']) delete row[k]; for (const k of ['shifts', 'eggs', 'clears', 'grade', 'grade_pts']) delete row[k]; ({ error } = await state.sb.from('heroes').upsert(row)); }
       if (error) { console.warn('[store] hero upsert', error.message); return false; } return true; }
     if (!(state.db && state.uid)) return false;
-    const body = { nick: String(h.nick || '').slice(0, 24), cls: h.cls || 'chief', district: h.district || null, shifts: n0(h.shifts), eggs: n0(h.eggs), clears: n0(h.clears), grade: n0(h.grade), grade_pts: n0(h.grade_pts), rounds: n0(h.rounds), kills: n0(h.kills), finals: n0(h.finals), lastAt: new Date().toISOString(), lastStage: h.lastStage || null };
+    const body = { nick: String(h.nick || '').slice(0, 24), cls: h.cls || 'chief', district: h.district || null, shifts: n0(h.shifts), eggs: n0(h.eggs), clears: n0(h.clears), grade: n0(h.grade), grade_pts: n0(h.grade_pts), rounds: n0(h.rounds), kills: n0(h.kills), finals: n0(h.finals), donated: n0(h.donated), built: n0(h.built), spent: n0(h.spent), outfit: fitStr(h.outfit), owned: ownedList(h.owned).join(','), lastAt: new Date().toISOString(), lastStage: h.lastStage || null };
     try { await state.db.doc('heroes/' + state.uid).set(body); return true; } catch (e) { console.warn('[store] write refused', e && e.code); state.canWrite = false; return false; } }
   // 打完一班：mine = 結算裡自己那一格（金蛋數等），grade = 打完後的職級 { lv, pts }
   async function recordShift(mine, clear, grade, stage) { const h = state.hero || {}; await saveHero({ shifts: n0(h.shifts) + 1, eggs: n0(h.eggs) + n0(mine && mine.gold), clears: n0(h.clears) + (clear ? 1 : 0), grade: grade.lv, grade_pts: grade.pts, lastStage: stage || null }); }
+  // ── 金蛋經濟 ──
+  const EC = () => PI_CONFIG.econ, CATS = ['hat', 'color', 'acc'];
+  const itemOf = (cat, id) => { const c = EC().outfits[cat]; return c && typeof id === 'string' && Object.hasOwn(c.items, id) ? c.items[id] : null; };
+  // 穿著字串「帽子.背心.配件」，沒穿的寫 -；不認得的 id 一律當沒穿
+  function fitObj(v) { const a = typeof v === 'string' ? v.split('.') : []; const o = {}; CATS.forEach((c, i) => { o[c] = itemOf(c, a[i]) ? a[i] : ''; }); return o; }
+  function fitStr(v) { const o = typeof v === 'object' && v ? v : fitObj(v); return CATS.map(c => itemOf(c, o[c]) ? o[c] : '-').join('.'); }
+  function ownedList(v) { return [...new Set((typeof v === 'string' ? v.split(',') : []).filter(k => { const [c, id] = k.split(':'); return itemOf(c, id); }))].slice(0, 40); }
+  // 共享模式用所有人的（自己那列換成本機最新的）；沒有共享欄位時只有自己。別人的數字一律不超過他自己的金蛋
+  function econRoster() { if (state.noShiftCols || state.noEconCols) { const me = state.hero; return me ? [me] : []; } return roster(); }
+  const capped = (h, k) => Math.min(n0(h[k]), n0(h.eggs));
+  function wallet() { const h = state.hero || {}; return Math.max(0, n0(h.eggs) - n0(h.donated) - n0(h.built) - n0(h.spent)); }
+  function econ() { const list = econRoster(); const built = list.reduce((a, h) => a + capped(h, 'built'), 0), donated = list.reduce((a, h) => a + capped(h, 'donated'), 0), h = state.hero || {};
+    const board = k => list.filter(x => capped(x, k) > 0).sort((a, b) => capped(b, k) - capped(a, k)).slice(0, EC().donate.boardMax).map(x => ({ id: x.id, nick: str(x.nick, 24), cls: x.cls, n: capped(x, k) }));
+    return { wallet: wallet(), eggs: n0(h.eggs), myBuilt: n0(h.built), myDonated: n0(h.donated), outfit: fitStr(h.outfit), owned: ownedList(h.owned), built, donated, donors: board('donated'), builders: board('built'), local: state.mode === 'local' || state.noShiftCols || state.noEconCols }; }
+  async function buy(cat, id) { const it = itemOf(cat, id); if (!it) return { ok: false, why: 'item' }; const h = state.hero || {}, own = ownedList(h.owned), key = cat + ':' + id, fit = fitObj(h.outfit); fit[cat] = id;
+    if (own.includes(key)) { await saveHero({ outfit: fitStr(fit) }); return { ok: true, equip: true }; }
+    if (wallet() < it.price) return { ok: false, why: 'poor' }; await saveHero({ spent: n0(h.spent) + it.price, owned: [...own, key].join(','), outfit: fitStr(fit) }); return { ok: true }; }
+  async function unequip(cat) { const h = state.hero || {}, fit = fitObj(h.outfit); fit[cat] = ''; await saveHero({ outfit: fitStr(fit) }); return { ok: true }; }
+  async function give(kind, n) { n = Math.floor(n0(n)); if (!(kind === 'built' || kind === 'donated') || n <= 0) return { ok: false, why: 'amount' }; if (n > wallet()) return { ok: false, why: 'poor' }; const h = state.hero || {}; await saveHero({ [kind]: n0(h[kind]) + n }); return { ok: true, n }; }
   // 守完一波
   async function recordRound(r) { const h = state.hero || {}; await saveHero({ rounds: n0(h.rounds) + 1, kills: n0(h.kills) + n0(r.kills), finals: n0(h.finals) + (r.final ? 1 : 0), lastIssue: r.issueId || null }); }
   // ── 守城多人同框：play 頻道只在守城時加入；收到的訊息交給 ui 驗證 ──
@@ -116,7 +140,7 @@ window.PIStore = (function () {
   function send(msg) { if (!state.playCh || !state.uid) return false; state.playCh.send({ type: 'broadcast', event: 'm', payload: { ...msg, id: state.uid } }).catch(() => {}); return true; }
   async function addPolicy(policy) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增政策'); await state.db.doc('policies/' + policy.id).set(policy); }
   async function addIssue(issue) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增議題'); await state.db.doc('issues/' + issue.id).set(issue); }
-  return { init, hero, saveHero, recordShift, recordRound, tdTotals, tdLeaderboard, playOn, send, onNet: fn => { state.subs.net.push(fn); }, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
+  return { init, hero, saveHero, recordShift, recordRound, tdTotals, tdLeaderboard, econ, wallet, buy, unequip, give, fitStr, playOn, send, onNet: fn => { state.subs.net.push(fn); }, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
     onPolicies: fn => { state.subs.policies.push(fn); fn(listPolicies()); },
     onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames, state.onlinePeople); }, setPresence,
     onGlobal: fn => { state.subs.global.push(fn); fn(totals()); },

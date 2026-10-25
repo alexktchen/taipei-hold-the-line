@@ -56,7 +56,7 @@ export function createTDUI({ td, S, callbacks, shared }) {
   const myId = () => S.state.uid;
   function sendPos() { const H = G.hero; if (!H) return; const now = Date.now(); const inRound = G.phase === 'round'; const every = Math.min(MP.sendMax, Math.max(MP.sendEvery, shared.online() * MP.sendPerPlayer)) * 1000;
     const moved = !lastSent || Math.hypot(H.pos.x - lastSent.x, H.pos.z - lastSent.z) > 0.08 || lastSent.r !== inRound; if (now - lastSentAt < every || (!moved && now - lastSentAt < MP.heartbeat * 1000)) return;
-    lastSent = { x: H.pos.x, z: H.pos.z, r: inRound }; lastSentAt = now; S.send({ t: 'p', n: H.nick || H.cfg.name, c: H.cls, x: Math.round(H.pos.x * 100) / 100, z: Math.round(H.pos.z * 100) / 100, r: inRound ? 1 : 0, f: H.pose === 'fight' ? 1 : 0, a: G.auto ? 1 : 0 }); }
+    lastSent = { x: H.pos.x, z: H.pos.z, r: inRound }; lastSentAt = now; S.send({ t: 'p', n: H.nick || H.cfg.name, c: H.cls, o: H.fit || '', x: Math.round(H.pos.x * 100) / 100, z: Math.round(H.pos.z * 100) / 100, r: inRound ? 1 : 0, f: H.pose === 'fight' ? 1 : 0, a: G.auto ? 1 : 0 }); }
   setInterval(() => { if (!document.hidden) sendPos(); td.pruneRemotes(S.state.onlineIds ? new Set(S.state.onlineIds) : null, performance.now()); }, 250);
   const sayBye = () => { lastSent = null; S.send({ t: 'bye' }); };
   addEventListener('pagehide', sayBye);
@@ -64,7 +64,7 @@ export function createTDUI({ td, S, callbacks, shared }) {
   const okNum = v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 40;
   S.onNet(m => { if (!m || typeof m.id !== 'string' || m.id.length > 64 || m.id === myId() || !active()) return; const now = performance.now();
     if (m.t === 'p') { if ((now - (rxAt.get(m.id) || 0)) < MP.rxMinGap * 1000) return; rxAt.set(m.id, now); if (!Object.hasOwn(TC.heroes, m.c) || !okNum(m.x) || !okNum(m.z)) return;
-      const nick = (typeof m.n === 'string' ? m.n : '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 24) || TC.heroes[m.c].name; td.upsertRemote({ id: m.id, n: nick, c: m.c, x: m.x, z: m.z, r: !!m.r, f: !!m.f, a: m.a !== 0 }); return; }
+      const nick = (typeof m.n === 'string' ? m.n : '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 24) || TC.heroes[m.c].name; td.upsertRemote({ id: m.id, n: nick, c: m.c, o: typeof m.o === 'string' && /^[a-z0-9.-]{0,60}$/.test(m.o) ? m.o : '', x: m.x, z: m.z, r: !!m.r, f: !!m.f, a: m.a !== 0 }); return; }
     if (m.t === 'bye') { td.removeRemote(m.id); return; }
     if ((now - (rxEmoteAt.get(m.id) || 0)) < 800) return; rxEmoteAt.set(m.id, now);
     if (m.t === 'e') { const em = typeof m.k === 'string' && EM.get(m.k); if (!em) return; const nick = td.remoteEmote(m.id, em); if (!nick) return;
