@@ -127,3 +127,5 @@
 - **服飾店與建設位置**：`config.explore.boutiques` 改成 `[島, 第幾棟小房子]`；廣場島的 1、2 號小房子在地標兩側，會被大地標擋住（例如信義區市政府），金蛋噴水池改到 0 號（市政府右前方）。
 - **島變大、間距變寬**：`config.world` 的 `islandK`（島的大小，1.15）與 `mapK`（島與島的距離，1.25）。`islands.js` 的 `slotLayout` 先用原本尺寸排好建築，再整組等比放大，房子不會跟著變胖；`env.js` 的地形、樹環、陰影範圍與 `main.js` 的鏡頭距離都乘上 `MAP_K`。
 - **填海造島**：`config.econ.city` 裡 `kind: 'island'` 的項目（`axial` 是新島的六角座標、`link` 接到哪一區、`ground`／`landmark` 外觀）。施工中：工地名牌在 `link` 那座島靠新島的岸邊（`shoreOf`），海上是隨進度長大的沙洲（`reclaim`，每 10% 換一次）；完工：`growIsland` 用 `islands.js` 的 `buildExtraIsland` 蓋島與橋，`nav.addIsland` 把島面、橋與地標碰撞加進走路網格。新島不是行政區，不算 12 區對抗。
+- **城市看得到打工場現況**：`ui.js` 的 `stageInfo()`（現在的場、下一個場、換場倒數、總攻擊倒數，和大廳 `renderStageLine` 同一套）傳給 `exploreui.js`；左上 `#xStage` 小卡每次 `tick` 更新（只在文字變了才寫），`renderLive()` 面板分三段：現在的打工場、正在打的班、魔王圖鑑。`main.js liveSigns(groups, nowSid)`：現在的場一直掛黃牌（`.live.idle`），有 live 就變紅；換場時 `renderStage` 偵測到就重掛。
+- **過場順暢化**：`warp()` 先顯示雲（還在畫面外）、下一幀才加 `in`，CSS 轉場才會跑（同一幀顯示又加 class 會直接跳到蓋滿）；雲不用 `filter: drop-shadow`（每幀重算），改 `box-shadow`＋`will-change`；蓋滿時 `covered` 不畫 3D，`prewarm()` 用 `renderer.compileAsync` 在雲後編好新世界的 shader（最多等 0.6 秒）；`startPull` 改照 `performance.now()` 走；`body.warping` 時名牌淡出、不跑 `updateLabels`。

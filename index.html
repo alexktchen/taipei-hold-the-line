@@ -28,6 +28,9 @@
     <div class="proj"><em id="siteProj">打工</em> <span id="siteSub">搬金蛋</span></div>
     <div class="tag" id="siteTag">二創惡搞・非官方</div>
   </header>
+  <button type="button" class="xstage panel" id="xStage" hidden aria-label="打工場現況：現在的打工場、換場倒數、總攻擊倒數">
+    <span class="xs-k">🥚 現在的打工場 <em id="xsLive"></em></span><b id="xsName"></b><span class="xs-rot" id="xsRot"></span><span class="xs-eve" id="xsEve"></span>
+  </button>
   <div class="parody-badge" id="parodyBadge" aria-label="二創惡搞作品，非官方">二創惡搞</div>
   <section class="gstrip panel" aria-label="全體戰績">
     <button class="online" id="btnOnline" type="button" aria-expanded="false" aria-controls="playersPanel" title="看在線的人"><i class="dot"></i><b id="gOnline">1</b><span>人在線</span><span class="lg" id="gPlaying"></span></button>
@@ -60,7 +63,7 @@
     <div class="act-row"><button id="btnXFit" type="button" class="act xbtn" aria-pressed="false"><span class="pi">👕</span><b>衣櫃</b></button><button id="btnXCity" type="button" class="act xbtn" aria-pressed="false"><span class="pi">🏗</span><b>蓋城市</b></button><button id="btnXDonate" type="button" class="act xbtn" aria-pressed="false"><span class="pi">💰</span><b>獻金</b></button></div>
   </section>
   <aside class="xlist panel live-panel" id="livePanel" hidden aria-label="打工現場">
-    <div class="xl-head"><div><div class="eyebrow">LIVE・打工現場</div><b>現在大家在打的班</b></div><button class="close" id="liveClose" type="button" aria-label="關閉">×</button></div>
+    <div class="xl-head"><div><div class="eyebrow">LIVE・打工現場</div><b>打工場現況</b></div><button class="close" id="liveClose" type="button" aria-label="關閉">×</button></div>
     <div class="xl-body" id="liveBody"></div>
   </aside>
   <aside class="xlist panel shop-panel" id="shopPanel" hidden aria-label="金蛋商店">

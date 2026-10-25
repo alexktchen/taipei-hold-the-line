@@ -1,5 +1,5 @@
 /* 逛城市的畫面：下方工具列（時間、名牌、暫停時鐘、鳥瞰、政策清單、打工現場、去打工）、右下動作（走到地點旁出現的「進去」鈕、打招呼、衣櫃／蓋城市／獻金）、
-   打工現場面板（live 頻道收到的別人正在打的班：場、波次、金蛋、魔王、隊員；可以看一眼或走過去）、
+   打工場現況（左上小卡＋面板：現在輪到的打工場、多久後換場、總攻擊倒數、魔王圖鑑）與 live 頻道收到的別人正在打的班（場、波次、金蛋、魔王、隊員；可以看一眼或走過去）、
    金蛋商店面板（shop.js）、政策清單（搜尋、依行政區或主題分組，點了開政策卡並走過去）、第一次進來的三步說明、play 頻道的多人同框收發。 */
 import { CONFIG as C } from './config.js';
 import { ICONS } from './icons.js';
@@ -10,9 +10,9 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
   // ── 開始／回大廳 ──
   // 進城市時先問一聲現在誰在打工（lq），打工的人下一秒就回報，不用等心跳
   async function start() { const p = shared.profile(); await shared.enter(); S.setPresence({ nick: p.nick, cls: p.cls, phase: 'explore' }); S.saveHero({ nick: p.nick, cls: p.cls, district: p.district });
-    explore.start(p); S.playOn(true); S.liveOn('x', true); setTimeout(() => S.liveSend({ t: 'lq' }), 900); lastSent = null; setOn(true); shared.follow.start('xme', true); shared.followed(); shop.sync(); renderClock(); if (!guide()) hint('WASD／搖桿或點地板走路；走到服飾店、工地、市長旁邊會出現按鈕'); }
+    explore.start(p); S.playOn(true); S.liveOn('x', true); setTimeout(() => S.liveSend({ t: 'lq' }), 900); lastSent = null; setOn(true); shared.follow.start('xme', true); shared.followed(); shop.sync(); renderClock(); nowSid = ''; renderStage(); if (!guide()) hint('WASD／搖桿或點地板走路；走到服飾店、工地、市長旁邊會出現按鈕'); }
   function leave() { if (!active()) return; sayBye(); S.playOn(false); S.liveOn('x', false); lives.clear(); liveChanged(); closePanels(); setBird(false); explore.stop(); setOn(false); S.setPresence({ phase: 'lobby' }); }
-  function setOn(on) { document.body.classList.toggle('exploring', on); $('xbar').hidden = !on; $('xAct').hidden = !on; $('joy').hidden = !on || !shared.touch; if (!on) $('xPrompt').hidden = true; }
+  function setOn(on) { document.body.classList.toggle('exploring', on); $('xbar').hidden = !on; $('xAct').hidden = !on; $('xStage').hidden = !on; if (on) document.documentElement.style.setProperty('--brand-h', (document.querySelector('.brand') || {}).offsetHeight + 'px'); $('joy').hidden = !on || !shared.touch; if (!on) $('xPrompt').hidden = true; }
   // ── 走到地點旁邊：出現「進去」的按鈕（E）──
   const PROMPT = { boutique: () => ['👕', '進服飾店'], site: n => ['🚧', `投金蛋蓋${n.name}`], mayor: () => ['🎙', '找市長捐獻金'] }, TAB = { boutique: 'fit', site: 'city', mayor: 'donate' };
   callbacks.near = n => { if (n && PROMPT[n.kind]) { const [ic, t] = PROMPT[n.kind](n); $('btnXPrompt').innerHTML = `<span class="pi">${ic}</span><b>${esc(t)}</b><span class="kbd">E</span>`; $('xPrompt').hidden = false; } else $('xPrompt').hidden = true; if (!$('shopPanel').hidden) shop.render(); };
@@ -60,19 +60,33 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
       b: [...new Set((Array.isArray(m.b) ? m.b : []).filter(t => BOSSES.has(t)))].slice(0, 5), p: (Array.isArray(m.p) ? m.p : []).slice(0, 4).filter(x => Array.isArray(x) && Object.hasOwn(C.heroes, x[0])).map(x => [x[0], x[1] ? 1 : 0, x[2] ? 1 : 0]), at: performance.now() };
     lives.set(m.id, L); if (!prev || prev.st !== L.st || prev.b.join() !== L.b.join()) liveChanged(); else renderLive(); });
   function groups() { const g = new Map(); for (const L of lives.values()) { const x = g.get(L.st) || { n: 0, bosses: [] }; x.n++; for (const b of L.b) if (!x.bosses.includes(b)) x.bosses.push(b); g.set(L.st, x); } return g; }
-  function liveChanged() { const g = groups(); explore.setLive(g); shared.liveSigns(g); renderLive(); }
+  function liveChanged() { const g = groups(); explore.setLive(g); shared.liveSigns(g, nowSid); renderLive(); if (active()) renderStage(); }
+  // 左上小卡：現在的打工場、多久後換場、總攻擊倒數（每秒更新；換場時地圖上的牌子也跟著換）
+  let nowSid = '', chip = '';
+  function renderStage() { const I = shared.stageInfo(), n = groups().get(I.now.id);
+    if (I.now.id !== nowSid) { nowSid = I.now.id; liveChanged(); }
+    const t = `${I.now.name}|${I.now.islands.length}|${I.left}|${I.next.name}|${I.eveShort}|${n ? n.n : 0}`; if (t === chip) return; chip = t;
+    $('xsName').textContent = I.now.name; $('xsLive').textContent = n ? `🔴 ${n.n} 隊在打` : ''; $('xsRot').textContent = `${I.left} 後換成${I.next.name}`; $('xsEve').textContent = I.eveShort; }
   setInterval(() => { if (!active()) return; const now = performance.now(); let gone = false; for (const [id, L] of [...lives]) if (now - L.at > LV.expire * 1000) { lives.delete(id); gone = true; } if (gone) liveChanged(); else if (!$('livePanel').hidden) renderLive(); }, 1000);
   const PHT = { intro: () => '準備開工', wave: L => `第 ${L.w}／${C.shift.waves} 波・剩 ${mmss(Math.max(0, L.tl - (performance.now() - L.at) / 1000))}`, inter: L => `第 ${L.w} 波過關・休息中` }, SPT = { fog: '🌫 起大霧', rush: '🌙 暴走夜' };
+  // 面板：最上面是現在的打工場（看一眼／走過去／去這裡打工），中間是正在打的班，最下面是魔王圖鑑（場上有的標出來）
   function renderLive() { $('xbLiveN').textContent = lives.size ? String(lives.size) : ''; if ($('livePanel').hidden) return;
-    if (!lives.size) { $('liveBody').innerHTML = `<p class="empty">${S.state.sb ? '現在沒有人在打工。打工的人會把這一班的進度（波次、金蛋、魔王、隊員）送到這裡。' : '要連上共享後端才看得到別人打工。'}</p><button type="button" class="go2 go-there" data-gowork="1">🥚 我去打工</button>`; return; }
+    const I = shared.stageInfo(), onField = new Set([...lives.values()].flatMap(L => L.b));
+    const now = `<section class="live-now"><div class="ln-k">🥚 現在的打工場</div><div class="ln-name"><b>${esc(I.now.name)}</b><small>${I.now.islands.length} 座島${I.where ? `・${esc(I.where)}` : ''}</small></div>
+      <p class="ln-rot">⏱ <b>${esc(I.left)}</b> 後換成<b>${esc(I.next.name)}</b></p><p class="ln-eve">${esc(I.eve)}</p>
+      <div class="lc-btns"><button type="button" class="go2" data-look="${esc(I.now.id)}">📷 看一眼</button><button type="button" class="go2" data-walk="${esc(I.now.id)}">👣 走過去</button><button type="button" class="go2 go-there" data-gowork="1">🥚 去打工</button></div></section>`;
+    const dex = `<h3 class="lv-h">魔王圖鑑</h3><ul class="bosses">${C.bossTypes.map(k => { const A = C.animals[k]; return `<li class="${onField.has(k) ? 'on' : ''}"><b>${esc(A.name)}${onField.has(k) ? '<em>🔴 場上</em>' : ''}</b><span>${esc(A.desc)}</span></li>`; }).join('')}</ul>`;
+    const head = `<h3 class="lv-h">正在打的班${lives.size ? `<span>${lives.size}</span>` : ''}</h3>`;
+    if (!lives.size) { $('liveBody').innerHTML = `${now}${head}<p class="empty">${S.state.sb ? '現在沒有人在打工。打工的人會把這一班的進度（波次、金蛋、魔王、隊員）送到這裡。' : '要連上共享後端才看得到別人打工。'}</p>${dex}`; return; }
     const list = [...lives.values()].sort((a, b) => b.w - a.w || a.st.localeCompare(b.st));
-    $('liveBody').innerHTML = list.map(L => { const st = STAGES.get(L.st), humans = L.p.filter(x => !x[1]).length, pct = L.q ? Math.min(100, L.g / L.q * 100) : 0;
+    $('liveBody').innerHTML = now + head + list.map(L => { const st = STAGES.get(L.st), humans = L.p.filter(x => !x[1]).length, pct = L.q ? Math.min(100, L.g / L.q * 100) : 0;
       return `<section class="live-card"><div class="lc-head"><b>${esc(st.name)}</b><span class="ph ${L.ph}">${esc(PHT[L.ph](L))}</span></div>
         ${L.ph === 'wave' ? `<div class="lc-egg${L.q && L.g >= L.q ? ' done' : ''}"><span class="egg" aria-hidden="true"></span><b>${L.g}</b><small>／${L.q}</small><span class="bar"><i style="width:${pct.toFixed(0)}%"></i></span>${L.sp ? `<em>${SPT[L.sp]}</em>` : ''}</div>` : ''}
         <p class="lc-boss">${L.b.length ? `魔王：<b>${L.b.map(t => esc(C.animals[t].name)).join('、')}</b>` : '現在沒有魔王'}・雜魚 ${Math.max(0, L.e - L.b.length)} 隻</p>
         <p class="lc-team"><span class="icons">${L.p.map(([c, npc, down]) => `<span class="${down ? 'down' : ''}${npc ? ' npc' : ''}" title="${esc(C.heroes[c].name)}${npc ? '（NPC）' : ''}${down ? '・倒下' : ''}">${C.heroes[c].icon}</span>`).join('')}</span>${esc(L.nk || '打工仔')}的隊・${humans} 人${4 - humans > 0 ? `＋${4 - humans} NPC` : ''}・危險度 ${L.hz}%</p>
-        <div class="lc-btns"><button type="button" class="go2" data-look="${esc(L.st)}">📷 看一眼</button><button type="button" class="go2" data-walk="${esc(L.st)}">👣 走過去</button></div></section>`; }).join(''); }
-  $('xbLive').addEventListener('click', () => { if (!$('livePanel').hidden) { closePanels(); return; } $('shopPanel').hidden = true; $('xlist').hidden = true; $('xbList').setAttribute('aria-pressed', 'false'); markAct(); $('livePanel').hidden = false; $('xbLive').setAttribute('aria-pressed', 'true'); document.body.classList.add('list-open'); renderLive(); });
+        <div class="lc-btns"><button type="button" class="go2" data-look="${esc(L.st)}">📷 看一眼</button><button type="button" class="go2" data-walk="${esc(L.st)}">👣 走過去</button></div></section>`; }).join('') + dex; }
+  function toggleLive() { if (!$('livePanel').hidden) { closePanels(); return; } $('shopPanel').hidden = true; $('xlist').hidden = true; $('xbList').setAttribute('aria-pressed', 'false'); markAct(); $('livePanel').hidden = false; $('xbLive').setAttribute('aria-pressed', 'true'); document.body.classList.add('list-open'); $('liveBody').scrollTop = 0; renderLive(); }
+  $('xbLive').addEventListener('click', toggleLive); $('xStage').addEventListener('click', toggleLive);
   $('liveClose').addEventListener('click', closePanels);
   $('liveBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.gowork) { shared.goWork(); return; }
     const sid = b.dataset.look || b.dataset.walk; if (!sid) return; const narrowNow = matchMedia('(max-width:900px)').matches;
@@ -115,5 +129,5 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
   document.addEventListener('keydown', ev => { if (!active() || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return; const k = ev.key.toLowerCase();
     if (k === 'e' || ev.key === 'Enter') { ev.preventDefault(); enterSpot(); } else if (ev.key === 'Escape') closePanels(); else if (k === 'b') setBird(!bird); else if (k === 'l') $('xbList').click(); else if (k >= '1' && k <= String(X.emotes.length)) emote(X.emotes[+k - 1].k); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { lastSent = null; sendPos(); } });
-  return { start, leave, active, goTo, refit, closePanels, renderLive, tick() { if (!active()) return; renderClock(); } };
+  return { start, leave, active, goTo, refit, closePanels, renderLive, tick() { if (!active()) return; renderClock(); renderStage(); } };
 }

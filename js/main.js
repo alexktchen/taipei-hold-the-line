@@ -167,10 +167,13 @@ function stageSpots(sid) { if (stageSpotCache.has(sid)) return stageSpotCache.ge
 const explore = createExplore({ scene, nav, people, centers, animals, callbacks: xCallbacks, rebuild: list => game.setExtraWalkers(list), boutiques: () => BOUTIQUES, site: () => citySite, mayor: () => game.G.mayor, stageSpots });
 // 打工場頭上的牌子：「🔴 打工中 2 隊」（只在逛城市時顯示）
 const liveLabels = new Map();
-function liveSigns(groups) { for (const [sid, L] of [...liveLabels]) if (!groups.has(sid)) { L.el.remove(); labels.splice(labels.indexOf(L), 1); liveLabels.delete(sid); }
-  for (const [sid, g] of groups) { const st = C.stages.find(s => s.id === sid); if (!st) continue; let L = liveLabels.get(sid); const txt = `打工中 ${g.n} 隊${g.bosses.length ? `・魔王 ${g.bosses.length} 種` : ''}`;
-    if (!L) { const c = centers.get(st.basket); L = addLabel(txt, new THREE.Vector3(c.x, TOP + 1.7, c.z + C.plaza.basketZ), 'policy live', '🔴', 2.2); liveLabels.set(sid, L); }
-    if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.w = 0; } } }
+// 城市裡打工場頭上的牌子：現在輪到的場一直掛「🥚 現在的打工場」，有人在打就變紅「🔴 打工中 N 隊」
+function liveSigns(groups, nowSid) { const want = new Set(groups.keys()); if (nowSid) want.add(nowSid);
+  for (const [sid, L] of [...liveLabels]) if (!want.has(sid)) { L.el.remove(); labels.splice(labels.indexOf(L), 1); liveLabels.delete(sid); }
+  for (const sid of want) { const st = C.stages.find(s => s.id === sid); if (!st) continue; let L = liveLabels.get(sid); const g = groups.get(sid), now = sid === nowSid;
+    const txt = g ? `${now ? '現在的打工場・' : ''}打工中 ${g.n} 隊${g.bosses.length ? `・魔王 ${g.bosses.length} 種` : ''}` : '現在的打工場', icon = g ? '🔴' : '🥚';
+    if (!L) { const c = centers.get(st.basket); L = addLabel(txt, new THREE.Vector3(c.x, TOP + 1.7, c.z + C.plaza.basketZ), 'policy live', icon, 2.2); liveLabels.set(sid, L); }
+    L.el.classList.toggle('idle', !g); if (L.txt !== txt) { L.txt = txt; L.el.firstChild.textContent = icon; L.el.lastChild.textContent = txt; L.w = 0; } } }
 callbacks.speech = m => { if (callbacks.mayorExtra) callbacks.mayorExtra(m); };
 // 相機
 function fit() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }

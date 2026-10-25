@@ -91,7 +91,10 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   // ── 大廳 ──
   function renderGrade() { const g = myGrade(), max = gradeMax(g.lv); $('gradeCard').innerHTML = `<div class="gl"><span class="k">打工職級</span><b>${esc(GR.names[g.lv])}</b><span class="pts">${g.pts}／${max}</span></div><span class="bar"><i style="width:${Math.min(100, g.pts / max * 100).toFixed(1)}%"></i></span><small>危險度 ${Math.round((hazardOf(g.lv, g.pts) + (isFinalNow() ? C.election.hazardBonus : 0)) * 100)}%・過關 +${GR.clear}${g.lv >= GR.failSafeBelow ? '、沒過會扣點' : '、現在沒過也不扣點'}</small>`; }
   function renderStageLine() { const now = stageNow(), nx = stageNext(); $('stageLine').innerHTML = `現在的打工場：<b>${esc(now.name)}</b>（${now.islands.length} 座島）<span>・${hms(rotMs - Date.now() % rotMs)} 後換成${esc(nx.name)}</span>`;
-    const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊、危險度 +${Math.round(C.election.hazardBonus * 100)}%）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
+    $('countdown').textContent = eveLine(); }
+  function eveLine() { const d = daysToEve(); return d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊、危險度 +${Math.round(C.election.hazardBonus * 100)}%）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
+  // 給城市用的打工場現況（現在的場、多久後換場、總攻擊倒數）
+  const stageInfo = () => { const now = stageNow(), d = daysToEve(); return { now, next: stageNext(), left: hms(rotMs - Date.now() % rotMs), eve: eveLine(), eveShort: d > 0 ? `大選前夜總攻擊倒數 ${d} 天` : d === 0 ? '今晚總攻擊之夜' : '每一波都是總攻擊', where: now.islands.map(districtName).filter(Boolean).join('、') }; };
   function renderLobby() { const h = S.hero() || {}; const me = S.state.me;  if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls && C.heroes[h.cls]) chosenCls = h.cls; if (!districtPicked && h.district && DISTRICTS.some(i => i.id === h.district)) $('homeDistrict').value = h.district; renderGoWho(); /* 已存的職業只當預設值，使用者點選過就以點選為準 */
     $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}<em>${esc(H.weapon)}</em></b><small>${esc(H.desc)}</small><small class="sp">特殊技「${esc(H.special.name)}」：${esc(H.special.desc)}</small></span></button>`).join('');
     renderGrade(); renderStageLine();
@@ -117,7 +120,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   const xui = createExploreUI({ explore, S, shop, callbacks: xCallbacks, shared: { esc, fmt, hint, banner, districtName, online: () => online, touch: matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0,
     profile: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict(), fit: myFit() }), follow, bird, followed: () => renderFollowBtn(), policyPos, policies: () => policies, islandOf, card: (p, isl) => showCard(p, isl),
     enter: async () => { if (room.code) { await room.leave(); dropRoomParam(); } $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); input.clear(); renderFollowBtn(); },
-    goWork: () => goWork(), liveSigns, stageCenter, lookStage: sid => frameStage(sid, false) } });
+    goWork: () => goWork(), liveSigns, stageCenter, stageInfo, lookStage: sid => frameStage(sid, false) } });
   // ── 換世界：雲湧進來、鏡頭拉遠，切換後雲散開、鏡頭推近 ──
   function showLobby() { renderLobby(); $('lobby').hidden = false; frameStage(stageNow().id, true); renderFollowBtn(); hint(''); }
   function goCity(covered, sky) { if (G.phase !== 'lobby' && G.phase !== 'result') return Promise.resolve(false);
