@@ -1,0 +1,228 @@
+{
+ "help": "",
+ "success": true,
+ "result": {
+  "categoryService": "A00",
+  "categoryDataset": "A",
+  "datasetId": 145720,
+  "identifier": "",
+  "title": "臺北市路口號誌時制計畫",
+  "description": "提供臺北市路口號誌時制計畫相關資料",
+  "type": "api",
+  "license": "1",
+  "cost": "free",
+  "dataProvider": "sa920323sa",
+  "publisherOID": "2.16.886.101.90003.20002.20039",
+  "publisherContactName": "李彥安",
+  "publisherContactPhone": "02-27208889#6907",
+  "publisherContactEmail": "pn9607@gov.taipei",
+  "updateFrequency": {
+   "regularupdate": "2"
+  },
+  "dataQuality": "G",
+  "coverageStartedDate": "",
+  "coverageEndedDate": "",
+  "publishedDate": "2020-12-31",
+  "modifiedDate": "2026-10-13 20:49:34",
+  "spatialCoverage": "",
+  "language": "zh",
+  "relatedUrl": "",
+  "notes": "",
+  "apiDocUrl": "",
+  "distribution": [
+   {
+    "resourceDescription": "時制計畫三合一報表左半邊",
+    "resourceField": [
+     {
+      "name": "Agency_name",
+      "description": ""
+     },
+     {
+      "name": "AgencyCodes",
+      "description": "",
+      "uri": "api/Commonality/Event/EventAttributes/AgencyCodes"
+     },
+     {
+      "name": "icid",
+      "description": ""
+     },
+     {
+      "name": "icname",
+      "description": ""
+     },
+     {
+      "name": "deviceid",
+      "description": ""
+     },
+     {
+      "name": "segmenttype",
+      "description": ""
+     },
+     {
+      "name": "subsegment",
+      "description": ""
+     },
+     {
+      "name": "InfoTime",
+      "description": "",
+      "uri": "api/Commonality/Time/TimeAttributes/Datetimewithtimezone"
+     }
+    ],
+    "qcLevel": "",
+    "resourceFormat": "JSON",
+    "resourceCharacterEncoding": "UTF-8",
+    "resourceQualityCheckTime": "2026-10-08 18:58:59",
+    "resourceDownloadUrl": "https://tcgbusfs.blob.core.windows.net/dotapp/timing_plan_table.json",
+    "resourceAmount": 0,
+    "resourceNotes": "",
+    "resourceRequestMethod": "",
+    "resourceOasUrl": "",
+    "resourceRequestParameters": [],
+    "resourcePathParameters": []
+   },
+   {
+    "resourceDescription": "時制計畫三合一報表右半邊",
+    "resourceField": [
+     {
+      "name": "icid",
+      "description": ""
+     },
+     {
+      "name": "icname",
+      "description": ""
+     },
+     {
+      "name": "deviceid",
+      "description": ""
+     },
+     {
+      "name": "planid（SeqNo）",
+      "description": "",
+      "uri": "api/CurrencyandFinancial/CommonData/NormalCommonData/SeqNo"
+     },
+     {
+      "name": "Agency_name",
+      "description": ""
+     },
+     {
+      "name": "AgencyCodes",
+      "description": "",
+      "uri": "api/Commonality/Event/EventAttributes/AgencyCodes"
+     },
+     {
+      "name": "phaseorder",
+      "description": ""
+     },
+     {
+      "name": "direction",
+      "description": ""
+     },
+     {
+      "name": "cycletime",
+      "description": ""
+     },
+     {
+      "name": "offset",
+      "description": ""
+     },
+     {
+      "name": "subplan",
+      "description": ""
+     },
+     {
+      "name": "InfoTime",
+      "description": "",
+      "uri": "api/Commonality/Time/TimeAttributes/Datetimewithtimezone"
+     }
+    ],
+    "qcLevel": "",
+    "resourceFormat": "JSON",
+    "resourceCharacterEncoding": "UTF-8",
+    "resourceQualityCheckTime": "2026-10-08 18:59:01",
+    "resourceDownloadUrl": "https://tcgbusfs.blob.core.windows.net/dotapp/timing_plan.json",
+    "resourceAmount": 0,
+    "resourceNotes": "",
+    "resourceRequestMethod": "",
+    "resourceOasUrl": "",
+    "resourceRequestParameters": [],
+    "resourcePathParameters": []
+   },
+   {
+    "resourceDescription": "臺北市政府交通局路口時制號誌資料",
+    "resourceField": [
+     {
+      "name": "icid",
+      "description": ""
+     },
+     {
+      "name": "設備編號",
+      "description": ""
+     },
+     {
+      "name": "路口名稱",
+      "description": ""
+     },
+     {
+      "name": "群組",
+      "description": ""
+     },
+     {
+      "name": "經度",
+      "description": "",
+      "uri": "api/Weather/Common/Common/Longitude"
+     },
+     {
+      "name": "緯度",
+      "description": "",
+      "uri": "api/Weather/Common/Common/Latitude"
+     },
+     {
+      "name": "三合一報表連結（網址）",
+      "description": "",
+      "uri": "api/Commonality/Event/EventAttributes/DomainName"
+     }
+    ],
+    "qcLevel": "",
+    "resourceFormat": "CSV",
+    "resourceCharacterEncoding": "UTF-8",
+    "resourceQualityCheckTime": "2026-10-08 18:59:05",
+    "resourceDownloadUrl": "https://data.taipei/api/dataset/0d639f73-cbcc-42c3-aa53-20efac199701/resource/9522d9e8-131e-4890-9379-f17c523238a0/download",
+    "resourceAmount": "",
+    "resourceNotes": "",
+    "resourceRequestMethod": "",
+    "resourceOasUrl": "",
+    "resourceRequestParameters": [],
+    "resourcePathParameters": []
+   }
+  ],
+  "keyword": [],
+  "en": {
+   "title": "Taipei Citys road sign timing system plan",
+   "description": "Provide information related to Taipei City&#39;s road number clock system project",
+   "publisherContactName": "李彥安",
+   "publisherContactPhone": "02-27208889#6907",
+   "publisherContactEmail": [
+    "pn9607@gov.taipei"
+   ],
+   "updateFrequency": "Irregular updates",
+   "cost": "free",
+   "resources": [
+    {
+     "description": "The left half of the time-based planning three-in-one report",
+     "fieldDesc": "",
+     "note": ""
+    },
+    {
+     "description": "The right half of the three-in-one report for time-based planning",
+     "fieldDesc": "",
+     "note": ""
+    },
+    {
+     "description": "",
+     "fieldDesc": "",
+     "note": ""
+    }
+   ]
+  }
+ }
+}

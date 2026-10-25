@@ -1,0 +1,92 @@
+{
+ "help": "",
+ "success": true,
+ "result": {
+  "categoryService": "A00",
+  "categoryDataset": "A",
+  "datasetId": 121890,
+  "identifier": "",
+  "title": "臺北市號誌位置",
+  "description": "提供臺北市政府轄管號誌之位置經緯度座標(WGS)資訊",
+  "type": "api",
+  "license": "1",
+  "cost": "free",
+  "dataProvider": "kx5292",
+  "publisherOID": "2.16.886.101.90003.20002.20039.20004",
+  "publisherContactName": "陳弘笙",
+  "publisherContactPhone": "02-27599741#7940",
+  "publisherContactEmail": "te10674@gov.taipei",
+  "updateFrequency": {
+   "regularupdate": "2"
+  },
+  "dataQuality": "G",
+  "coverageStartedDate": "",
+  "coverageEndedDate": "",
+  "publishedDate": "2020-05-04",
+  "modifiedDate": "2026-10-13 20:15:10",
+  "spatialCoverage": "",
+  "language": "zh",
+  "relatedUrl": "",
+  "notes": "",
+  "apiDocUrl": "",
+  "distribution": [
+   {
+    "resourceDescription": "號誌路口座標",
+    "resourceField": [
+     {
+      "name": "流水號",
+      "description": ""
+     },
+     {
+      "name": "地點",
+      "description": ""
+     },
+     {
+      "name": "行政區",
+      "description": ""
+     },
+     {
+      "name": "WGS經度座標",
+      "description": "",
+      "uri": "api/Weather/Common/Common/Longitude"
+     },
+     {
+      "name": "WGS緯度座標",
+      "description": "",
+      "uri": "api/Weather/Common/Common/Latitude"
+     }
+    ],
+    "qcLevel": "",
+    "resourceFormat": "CSV",
+    "resourceCharacterEncoding": "BIG5",
+    "resourceQualityCheckTime": "2025-09-01 21:09:24",
+    "resourceDownloadUrl": "https://data.taipei/api/dataset/4a599738-6550-448a-9a78-03b26c67e249/resource/9da220ce-f5a9-40a8-aacc-dc17978f3a87/download",
+    "resourceAmount": "",
+    "resourceNotes": "",
+    "resourceRequestMethod": "",
+    "resourceOasUrl": "",
+    "resourceRequestParameters": [],
+    "resourcePathParameters": []
+   }
+  ],
+  "keyword": [],
+  "en": {
+   "title": "Taipei City traffic signal location",
+   "description": "Provide the latitude and longitude coordinates (WGS) of the traffic lights under the jurisdiction of the Taipei City Government.",
+   "publisherContactName": "陳弘笙",
+   "publisherContactPhone": "02-27599741#7940",
+   "publisherContactEmail": [
+    "te10674@gov.taipei"
+   ],
+   "updateFrequency": "Irregular updates",
+   "cost": "free",
+   "resources": [
+    {
+     "description": "",
+     "fieldDesc": "Serial number、 location、 administrative district、 WGS longitude coordinates、 WGS latitude coordinates",
+     "note": ""
+    }
+   ]
+  }
+ }
+}
