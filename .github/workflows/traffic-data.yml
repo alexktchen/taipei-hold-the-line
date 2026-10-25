@@ -1,8 +1,13 @@
 # 台北車流模擬的資料：在 GitHub 的機器上抓 OpenStreetMap（Overpass）與臺北市號誌位置、時制計畫，整理成 traffic/data/，有變動就 commit 回 main（Cloudflare Pages 接著部署）。
-# 在 GitHub 的 Actions 分頁按「Run workflow」就能重建（例如臺北市更新了時制）。
+# 在 GitHub 的 Actions 分頁按「Run workflow」就能重建（例如臺北市更新了時制）；資料流程本身（這個檔、scripts/traffic/）改了推上 main 也會自動跑。
 name: 台北車流資料
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/traffic/**
+      - .github/workflows/traffic-data.yml
 permissions:
   contents: write
 concurrency:
