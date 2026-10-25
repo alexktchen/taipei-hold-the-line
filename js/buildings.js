@@ -2,16 +2,24 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mulberry } from './env.js';
-// 開工時擋在鏡頭與自己中間的建築變成網點半透明（main.js 每幀更新 A＝鏡頭、B＝自己的位置；on=0 時關閉）
-export const CUT = { uCutA: { value: new THREE.Vector3() }, uCutB: { value: new THREE.Vector3() }, uCutR: { value: 1.0 }, uCutY: { value: 0.8 }, uCutOn: { value: 0 } };
-function cutaway(mat) { mat.onBeforeCompile = sh => { Object.assign(sh.uniforms, CUT);
+// 擋在鏡頭與自己中間的建築變透明（main.js 每幀更新 A＝鏡頭、B＝自己的位置、Y＝從多高開始切；on=0 時關閉）：
+// 一般材質把這一段「挖掉」（discard），另一份 ghost 材質只畫這一段、半透明不寫深度，看起來像玻璃，而不是網點破圖。
+// 範圍是鏡頭到自己的一個圓錐：靠近自己半徑 uCutR0、靠近鏡頭 uCutR1。
+export const CUT = { uCutA: { value: new THREE.Vector3() }, uCutB: { value: new THREE.Vector3() }, uCutR0: { value: 0.55 }, uCutR1: { value: 1.15 }, uCutY: { value: 0.8 }, uCutOn: { value: 0 } };
+const CUT_GLSL = `float cutIn() { if (uCutOn < 0.5 || vCutW.y < uCutY) return 0.0; vec3 ab = uCutB - uCutA; float t = clamp(dot(vCutW - uCutA, ab) / dot(ab, ab), 0.0, 1.0); if (t > 0.97) return 0.0;
+  float r = mix(uCutR1, uCutR0, t); return step(length(vCutW - (uCutA + ab * t)), r); }`;
+function cutaway(mat, ghost) { mat.onBeforeCompile = sh => { Object.assign(sh.uniforms, CUT);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCutW;').replace('#include <project_vertex>', '#include <project_vertex>\n vec4 cutWP = vec4(transformed, 1.0);\n #ifdef USE_INSTANCING\n cutWP = instanceMatrix * cutWP;\n #endif\n vCutW = (modelMatrix * cutWP).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCutW; uniform vec3 uCutA, uCutB; uniform float uCutR, uCutY, uCutOn;').replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-      if (uCutOn > 0.5 && vCutW.y > uCutY) { vec3 ab = uCutB - uCutA; float t = clamp(dot(vCutW - uCutA, ab) / dot(ab, ab), 0.0, 1.0); float d = length(vCutW - (uCutA + ab * t)); if (t < 0.96 && d < uCutR) { float n = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453); if (n < 0.72 * smoothstep(uCutR, uCutR * 0.6, d)) discard; } }`); };
-  mat.customProgramCacheKey = () => 'cutaway'; return mat; }
-// 會發光的零件（亮著的窗、燈泡、招牌字）共用一個材質：白天是一般顏色，晚上 emissive #ffc777 的強度 = 夜晚程度 × 3.2（main.js 每幀更新）
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vCutW; uniform vec3 uCutA, uCutB; uniform float uCutR0, uCutR1, uCutY, uCutOn;\n${CUT_GLSL}`)
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n ${ghost ? 'if (cutIn() < 0.5) discard;' : 'if (cutIn() > 0.5) discard;'}`); };
+  mat.customProgramCacheKey = () => ghost ? 'cutaway-ghost' : 'cutaway'; return mat; }
+const ghostOf = m => { const g = cutaway(m.clone(), true); g.transparent = true; g.opacity = 0.22; g.depthWrite = false; return g; };
+// 會發光的零件（亮著的窗、燈泡、招牌字）共用一個材質：白天是一般顏色，晚上 emissive #ffc777 的強度 = 夜晚程度 × 3.2（main.js 每幀更新，ghost 也要跟著）
 export const GLOW = cutaway(new THREE.MeshStandardMaterial({ roughness: 0.6, emissive: 0xffc777, emissiveIntensity: 0 }));
 const SOLID = cutaway(new THREE.MeshStandardMaterial({ roughness: 0.78 })); // 黏土感霧面
+export const GLOW_GHOST = ghostOf(GLOW); const SOLID_GHOST = ghostOf(SOLID);
+// ghost 那一份只在透明效果開著時才畫
+const GHOSTS = new Set(); export function setCutVisible(on) { for (const g of GHOSTS) g.visible = !!on; }
 export function createKit(top) {
   const leaf = (() => { const g = new THREE.IcosahedronGeometry(0.5, 1); const pos = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); const n = Math.sin(v.x * 12.9 + v.y * 78.2 + v.z * 37.7) * 43758.5; v.multiplyScalar(1 + ((n - Math.floor(n)) - 0.5) * 0.16); pos.setXYZ(i, v.x, v.y, v.z); } g.computeVertexNormals(); return g; })();
   const geo = { box: new THREE.BoxGeometry(1, 1, 1), rbox: new RoundedBoxGeometry(1, 1, 1, 2, 0.12), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 14), cone: new THREE.ConeGeometry(0.5, 1, 10), sphere: new THREE.SphereGeometry(0.5, 14, 10), ico: new THREE.IcosahedronGeometry(0.5, 1), dome: new THREE.SphereGeometry(0.5, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2), torus: new THREE.TorusGeometry(0.5, 0.055, 6, 24), hip: new THREE.ConeGeometry(0.5, 1, 4).rotateY(Math.PI / 4).scale(Math.SQRT2, 1, Math.SQRT2), glowbox: new THREE.BoxGeometry(1, 1, 1), glowsphere: new THREE.SphereGeometry(0.5, 10, 8), leaf, trunk: new THREE.CylinderGeometry(0.32, 0.5, 1, 9) };
@@ -20,7 +28,7 @@ export function createKit(top) {
   function part(kind, pos, scale, color, rotation = null) { const e = { pos: new THREE.Vector3(...pos), scale: new THREE.Vector3(...scale), color: new THREE.Color(color), rotation: rotation || [0, 0, 0], owner: k0.owner }; if (!batches.has(kind)) batches.set(kind, []); batches.get(kind).push(e); return e; }
   const built = [];
   const k = { geo, top, part, batches, built, set owner(v) { k0.owner = v; }, get owner() { return k0.owner; },
-    dispose(scene) { for (const m of built) { scene.remove(m); m.dispose(); } built.length = 0; batches.clear(); },
+    dispose(scene) { for (const m of built) { scene.remove(m); GHOSTS.delete(m); m.dispose(); } built.length = 0; batches.clear(); },
     box: (x, y, z, w, h, d, c, o, r) => part(w > 0.07 && h > 0.07 && d > 0.07 ? 'rbox' : 'box', [x, y, z], [w, h, d], c, r),
     hbox: (x, y, z, w, h, d, c, o, r) => part('box', [x, y, z], [w, h, d], c, r),
     cyl: (x, y, z, w, h, c, o, r) => part('cylinder', [x, y, z], [w, h, w], c, r),
@@ -42,7 +50,9 @@ export function createKit(top) {
     build(scene) { const dummy = new THREE.Object3D(); const solid = SOLID; const glow = GLOW; const meshes = [];
       for (const [kind, items] of batches) { const base = glowKinds.has(kind) ? glow : solid; const mesh = new THREE.InstancedMesh(geo[kind], base, items.length); mesh.castShadow = !glowKinds.has(kind); mesh.receiveShadow = true;
         mesh.userData.owners = []; items.forEach((p, n) => { dummy.position.copy(p.pos); dummy.scale.copy(p.scale).multiplyScalar(1 + (((n * 7) % 9) - 4) * 0.0018); dummy.rotation.set(...p.rotation); dummy.updateMatrix(); mesh.setMatrixAt(n, dummy.matrix); mesh.setColorAt(n, p.color); mesh.userData.owners[n] = p.owner; });
-        scene.add(mesh); meshes.push(mesh); built.push(mesh); } return meshes; } };
+        scene.add(mesh); meshes.push(mesh); built.push(mesh);
+        const gh = new THREE.InstancedMesh(geo[kind], base === glow ? GLOW_GHOST : SOLID_GHOST, items.length); gh.instanceMatrix = mesh.instanceMatrix; gh.instanceColor = mesh.instanceColor; gh.castShadow = false; gh.receiveShadow = false; gh.renderOrder = 5; gh.visible = CUT.uCutOn.value > 0.5;
+        gh.raycast = () => {}; GHOSTS.add(gh); scene.add(gh); built.push(gh); } return meshes; } };
   return k;
 }
 // 迷你模型：以島中心為原點、top 為地面，scale 統一縮放。主建築 scale≈1.18、小物件≈0.5。

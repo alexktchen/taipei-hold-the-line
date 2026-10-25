@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG as C } from './config.js';
 import { createEnvironment } from './env.js';
 import { buildIslands, buildGraph, slotLayout, TOP, INNER, R, RING_R, hexVertex, dirOf } from './islands.js';
-import { createKit, createModels, GLOW, CUT } from './buildings.js';
+import { createKit, createModels, GLOW, GLOW_GHOST, CUT, setCutVisible } from './buildings.js';
 import { createPeople } from './people.js';
 import { createAnimals } from './animals.js';
 import { createGame } from './game.js';
@@ -217,12 +217,13 @@ let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = sce
 function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
   applyInput(); if (!G.paused) { const sub = Math.ceil(raw / 0.025); for (let i = 0; i < sub; i++) game.step(raw / sub); }
   if (explore.G.on) explore.step(raw);
-  const zoomK = Math.min(1.7, Math.max(1, camera.position.distanceTo(controls.target) / 15)); lastZoom = zoomK; game.view(raw, t, zoomK); explore.view(raw, env.night, ui.shop.festival()); people.update(raw, t, zoomK); env.update(raw); GLOW.emissiveIntensity = env.night * 3.2; // 晚上窗戶與燈亮起來
+  const zoomK = Math.min(1.7, Math.max(1, camera.position.distanceTo(controls.target) / 15)); lastZoom = zoomK; game.view(raw, t, zoomK); explore.view(raw, env.night, ui.shop.festival()); people.update(raw, t, zoomK); env.update(raw); GLOW.emissiveIntensity = GLOW_GHOST.emissiveIntensity = env.night * 3.2; // 晚上窗戶與燈亮起來
   const shift = G.phase !== 'lobby', XG = explore.G, wantMin = XG.on ? XG.clock : !shift ? 720 : G.special === 'rush' ? C.shift.rush.time : C.shift.dayTimes[Math.max(0, Math.min(2, G.waveNo - 1))]; if (XG.on && !XG.tween) dayMin = XG.clock; else { let d = wantMin - dayMin; if (XG.on) d = ((d % 1440) + 2160) % 1440 - 720; dayMin = (((dayMin + d * Math.min(1, raw * (XG.on ? 2.5 : 1.2))) % 1440) + 1440) % 1440; if (XG.on && Math.abs(d) < 2) { XG.tween = false; dayMin = XG.clock; } } env.setTime(dayMin); // 逛城市：時鐘照走，按時段時平順轉過去
   const fog = shift && G.special === 'fog'; fogNear += ((fog ? C.shift.fog.near : FOG0[0]) - fogNear) * Math.min(1, raw * 1.5); fogFar += ((fog ? C.shift.fog.far : FOG0[1]) - fogFar) * Math.min(1, raw * 1.5); scene.fog.near = fogNear; scene.fog.far = fogFar;
   if (fly) { fly.t = Math.min(1, fly.t + raw * 1.2); const k = fly.t * fly.t * (3 - 2 * fly.t); camera.position.lerpVectors(fly.from, fly.to, k); if (fly.t >= 1) fly = null; }
   updateFollow(raw); stepPull(raw); controls.update();
-  { const me = G.phase !== 'lobby' && FOLLOW.kind === 'hero' ? game.me() : FOLLOW.kind === 'xme' ? explore.G.me : null; CUT.uCutOn.value = me ? 1 : 0; if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.25, me.pos.z); CUT.uCutY.value = TOP + 0.22; } } // 擋住自己的建築變半透明
+  { const me = G.phase !== 'lobby' && FOLLOW.kind === 'hero' ? game.me() : FOLLOW.kind === 'xme' ? explore.G.me : null, on = me ? 1 : 0; // 擋住自己的建築變半透明（腰部以上、鏡頭到自己的圓錐裡）
+    if (CUT.uCutOn.value !== on) { CUT.uCutOn.value = on; setCutVisible(on); } if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.3, me.pos.z); CUT.uCutY.value = me.pos.y + 0.32; } }
   renderer.render(scene, camera); updateLabels();
   acc += raw; if (acc > 0.2) { acc = 0; ui.tick(); }
   requestAnimationFrame(frame); }
