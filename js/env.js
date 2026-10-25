@@ -9,6 +9,7 @@ const fbm = (n, x, z, o) => { let s = 0, a = 0.5, f = 1; for (let i = 0; i < o; 
 // [分鐘, 天頂, 地平線, 太陽色, 太陽強度, 半球天, 半球地, 半球強度, 夜, 水色]
 const KEYS = [
   [0, 0x1e2c58, 0x3f4f80, 0xb4c2ff, 1.15, 0x94a2d8, 0x64566a, 1.85, 1, 0x5a88b2],
+  [300, 0x26365f, 0x4c5688, 0xb8c4ff, 1.0, 0x96a4da, 0x66586c, 1.85, 1, 0x5c8ab4],
   [360, 0x7f8fc4, 0xf6c3a6, 0xffb48a, 1.3, 0xf3c6b5, 0x6b5a5a, 1.1, 0.55, 0x8fb7c4],
   [450, 0xa9d1ea, 0xfbe6d3, 0xffe2c4, 2.4, 0xeaf2f6, 0x8a7a68, 1.25, 0, 0x9fcfd6],
   [720, 0x9fd0ec, 0xf4eee3, 0xfff1de, 2.9, 0xeef6fa, 0x8f8270, 1.35, 0, 0xa9d8db],
@@ -74,12 +75,15 @@ export function createEnvironment(scene, { center, quality = 'medium' }) {
   // 山上的樹
   const rnd = mulberry(11); const treeMax = quality === 'low' ? 1500 : 3000;
   const treeGeo = mergeGeometries([new THREE.ConeGeometry(0.5, 0.95, 7).translate(0, 0.72, 0), new THREE.ConeGeometry(0.38, 0.8, 7).translate(0, 1.12, 0), new THREE.ConeGeometry(0.24, 0.6, 7).translate(0, 1.45, 0)]);
-  const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), treeMax); const dummy = new THREE.Object3D(); let nt = 0;
+  // 闊葉樹：4 顆抖動過的 ico 疊成樹冠＋樹幹（和針葉樹各一個 InstancedMesh，都不投影）
+  const leafGeo = (() => { const parts = [new THREE.CylinderGeometry(0.07, 0.09, 0.6, 6).translate(0, 0.3, 0)]; const jr = mulberry(31); for (const [x, y, z, s] of [[0, 0.95, 0, 0.42], [0.22, 0.78, 0.08, 0.3], [-0.2, 0.8, -0.06, 0.32], [0.04, 1.2, -0.04, 0.3]]) { const g = new THREE.IcosahedronGeometry(s, 0); const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) pp.setXYZ(i, pp.getX(i) * (1 + (jr() - 0.5) * 0.18), pp.getY(i) * (1 + (jr() - 0.5) * 0.18), pp.getZ(i) * (1 + (jr() - 0.5) * 0.18)); parts.push(g.translate(x, y, z)); } return mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g)); })();
+  const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), treeMax); const broad = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), treeMax); const dummy = new THREE.Object3D(); let nt = 0, nb = 0;
   const treeCols = [0x6f8a62, 0x7f9a6a, 0x88a173, 0x6a8460, 0x93aa7a].map(h => new THREE.Color(h));
-  for (let k = 0; k < treeMax * 30 && nt < treeMax; k++) { const x = cx + (rnd() - 0.5) * size * 0.9, z = cz + (rnd() - 0.5) * size * 0.9; const d = Math.hypot(x - cx, (z - cz) * 0.92); if (d < 16 || d > 52) continue; const y = heightAt(x, z); if (y < 0.5 || y > 12.5) continue;
+  for (let k = 0; k < treeMax * 30 && nt + nb < treeMax; k++) { const x = cx + (rnd() - 0.5) * size * 0.9, z = cz + (rnd() - 0.5) * size * 0.9; const d = Math.hypot(x - cx, (z - cz) * 0.92); if (d < 16 || d > 52) continue; const y = heightAt(x, z); if (y < 0.5 || y > 12.5) continue;
     const grove = noise.noise(x * 0.09, z * 0.09); if (rnd() > smooth(0.5, 2.0, y) * (grove > 0 ? 1 : grove > -0.3 ? 0.5 : 0.14)) continue; const s = 0.3 + rnd() * 0.32;
-    dummy.position.set(x, y - 0.12, z); dummy.scale.set(s, s * (0.8 + rnd() * 0.5), s); dummy.rotation.set(0, rnd() * 6.28, 0); dummy.updateMatrix(); trees.setMatrixAt(nt, dummy.matrix); trees.setColorAt(nt++, treeCols[Math.floor(rnd() * treeCols.length)]); }
-  trees.count = nt; trees.receiveShadow = true; scene.add(trees);
+    dummy.position.set(x, y - 0.12, z); dummy.scale.set(s, s * (0.8 + rnd() * 0.5), s); dummy.rotation.set(0, rnd() * 6.28, 0); dummy.updateMatrix(); const col2 = treeCols[Math.floor(rnd() * treeCols.length)];
+    if (y < 6 && noise.noise(x * 0.05 + 7, z * 0.05) > -0.1 && rnd() < 0.55) { broad.setMatrixAt(nb, dummy.matrix); broad.setColorAt(nb++, col2.clone().offsetHSL(0.02, 0.04, 0.03)); } else { trees.setMatrixAt(nt, dummy.matrix); trees.setColorAt(nt++, col2); } } // 低處多闊葉、高處多針葉
+  trees.count = nt; broad.count = nb; for (const m of [trees, broad]) { m.receiveShadow = true; scene.add(m); }
   // 遠山稜線
   const ridges = [];
   for (const [rad, hmin, hmax, seed, tint] of [[74 * K, 9, 17, 3, 0.3], [100 * K, 12, 23, 9, 0.55], [130 * K, 15, 30, 17, 0.78]]) { const segs = 220, p = [], idx = [];

@@ -23,11 +23,11 @@ export function createGame(ctx) {
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const tagAdd = (w, name, badge, color, kind) => emit('tag', 'add', w, { name, badge, color, kind }); const tagDel = w => emit('tag', 'remove', w);
   // ── 居民（大廳時在步道散步；開工時打工場上的居民先離開）──
-  function spawnResidents() { const list = []; for (const isl of islands) { const ring = graph.ringIndex.get(isl.id); for (let k = 0; k < RS.perIsland; k++) { const node = ring[(k * 5 + isl.number) % 12]; const role = RS.roles[(isl.number * 3 + k) % RS.roles.length]; const w = people.makeWalker(role, graph.nodes[node].p); Object.assign(w, { home: isl.id, node, wait: Math.random() * 2, route: null, s: 0 }); list.push(w); } } G.residents = list; return list; }
+  function spawnResidents() { const list = []; for (const isl of islands) { const ring = graph.ringIndex.get(isl.id); for (let k = 0; k < RS.perIsland; k++) { const node = ring[(k * 5 + isl.number) % 12]; const role = RS.roles[(isl.number * 3 + k) % RS.roles.length]; const w = people.makeWalker(role, graph.nodes[node].p); const sp = role === 'cyclist' ? RS.bikeSpeed : RS.speed; Object.assign(w, { home: isl.id, node, wait: Math.random() * 2, route: null, s: 0, speed: sp[0] + Math.random() * (sp[1] - sp[0]) }); list.push(w); } } G.residents = list; return list; }
   function walk(w, dt, speed) { if (!w.route) return true; w.s += speed * dt; const done = w.s >= w.route.total; const smp = sampleRoute(w.route, Math.min(w.s, w.route.total)); w.pos.copy(smp.p); if (smp.dir.lengthSq() > 0) w.yaw = Math.atan2(smp.dir.x, smp.dir.z); w.moving = !done; if (done) { w.route = null; w.moving = false; } return done; }
   function routeTo(fromPos, toNode) { const a = graph.nearestNode(fromPos); const ids = graph.shortest(a, toNode); return makeRoute([fromPos.clone(), ...ids.map(n => graph.nodes[n].p.clone())]); }
   function updateResidents(dt) { for (const w of G.residents) { if (w.away) continue; if (w.cheer > 0) { w.cheer -= dt; w.pose = w.cheer > 0 ? 'wave' : null; w.moving = false; continue; }
-    if (w.route) walk(w, dt, RS.speed); else { w.wait -= dt; if (w.wait <= 0) { const ring = graph.ringIndex.get(w.home); const next = ring[(ring.indexOf(w.node) + (Math.random() < 0.5 ? 1 : 11)) % 12]; w.route = makeRoute([w.pos.clone(), graph.nodes[next].p.clone()]); w.s = 0; w.node = next; w.wait = 1 + Math.random() * 3; } } } }
+    if (w.route) walk(w, dt, w.speed); else { w.wait -= dt; if (w.wait <= 0) { const ring = graph.ringIndex.get(w.home); const next = ring[(ring.indexOf(w.node) + (Math.random() < 0.5 ? 1 : 11)) % 12]; w.route = makeRoute([w.pos.clone(), graph.nodes[next].p.clone()]); w.s = 0; w.node = next; w.wait = 1 + Math.random() * 3; } } } }
   // ── 市長 NPC：大廳時巡迴政策建築宣傳；開工時站在金蛋籃旁邊廣播（像打工的老闆）──
   let stops = [];
   function setStops(list) { stops = [...list].sort((a, b) => a.order - b.order || a.pos.x - b.pos.x); if (G.mayor && G.mayor.stop >= stops.length) G.mayor.stop = 0; }
@@ -110,11 +110,14 @@ export function createGame(ctx) {
   function moveLocal(P, dt) { const w = P.w; if (P.down || G.phase === 'result') { w.moving = false; P.goal = null; return; }
     if (P.dash) { const D = P.dash, step2 = (D.dist / D.time) * dt; nav.move(P.pos, D.dx * step2, D.dz * step2, PL.radius); w.yaw = Math.atan2(D.dx, D.dz); w.moving = true; if (G.role === 'client') { D.t -= dt; if (D.t <= 0) P.dash = null; } return; }
     let vx = P.move.x, vz = P.move.z;
-    if (!vx && !vz && P.goal) { const [gx, gz] = P.goal; if (Math.hypot(gx - P.pos.x, gz - P.pos.z) < 0.08) P.goal = null; else { P.wpT = (P.wpT || 0) - dt; if (P.wpT <= 0 || !P.wp) { P.wp = nav.waypoint(P.pos.x, P.pos.z, gx, gz, P.ringT > 0); P.wpT = 0.25; } const dx = P.wp[0] - P.pos.x, dz = P.wp[1] - P.pos.z, L = Math.hypot(dx, dz); if (L > 1e-4) { vx = dx / L; vz = dz / L; } else P.wpT = 0; } }
+    // 走向目的地：用格子導航圖找一條繞過建築的路（目的地換了、或每 1 秒重找一次），沿著路線點走
+    if (!vx && !vz && P.goal) { const [gx, gz] = P.goal; if (Math.hypot(gx - P.pos.x, gz - P.pos.z) < 0.08) { P.goal = null; P.path = null; } else { P.pathT = (P.pathT || 0) - dt;
+      if (!P.path || !P.path.length || !P.pathFor || Math.hypot(P.pathFor[0] - gx, P.pathFor[1] - gz) > 0.25 || P.pathT <= 0 || P.wpT === 0) { P.path = nav.gridPath(P.pos.x, P.pos.z, gx, gz) || [[gx, gz]]; P.pathFor = [gx, gz]; P.pathT = 1; P.wpT = 1; }
+      while (P.path.length > 1 && Math.hypot(P.path[0][0] - P.pos.x, P.path[0][1] - P.pos.z) < 0.14) P.path.shift();
+      const dx = P.path[0][0] - P.pos.x, dz = P.path[0][1] - P.pos.z, L = Math.hypot(dx, dz); if (L > 1e-4) { vx = dx / L; vz = dz / L; } } }
     if (vx || vz) { const L = Math.hypot(vx, vz), k = Math.min(1, L), sp = speedOf(P) * dt * k; nav.move(P.pos, vx / L * sp, vz / L * sp, PL.radius); w.yaw = Math.atan2(vx, vz); w.moving = true;
-      // 卡住（離目標一直沒有更近，常見於兩棟建築中間的凹處）：改沿步道一個節點一個節點繞
-      if (P.goal) { const [gx, gz] = P.goal, dg = Math.hypot(gx - P.pos.x, gz - P.pos.z); if (!P.gk || Math.hypot(P.gk[0] - gx, P.gk[1] - gz) > 0.3) { P.gk = [gx, gz]; P.bestD = Infinity; P.stuckT = 0; P.stuckN = 0; }
-        P.stuckT += dt; if (dg < P.bestD - 0.08) { P.bestD = dg; P.stuckT = 0; } if (P.stuckT > 0.7) { P.ringT = 1.6; P.wpT = 0; P.stuckT = 0; P.bestD = dg; P.stuckN++; } if (P.ringT > 0) P.ringT -= dt; } }
+      // 卡住（想走卻 0.7 秒幾乎沒移動）：馬上重找路
+      if (P.goal) { if (!P.sw) P.sw = { x: P.pos.x, z: P.pos.z, t: 0 }; P.sw.t += dt; if (P.sw.t > 0.7) { if (Math.hypot(P.pos.x - P.sw.x, P.pos.z - P.sw.z) < speedOf(P) * P.sw.t * 0.25) { P.pathT = 0; P.stuckN = (P.stuckN || 0) + 1; } else P.stuckN = 0; P.sw = { x: P.pos.x, z: P.pos.z, t: 0 }; } } }
     else { nav.push(P.pos, PL.radius); w.moving = false; } }
   // 房主這邊的房客：往收到的位置靠（倒下時位置由房主決定）
   function followNet(P, dt) { if (P.down || !P.net) { P.w.moving = false; return; } const [tx, tz] = P.net, dx = tx - P.pos.x, dz = tz - P.pos.z, L = Math.hypot(dx, dz);
@@ -142,7 +145,8 @@ export function createGame(ctx) {
   const face = (e, p) => { e.yaw = Math.atan2(p.x - e.x, p.z - e.z); };
   function stepToward(e, tx, tz, step, walkOnly) { const dx = tx - e.x, dz = tz - e.z, L = Math.hypot(dx, dz); if (L < 1e-3) { e.moving = false; return; } const k = Math.min(step, L) / L; if (walkOnly) nav.move(e, dx * k, dz * k, 0.1); else { e.x += dx * k; e.z += dz * k; } e.yaw = Math.atan2(dx, dz); e.moving = true; }
   function chaseTo(e, tx, tz, spd, dt) { if (e.A.fly) { stepToward(e, tx, tz, spd * dt, false); return; }
-    e.wpT -= dt; if (e.wpT <= 0 || !e.wp) { e.wp = nav.waypoint(e.x, e.z, tx, tz, e.ringT > 0); e.wpT = 0.35; } stepToward(e, e.wp[0], e.wp[1], spd * dt, true);
+    e.wpT -= dt; if (e.wpT <= 0 || !e.wp) { e.wpT = 0.35; if (e.ringT > 0) { const gp = nav.gridPath(e.x, e.z, tx, tz, 4000); e.wp = gp ? gp[0] : nav.waypoint(e.x, e.z, tx, tz, true); } else e.wp = nav.waypoint(e.x, e.z, tx, tz); } // 卡住時改用格子導航圖找路
+    if (Math.hypot(e.wp[0] - e.x, e.wp[1] - e.z) < 0.1) e.wpT = 0; stepToward(e, e.wp[0], e.wp[1], spd * dt, true);
     if (e.sAcc == null) { e.sAcc = 0; e.sx = e.x; e.sz = e.z; } e.sAcc += dt; if (e.sAcc > 0.6) { if (Math.hypot(e.x - e.sx, e.z - e.sz) < spd * e.sAcc * 0.25) { e.ringT = 1.5; e.wpT = 0; } e.sAcc = 0; e.sx = e.x; e.sz = e.z; } if (e.ringT > 0) e.ringT -= dt; }
   function wander(e, dt, spd) { if (!e.wander || Math.hypot(e.wander[0] - e.x, e.wander[1] - e.z) < 0.3 || (e.wanderT -= dt) <= 0) { const id = G.stage.islands[Math.floor(Math.random() * G.stage.islands.length)], c = centers.get(id), a = Math.random() * 6.28; e.wander = nav.nearestWalkable(c.x + Math.cos(a) * 1.5, c.z + Math.sin(a) * 1.5); e.wanderT = 6; } chaseTo(e, e.wander[0], e.wander[1], spd, dt); }
   function meleeStep(e, P, dt, reach) { if (e.state === 'windup') { e.t -= dt; e.moving = false; if (e.t <= 0) { e.state = 'go'; e.mcd = ML.cooldown; if (P && !P.down && dist(e, P.pos) <= reach + ML.reach) hurt(P, e.A.dmg); } return true; }
@@ -197,7 +201,7 @@ export function createGame(ctx) {
   function spitsStep(dt) { for (const s of G.spits) { s.x += s.vx * dt; s.z += s.vz * dt; s.t -= dt; for (const P of G.players) if (!P.down && Math.hypot(P.pos.x - s.x, P.pos.z - s.z) < 0.26) { hurt(P, s.dmg); s.t = 0; break; } } G.spits = G.spits.filter(s => s.t > 0); }
   function dangerAt(x, z) { for (const w of G.warns) { if (w.c && Math.hypot(x - w.x, z - w.z) < w.r + 0.25) return w; if (!w.c && segDist(x, z, w.x, w.z, w.x2, w.z2) < w.w / 2 + 0.3) return w; } return null; }
   // ── 打工仔受傷、倒下、救起 ──
-  function hurt(P, dmg) { if (P.down || P.inv > 0 || P.dash || G.phase !== 'wave') return; P.hp -= dmg; P.hitT = 0; P.inv = PL.invAfterHit; ev(['hurt', P.slot, Math.round(dmg)]); if (P.hp <= 0) knockDown(P); }
+  function hurt(P, dmg) { if (P.down || P.inv > 0 || P.dash || G.phase !== 'wave') return; dmg *= SH.dmgK0 + SH.dmgK1 * G.hazard; P.hp -= dmg; P.hitT = 0; P.inv = PL.invAfterHit; ev(['hurt', P.slot, Math.round(dmg)]); if (P.hp <= 0) knockDown(P); }
   function knockDown(P) { P.hp = 0; P.down = true; P.downs++; P.revive = 0; P.goal = null; P.dash = null; P.spT = 0; if (P.carry) { P.carry = false; dropEgg(P.pos.x, P.pos.z, 0.1); } ev(['down', P.slot]); if (G.players.every(q => q.down)) finish(false, 'wipe'); }
   function revives(dt) { for (const P of G.players) { if (!P.down) continue; let mate = null; for (const Q of G.players) if (Q !== P && !Q.down && Math.hypot(Q.pos.x - P.pos.x, Q.pos.z - P.pos.z) <= PL.reviveR) { mate = Q; break; }
     if (mate) { P.revive += dt * (mate.cfg.reviveMul || 1); if (P.revive >= PL.reviveTime) revive(P, mate); } else P.revive = Math.max(0, P.revive - dt * PL.reviveDecay); } }
@@ -239,7 +243,8 @@ export function createGame(ctx) {
     return true; }
   function dashes(dt) { for (const P of G.players) { const D = P.dash; if (!D) continue; for (const e of G.enemies) if (!e.dead && !D.hit.has(e.id) && dist(e, P.pos) < P.cfg.special.w) { D.hit.add(e.id); damage(e, P.cfg.special.dmg, P); } D.t -= dt; if (D.t <= 0) P.dash = null; } }
   // ── NPC 同事：躲招 > 救人 > 搬蛋 > 撿蛋 > 打魔王 > 回籃子附近 ──
-  function npcThink(P, dt) { P.think -= dt; if (P.think > 0 || P.down) return; P.think = NP.think * (0.8 + Math.random() * 0.4); P.focus = 0; P.goal = null;
+  function npcThink(P, dt) { P.think -= dt; if (P.think > 0 || P.down) return; P.think = NP.think * (0.8 + Math.random() * 0.4); const g0 = P.goal; npcDecide(P); if (P.goal && (!g0 || Math.hypot(P.goal[0] - g0[0], P.goal[1] - g0[1]) > 0.25)) P.wpT = 0; } // 目標換了就馬上重算路線
+  function npcDecide(P) { P.focus = 0; P.goal = null;
     const dz = dangerAt(P.pos.x, P.pos.z); if (dz) { let ax, az; if (dz.c) { ax = P.pos.x - dz.x; az = P.pos.z - dz.z; const L = Math.hypot(ax, az) || 1; P.goal = nav.nearestWalkable(dz.x + ax / L * (dz.r + 0.5), dz.z + az / L * (dz.r + 0.5)); } else { const lx = dz.x2 - dz.x, lz = dz.z2 - dz.z, L = Math.hypot(lx, lz) || 1, side = ((P.pos.x - dz.x) * -lz + (P.pos.z - dz.z) * lx) >= 0 ? 1 : -1; P.goal = nav.nearestWalkable(P.pos.x - lz / L * side * (dz.w + 0.6), P.pos.z + lx / L * side * (dz.w + 0.6)); } return; }
     const near = (x, z) => Math.hypot(P.pos.x - x, P.pos.z - z);
     { let cx = 0, cz = 0, n = 0, close = false; for (const e of G.enemies) { if (e.dead || e.A.boss || e.state === 'land') continue; const d = dist(e, P.pos); if (d < 1.2) { cx += e.x; cz += e.z; n++; if (d < NP.kiteR) close = true; } }
@@ -254,7 +259,8 @@ export function createGame(ctx) {
     if (P.eggT && P.stuckN >= 3) { P.badEgg = { id: P.eggT, until: G.clock + 6 }; P.stuckN = 0; } // 同一顆蛋卡了三次就先放著，6 秒後再試
     P.eggT = egg ? egg.id : 0; if (egg) { P.goal = [egg.x, egg.z]; return; }
     let boss = null, bb = Infinity; for (const e of G.enemies) { if (e.dead || !(e.A.boss || e.A.gold) || e.state === 'land') continue; const d = dist(e, P.pos); if (d > NP.bossRange) continue; const s = d + Math.hypot(e.x - G.basket.x, e.z - G.basket.z) * 0.4; if (s < bb) { bb = s; boss = e; } }
-    if (boss) { P.focus = boss.id; const d = dist(boss, P.pos), want = P.cfg.range * 0.75; if (Math.abs(d - want) > 0.3) { const k = (d - want) / (d || 1); P.goal = nav.nearestWalkable(P.pos.x + (boss.x - P.pos.x) * k, P.pos.z + (boss.z - P.pos.z) * k); } else P.goal = null; return; }
+    if (boss) { P.focus = boss.id; const d = dist(boss, P.pos), want = P.cfg.range * 0.75, a = Math.atan2(P.pos.x - boss.x, P.pos.z - boss.z) + (P.slot - 1.5) * 0.35, sx = boss.x + Math.sin(a) * want, sz = boss.z + Math.cos(a) * want; // 依編號往左右散開，不要擠成一團
+      if (Math.abs(d - want) > 0.3 || Math.hypot(sx - P.pos.x, sz - P.pos.z) > 0.4) P.goal = nav.nearestWalkable(sx, sz); else P.goal = null; return; }
     if (near(G.basket.x, G.basket.z) > NP.home) { const a = Math.random() * 6.28; P.goal = nav.nearestWalkable(G.basket.x + Math.cos(a) * NP.home * 0.6, G.basket.z + Math.sin(a) * NP.home * 0.6); } }
   // ── 頭上台詞：同時最多 chant.max 句；剛登陸的先講（魔王優先）；牌堆洗牌輪流抽；鸚鵡會複製上一句加 +1 ──
   const decks = new Map(); let lastLine = '';
@@ -306,8 +312,8 @@ export function createGame(ctx) {
   // ═══════════════ 自己的輸入 ═══════════════
   const meP = () => G.players[G.me];
   function setMove(x, z) { const P = meP(); if (!P) return; P.move.x = x; P.move.z = z; if (x || z) P.goal = null; }
-  function moveTo(x, z) { const P = meP(); if (!P || P.down) return; const [px, pz] = nav.walkable(x, z) ? [x, z] : nav.nearestWalkable(x, z); P.goal = [px, pz]; P.wp = null; }
-  function focus(e) { const P = meP(); if (!P || !e) return; P.focus = e.id; }
+  function moveTo(x, z) { const P = meP(); if (!P || P.down) return; const [px, pz] = nav.nearestWalkable(x, z, PL.radius); P.goal = [px, pz]; P.path = null; ring(px, pz, 0.28, 0xdb6a41, 2.2); if (goalMark) goalMark.userData.t = 0; } // 點地板：落點冒一圈波紋，目的地插一支標記，走到就收起來
+  function focus(e) { const P = meP(); if (!P || !e) return; P.focus = e.id; ring(e.x, e.z, 0.35, 0xdb6a41, 3); }
   // 回傳要送給房主的指令（房客）；solo／房主直接執行
   function useSpecial(dx = 0, dz = 0) { const P = meP(); if (!P || P.down || P.sp <= 0 || G.phase !== 'wave') return null; if (!dx && !dz) { dx = Math.sin(P.w.yaw); dz = Math.cos(P.w.yaw); }
     if (G.role !== 'client') { useSpecialHost(P, dx, dz); return null; } const S = P.cfg.special; if (S.id === 'dash') { const L = Math.hypot(dx, dz) || 1; P.dash = { dx: dx / L, dz: dz / L, t: S.time, dist: S.dist, time: S.time }; } P.sp--; return { t: 'i', k: 'sp', dx: r2(dx) / 100, dz: r2(dz) / 100 }; }
@@ -349,7 +355,7 @@ export function createGame(ctx) {
   // ═══════════════ 畫面 ═══════════════
   const eggGeo = new THREE.SphereGeometry(0.5, 14, 10), eggMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.45, roughness: 0.28, emissive: 0x8a6400, emissiveIntensity: 0.35 });
   const mkEgg = () => { const m = new THREE.Mesh(eggGeo, eggMat); m.scale.set(0.12, 0.155, 0.12); m.castShadow = true; scene.add(m); return m; };
-  let basketObj = null, spawnFx = [], focusRing = null, rushRing = null;
+  let basketObj = null, spawnFx = [], focusRing = null, rushRing = null, goalMark = null;
   function buildBasket() { removeBasket(); const g = new THREE.Group(); const wick = new THREE.MeshStandardMaterial({ color: 0xc9a27c, roughness: 0.85 }), dark = new THREE.MeshStandardMaterial({ color: 0x9a7454, roughness: 0.9 });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.26, 0.3, 16, 1, true), wick); base.position.y = 0.15; base.material.side = THREE.DoubleSide; g.add(base);
     const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 16), dark); bottom.position.y = 0.02; g.add(bottom);
@@ -362,15 +368,24 @@ export function createGame(ctx) {
     g.position.set(G.basket.x, TOP, G.basket.z); scene.add(g); basketObj = g;
     for (const s of G.spawns) { const m = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.45, 32), new THREE.MeshBasicMaterial({ color: 0xdb6a41, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(s.wx, TOP - 0.8, s.wz); scene.add(m); spawnFx.push(m); }
     focusRing = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.34, 32), new THREE.MeshBasicMaterial({ color: 0xdb6a41, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide })); focusRing.rotation.x = -Math.PI / 2; focusRing.visible = false; focusRing.renderOrder = 3; scene.add(focusRing);
-    rushRing = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.42, 32), new THREE.MeshBasicMaterial({ color: 0x4ad6c8, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide })); rushRing.rotation.x = -Math.PI / 2; rushRing.visible = false; scene.add(rushRing); }
-  function removeBasket() { if (basketObj) scene.remove(basketObj); basketObj = null; for (const m of spawnFx) scene.remove(m); spawnFx = []; if (focusRing) scene.remove(focusRing); if (rushRing) scene.remove(rushRing); focusRing = rushRing = null; }
+    rushRing = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.42, 32), new THREE.MeshBasicMaterial({ color: 0x4ad6c8, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide })); rushRing.rotation.x = -Math.PI / 2; rushRing.visible = false; scene.add(rushRing);
+    // 走路目的地標記：地上一圈＋一支往下指的珊瑚色標記（不被建築擋住）
+    goalMark = new THREE.Group(); const gm = new THREE.MeshBasicMaterial({ color: 0xdb6a41, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false, side: THREE.DoubleSide }); const gr = new THREE.Mesh(new THREE.RingGeometry(0.13, 0.18, 32), gm); gr.rotation.x = -Math.PI / 2; gr.position.y = 0.03; const pin = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), new THREE.MeshBasicMaterial({ color: 0xdb6a41, depthTest: false, transparent: true })); pin.rotation.x = Math.PI; pin.position.y = 0.3; const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), pin.material); knob.position.y = 0.4;
+    goalMark.add(gr, pin, knob); for (const m of [gr, pin, knob]) m.renderOrder = 11; goalMark.userData = { ring: gr, pin, knob, t: 0 }; goalMark.visible = false; scene.add(goalMark); }
+  function removeBasket() { if (basketObj) scene.remove(basketObj); basketObj = null; for (const m of spawnFx) scene.remove(m); spawnFx = []; for (const o of [focusRing, rushRing, goalMark]) if (o) scene.remove(o); focusRing = rushRing = goalMark = null; }
   function makeEnemyMesh(e) { e.obj = animals.spawn(e.type); e.obj.userData.hit.userData.enemy = e; enemyHits.push(e.obj.userData.hit); e.obj.position.set(e.x, Y, e.z); }
   function dropEnemyMesh(e) { if (!e.obj) return; animals.remove(e.obj); const i = enemyHits.indexOf(e.obj.userData.hit); if (i >= 0) enemyHits.splice(i, 1); e.obj = null; }
   function ring(x, z, r, color, grow) { const m = new THREE.Mesh(new THREE.RingGeometry(r * 0.8, r, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, TOP + 0.06, z); scene.add(m); G.fx.push({ obj: m, ttl: 1.0, grow }); }
   function puff(x, z, color, r) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false })); m.position.set(x, Y + 0.2, z); m.scale.setScalar(Math.max(0.15, r)); scene.add(m); G.fx.push({ obj: m, ttl: 0.45, grow: 2.5, fade: 1.6 }); }
-  function beam(a, b, color, ttl = 0.22, width) { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.95 })); scene.add(l); G.fx.push({ obj: l, ttl, fade: 4 }); }
-  const projGeo = new THREE.SphereGeometry(0.05, 8, 8), busGeo = new THREE.BoxGeometry(0.16, 0.08, 0.08);
-  function proj(P, e) { const T = P.cfg; const m = new THREE.Mesh(T.style === 'bus' ? busGeo : projGeo, new THREE.MeshBasicMaterial({ color: T.style === 'water' ? 0x66c6ff : T.style === 'ball' ? 0xffffff : T.color })); const from = new V3(P.pos.x, Y + 0.45, P.pos.z); m.position.copy(from); scene.add(m); G.fx.push({ obj: m, ttl: 0.6, proj: { from, e, x: e.x, z: e.z, t: 0, dur: Math.max(0.06, from.distanceTo(new V3(e.x, Y + 0.3, e.z)) / SH.projSpeed) } }); }
+  // 子彈與打擊效果：發光的子彈（外圈加一層加法混合的光暈）、粗的電擊光束、打中時冒火花
+  const fxMats = new Map(); const fxMat = (color, glow) => { const k = color + (glow ? 'g' : ''); if (!fxMats.has(k)) { const m = new THREE.MeshBasicMaterial(glow ? { color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false } : { color }); m.userData.keep = true; fxMats.set(k, m); } return fxMats.get(k); };
+  const beamGeo = new THREE.BoxGeometry(1, 1, 1);
+  function beam(a, b, color, ttl = 0.26) { const L = a.distanceTo(b), g = new THREE.Group(); const core = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xfffbe8, transparent: true, opacity: 1 })); core.scale.set(0.035, 0.035, L); const glow = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.set(0.11, 0.11, L); g.add(core, glow);
+    g.position.copy(a).lerp(b, 0.5); g.lookAt(b); scene.add(g); G.fx.push({ obj: g, ttl, beam: [core.material, glow.material], total: ttl }); spark(b.x, b.z, color, b.y); }
+  const projGeo = new THREE.SphereGeometry(0.085, 10, 8), haloGeo = new THREE.SphereGeometry(0.17, 10, 8), busGeo = new THREE.BoxGeometry(0.24, 0.12, 0.12);
+  function proj(P, e) { const T = P.cfg, col = T.style === 'water' ? 0x66c6ff : T.style === 'ball' ? 0xfff3c4 : T.color; const m = new THREE.Mesh(T.style === 'bus' ? busGeo : projGeo, fxMat(col)); m.add(new THREE.Mesh(haloGeo, fxMat(T.style === 'water' ? 0x66c6ff : T.color, true))); const from = new V3(P.pos.x, Y + 0.45, P.pos.z); m.position.copy(from); scene.add(m); G.fx.push({ obj: m, ttl: 0.6, proj: { from, e, x: e.x, z: e.z, t: 0, col: T.style === 'water' ? 0x66c6ff : T.color, dur: Math.max(0.06, from.distanceTo(new V3(e.x, Y + 0.3, e.z)) / SH.projSpeed) } }); }
+  const sparkGeo = new THREE.SphereGeometry(0.5, 8, 6); for (const g of [beamGeo, projGeo, haloGeo, busGeo, sparkGeo]) g.userData.keep = true;
+  function spark(x, z, color, y = Y + 0.3) { const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); m.position.set(x, y, z); m.scale.setScalar(0.12); scene.add(m); G.fx.push({ obj: m, ttl: 0.22, grow: 2.2, fade: 4 }); }
   function warnFx(circle, x, z, r, x2, z2, w, ttl) { const mat = new THREE.MeshBasicMaterial({ color: 0xd9412b, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }), edge = new THREE.MeshBasicMaterial({ color: 0xd9412b, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }); const g = new THREE.Group(); let fill;
     if (circle) { const a = new THREE.Mesh(new THREE.CircleGeometry(r, 40), mat); fill = new THREE.Mesh(new THREE.CircleGeometry(r, 40), mat.clone()); fill.material.opacity = 0.35; const e = new THREE.Mesh(new THREE.RingGeometry(r - 0.04, r, 40), edge); for (const m of [a, fill, e]) { m.rotation.x = -Math.PI / 2; g.add(m); } g.position.set(x, TOP + 0.05, z); fill.scale.setScalar(0.01); }
     else { const L = Math.hypot(x2 - x, z2 - z), yaw = Math.atan2(x2 - x, z2 - z); const geo = new THREE.PlaneGeometry(w, L); geo.translate(0, L / 2, 0); geo.rotateX(-Math.PI / 2); geo.scale(1, 1, -1); const a = new THREE.Mesh(geo, mat); fill = new THREE.Mesh(geo, mat.clone()); fill.material.opacity = 0.35; g.add(a, fill); const b1 = new THREE.Mesh(new THREE.PlaneGeometry(0.03, L).translate(0, L / 2, 0).rotateX(-Math.PI / 2).scale(1, 1, -1), edge); b1.position.x = w / 2; const b2 = b1.clone(); b2.position.x = -w / 2; g.add(b1, b2); g.position.set(x, TOP + 0.05, z); g.rotation.y = yaw; fill.scale.set(1, 1, 0.01); }
@@ -384,7 +399,7 @@ export function createGame(ctx) {
     for (const e of G.enemies) { if (e.dead) continue; if (!e.obj) makeEnemyMesh(e); const A = e.A;
       if (client && num(e.tx)) { const dx = e.tx - e.x, dz = e.tz - e.z; if (Math.hypot(dx, dz) > 3) { e.x = e.tx; e.z = e.tz; } else { e.x += dx * k; e.z += dz * k; } e.moving = Math.hypot(dx, dz) > 0.02; let dy = e.tyaw - e.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); e.yaw += dy * k; if (e.flags & 4) { e.airT += raw; e.air = Math.sin(Math.min(1, e.airT / (A.air || 0.5)) * Math.PI); } else e.air = 0; }
       const fl = client ? e.flags : eflags(e); e.wing += raw * (A.model === 'mouse' ? 22 : 12); if (A.hop && (e.moving || fl & 4)) e.hopT += raw * A.speed * 1.6;
-      e.obj.position.set(e.x, Y + (e.air || 0) * 0.9 - (fl & 64 ? 0.12 : 0), e.z); e.obj.rotation.y = e.yaw - Math.PI / 2; e.obj.scale.setScalar(zoom * (fl & 2 ? 1 + Math.sin(time * 24) * 0.05 : 1) * (fl & 32 ? 1.06 : 1));
+      e.obj.position.set(e.x, Y + (e.air || 0) * 0.9 - (fl & 64 ? 0.12 : 0), e.z); e.obj.rotation.y = e.yaw - Math.PI / 2; e.obj.scale.setScalar(zoom * (fl & 2 ? 1 + Math.sin(time * 24) * 0.05 : 1) * (fl & 32 ? 1.14 : 1)); // 被打到時抖大一下
       animals.animate(e.obj, e, raw, time); animals.setHp(e.obj, client ? (e.hpf ?? 1) : Math.max(0, e.hp / e.maxHp));
       animals.setState(e.obj, { stun: fl & 1, bomb: fl & 8, stealth: A.stealth ? 0.25 + 0.75 * Math.abs(Math.sin(time * 1.3 + e.seed * 6)) : null, aim: fl & 2 }, time); }
     for (const g of G.eggs) { if (!g.obj) g.obj = mkEgg(); if (client && num(g.tx)) { const dx = g.tx - g.x, dz = g.tz - g.z; if (Math.hypot(dx, dz) > 3) { g.x = g.tx; g.z = g.tz; } else { g.x += dx * k; g.z += dz * k; } g.y = lerp(g.y, g.ty, k); }
@@ -401,15 +416,17 @@ export function createGame(ctx) {
       if (P.flash > 0) P.flash -= raw;
       const sig = `${Math.round(P.hp / 5)}|${P.down ? 1 : 0}|${P.carry ? 1 : 0}|${Math.round(P.revive * 10)}|${P.flash > 0 ? 1 : 0}`; if (sig !== P.tagSig) { P.tagSig = sig; emit('tagState', w, { hp: P.hp / PL.hp, down: P.down, carry: P.carry, revive: P.revive / PL.reviveTime, hit: P.flash > 0 }); } }
     const fe = me && me.focus && enemyById.get(me.focus); if (focusRing) { focusRing.visible = !!(fe && fe.obj && !fe.dead); if (focusRing.visible) { focusRing.position.set(fe.x, TOP + 0.05, fe.z); focusRing.scale.setScalar((0.9 + fe.A.size * 0.6) * (1 + Math.sin(time * 6) * 0.06)); } }
+    if (goalMark) { const on = !!(me && me.goal && !me.down); goalMark.visible = on; if (on) { const u = goalMark.userData; u.t += raw; goalMark.position.set(me.goal[0], TOP, me.goal[1]); u.knob.position.y = 0.42 + Math.abs(Math.sin(time * 4)) * 0.08; u.pin.position.y = u.knob.position.y - 0.1; u.ring.scale.setScalar(1 + Math.sin(time * 5) * 0.12); goalMark.scale.setScalar(Math.min(1, 0.4 + u.t * 4) * zoom); } }
     const rt = G.special === 'rush' && Pn(G.rushTarget); if (rushRing) { rushRing.visible = !!rt; if (rt) { rushRing.position.set(rt.pos.x, TOP + 0.05, rt.pos.z); rushRing.scale.setScalar(1 + Math.sin(time * 8) * 0.15); } }
     updateFx(raw); }
   function updateFx(raw) { for (const f of G.fx) { f.ttl -= raw;
-      if (f.proj) { const p = f.proj; p.t += raw; const e = p.e, tx = e && !e.dead ? e.x : p.x, tz = e && !e.dead ? e.z : p.z; p.x = tx; p.z = tz; const kk = Math.min(1, p.t / p.dur); f.obj.position.lerpVectors(p.from, new V3(tx, Y + 0.3, tz), kk); if (kk >= 1) f.ttl = 0; }
+      if (f.proj) { const p = f.proj; p.t += raw; const e = p.e, tx = e && !e.dead ? e.x : p.x, tz = e && !e.dead ? e.z : p.z; p.x = tx; p.z = tz; const kk = Math.min(1, p.t / p.dur); f.obj.position.lerpVectors(p.from, new V3(tx, Y + 0.3, tz), kk); if (kk >= 1) { f.ttl = 0; spark(tx, tz, p.col); } }
+      else if (f.beam) { const k = Math.max(0, f.ttl / f.total); f.beam[0].opacity = k; f.beam[1].opacity = 0.6 * k; }
       else if (f.lob) { const L = f.lob; L.t += raw; const kk = Math.min(1, L.t / L.dur); f.obj.position.set(lerp(L.x, L.x2, kk), Y + 0.8 + Math.sin(kk * Math.PI) * 1.2 - kk * 0.7, lerp(L.z, L.z2, kk)); f.obj.rotation.z += raw * 8; if (kk >= 1) f.obj.visible = false; }
       else if (f.vel) { f.obj.position.x += f.vel[0] * raw; f.obj.position.z += f.vel[1] * raw; }
       else if (f.warn) { const W = f.warn, kk = 1 - Math.max(0, f.ttl) / W.total; if (W.circle) W.fill.scale.setScalar(Math.max(0.01, kk)); else W.fill.scale.set(1, 1, Math.max(0.01, kk)); }
       else { if (f.rise) f.obj.position.y += raw * f.rise; if (f.grow) f.obj.scale.addScalar(f.grow * raw); if (f.obj.material) f.obj.material.opacity = Math.max(0, Math.min(1, f.ttl * (f.fade || 1))); }
-      if (f.ttl <= 0) scene.remove(f.obj); }
+      if (f.ttl <= 0) { scene.remove(f.obj); f.obj.traverse(o => { if (o.geometry && !o.isSprite && !o.geometry.userData.keep) o.geometry.dispose(); if (o.material && !o.material.userData.keep) o.material.dispose(); }); } } // 用完的特效釋放 GPU 資源（共用的幾何與材質留著）
     G.fx = G.fx.filter(f => f.ttl > 0); }
   const onPick = hit => { if (G.phase === 'lobby' || G.phase === 'result') return false; if (hit.enemy && !hit.enemy.dead) { focus(hit.enemy); return true; } if (hit.point) { moveTo(hit.point.x, hit.point.z); return true; } return false; };
   return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startShift, backToLobby, abort, toNpc, fromNpc, step, view, makeSnapshot, applySnapshot, applyResult, remoteInput, myInput,

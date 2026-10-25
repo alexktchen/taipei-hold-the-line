@@ -14,13 +14,14 @@ export const CONFIG = {
   shift: {
     waves: 3, waveSeconds: 100, introSeconds: 4, interSeconds: 7, resultLinger: 1.2,
     // 配額 = qBase[第幾波] + qHazard[第幾波] × 危險度（危險度 0.3～2.0）
-    qBase: [9, 11, 13], qHazard: [7, 8, 9],
+    qBase: [10, 12, 14], qHazard: [8, 9, 10],
     // 魔王：每 bossEvery ÷ (bossK0 + bossK1 × 危險度) 秒來一隻，同時最多 bossMax0 + bossMax1 × 危險度 隻
     bossEvery: 9, bossK0: 0.7, bossK1: 0.35, bossMax0: 4, bossMax1: 2, bossFirst: 4,
     // 雜魚：每 lesserEvery ÷ (lesserK0 + lesserK1 × 危險度) 秒來一群，一群 groupBase + groupHazard × 危險度 隻，同時最多 lesserMax0 + lesserMax1 × 危險度 隻
     lesserEvery: 11, lesserK0: 0.8, lesserK1: 0.3, groupBase: 3, groupHazard: 2, groupGap: 0.3, lesserMax0: 14, lesserMax1: 6, lesserFirst: 1.5,
     enemyCap: 34,              // 場上敵人總數上限（手機效能）
     hpK0: 0.75, hpK1: 0.25,    // 敵人血量倍率 = hpK0 + hpK1 × 危險度
+    dmgK0: 0.65, dmgK1: 0.35,  // 敵人傷害倍率 = dmgK0 + dmgK1 × 危險度（見習生被打比較輕）
     unitsPerSec: 1,            // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
     landSeconds: 1.2,          // 從水裡游上岸的時間
     separation: 0.28,          // 敵人彼此推開的距離
@@ -37,7 +38,7 @@ export const CONFIG = {
     player: { hp: 100, radius: 0.14, regenDelay: 2.5, regen: 40, reviveR: 0.55, reviveTime: 0.9, reviveDecay: 1.5, invAfterRevive: 2, invAfterHit: 0.35 },
     specials: 2,               // 一班可以放幾次特殊技
     projSpeed: 10, focusR: 0.9, threatR: 0.9,
-    cameraDist: 9.5, cameraDistNarrow: 11.5, cameraPolar: 38, // 開工時鏡頭跟著自己：距離與俯角（離垂直幾度，越小越像俯視，比較不會被建築擋住）
+    cameraDist: 10, cameraDistNarrow: 12, cameraPolar: 30, // 開工時鏡頭跟著自己：距離與俯角（離垂直幾度，越小越像俯視，比較不會被建築擋住）
   },
   // 每 rotateHours 小時換一個打工場（大家同時間看到同一個場）
   rotateHours: 2,
@@ -66,7 +67,7 @@ export const CONFIG = {
       boss: '{name}來了！打倒會掉金蛋！', quota: '達標！多搬的算加班費！', hurry: '還差 {k} 顆，衝啊！', clearWave: '這波收工！喘口氣！', fail: '全倒了⋯這班先收工', timeup: '時間到，配額還差 {k} 顆⋯', clear: '三波全過！今天辛苦了！',
     } },
   // 居民：平常在步道上散步；開工時打工場上的居民會先離開
-  residents: { perIsland: 7, speed: 0.6, roles: ['citizen','elder','child','parent','officeworker','youth','cyclist','worker','hiker'] },
+  residents: { perIsland: 7, speed: [0.32, 0.40], bikeSpeed: [0.62, 0.70], roles: ['citizen','elder','child','parent','officeworker','youth','cyclist','worker','hiker','servant','researcher','farmer','traveler'] }, // 走路速度 0.32～0.40、腳踏車 0.62～0.70
   // 打工仔職業（id 不要改：Supabase heroes.cls 有檢查）。武器自動瞄準射程內的敵人；點敵人＝鎖定它
   // special：一班 2 次的特殊技
   heroes: {

@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG as C } from './config.js';
 import { createEnvironment } from './env.js';
 import { buildIslands, buildGraph, slotLayout, TOP, INNER, R, RING_R, hexVertex, dirOf } from './islands.js';
-import { createKit, createModels } from './buildings.js';
+import { createKit, createModels, GLOW, CUT } from './buildings.js';
 import { createPeople } from './people.js';
 import { createAnimals } from './animals.js';
 import { createGame } from './game.js';
@@ -34,8 +34,8 @@ const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'topiary', b
 const TRIM = { granite: 'bollard', lawn: 'hedge', gravel: 'hoarding', street: 'bollard', schoolyard: 'railing', forest: 'logs', softpad: 'picket', terracotta: 'wall', garden: 'hedge', meadow: 'railing', boardwalk: 'rope', rubber: 'picket', courtyard: 'wall' };
 for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
   const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
-  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.5]);
-  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { model(['shop', 'house', 'house2'][i % 3], c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.5]); });
+  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42]);
+  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { model(['shop', 'house', 'house2'][i % 3], c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.38]); });
   // 島緣：沒有橋的邊放圍欄／樹籬／矮牆
   const nb = neighbors.get(isl.id); const bridgeDirs = nb.filter(n => n.id).map(n => dirOf(n.dq, n.dr)); for (const L of links) if (L.a === isl.id || L.b === isl.id) { const mine = L.a === isl.id ? L.pa : L.pb; const v = mine.clone().sub(c).setY(0).normalize(); bridgeDirs.push([v.x, v.z]); } const trim = TRIM[isl.ground];
   for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.3, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.3, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
@@ -81,7 +81,7 @@ const pkit = createKit(TOP); const pmodel = createModels(pkit, colors); let poli
 const hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h; };
 function placePolicies(list) { pkit.dispose(scene); policyById = new Map(); policyIsland = new Map(); policyStops = []; const dyn = []; const used = new Map(C.islands.map(i => [i.id, 0])); const ids = C.islands.map(i => i.id);
   const pick = (pol) => { let idx = pol.district && ids.includes(pol.district) ? ids.indexOf(pol.district) : hash(pol.id) % ids.length; for (let k = 0; k < ids.length; k++) { const id = ids[(idx + k) % ids.length]; if (used.get(id) < POLICY_SLOTS) return id; } return ids[idx]; };
-  for (const pol of list) { const islId = pick(pol); const n = used.get(islId); used.set(islId, n + 1); const c = centers.get(islId), lay = LAYOUT.get(islId); const [sx, sz] = lay.slots[Math.min(n, POLICY_SLOTS - 1)]; pkit.owner = pol.id; pmodel(pol.model || 'kiosk', c.x + sx, c.z + sz, lay.size * 1.08, hash(pol.id) % 7); dyn.push([c.x + sx, c.z + sz, lay.size * 0.52]); policyById.set(pol.id, pol); policyIsland.set(pol.id, islId); policyStops.push({ pol, island: islId, order: C.islands.find(i => i.id === islId).number, pos: new THREE.Vector3(c.x + sx, TOP, c.z + sz) }); }
+  for (const pol of list) { const islId = pick(pol); const n = used.get(islId); used.set(islId, n + 1); const c = centers.get(islId), lay = LAYOUT.get(islId); const [sx, sz] = lay.slots[Math.min(n, POLICY_SLOTS - 1)]; pkit.owner = pol.id; pmodel(pol.model || 'kiosk', c.x + sx, c.z + sz, lay.size * 1.08, hash(pol.id) % 7); dyn.push([c.x + sx, c.z + sz, lay.size * 0.4]); policyById.set(pol.id, pol); policyIsland.set(pol.id, islId); policyStops.push({ pol, island: islId, order: C.islands.find(i => i.id === islId).number, pos: new THREE.Vector3(c.x + sx, TOP, c.z + sz) }); }
   pkit.owner = null; policyMeshes = pkit.build(scene); nav.setObstacles(null, dyn); if (gameRef) gameRef.setStops(policyStops); if (labelsReady) refreshPolicyLabels(); }
 placePolicies(C.policies);
 const people = createPeople(scene, colors, C.heroes); const animals = createAnimals(scene, C.animals, { chantSize: C.chant.size });
@@ -165,12 +165,15 @@ const ui = createUI({ game, callbacks, overview: () => { stopFollow(); overview(
 let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = scene.fog.near, fogFar = scene.fog.far; const G = game.G; const FOG0 = [scene.fog.near, scene.fog.far];
 function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
   applyInput(); if (!G.paused) { const sub = Math.ceil(raw / 0.025); for (let i = 0; i < sub; i++) game.step(raw / sub); }
-  const zoomK = Math.min(1.7, Math.max(1, camera.position.distanceTo(controls.target) / 15)); lastZoom = zoomK; game.view(raw, t, zoomK); people.update(raw, t, zoomK); env.update(raw);
+  const zoomK = Math.min(1.7, Math.max(1, camera.position.distanceTo(controls.target) / 15)); lastZoom = zoomK; game.view(raw, t, zoomK); people.update(raw, t, zoomK); env.update(raw); GLOW.emissiveIntensity = env.night * 3.2; // 晚上窗戶與燈亮起來
   const shift = G.phase !== 'lobby', wantMin = !shift ? 720 : G.special === 'rush' ? C.shift.rush.time : C.shift.dayTimes[Math.max(0, Math.min(2, G.waveNo - 1))]; dayMin += (wantMin - dayMin) * Math.min(1, raw * 1.2); env.setTime(dayMin);
   const fog = shift && G.special === 'fog'; fogNear += ((fog ? C.shift.fog.near : FOG0[0]) - fogNear) * Math.min(1, raw * 1.5); fogFar += ((fog ? C.shift.fog.far : FOG0[1]) - fogFar) * Math.min(1, raw * 1.5); scene.fog.near = fogNear; scene.fog.far = fogFar;
   if (fly) { fly.t = Math.min(1, fly.t + raw * 1.2); const k = fly.t * fly.t * (3 - 2 * fly.t); camera.position.lerpVectors(fly.from, fly.to, k); if (fly.t >= 1) fly = null; }
-  updateFollow(raw); controls.update(); renderer.render(scene, camera); updateLabels();
+  updateFollow(raw); controls.update();
+  { const me = G.phase !== 'lobby' && FOLLOW.kind === 'hero' ? game.me() : null; CUT.uCutOn.value = me ? 1 : 0; if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.25, me.pos.z); CUT.uCutY.value = TOP + 0.22; } } // 擋住自己的建築變半透明
+  renderer.render(scene, camera); updateLabels();
   acc += raw; if (acc > 0.2) { acc = 0; ui.tick(); }
   requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
+{ const ld = document.getElementById('loading'); if (ld) requestAnimationFrame(() => requestAnimationFrame(() => { ld.classList.add('done'); setTimeout(() => ld.remove(), 450); })); } // 第一幀畫完再收掉載入畫面
 window.PI = { game, nav, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)) }; // 除錯用

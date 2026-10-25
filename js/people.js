@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mulberry } from './env.js';
-export const ROLE_LABEL = { mayor: '市長', citizen: '市民', elder: '長者', child: '學童', parent: '家長', cyclist: '通勤族', officeworker: '上班族', youth: '年輕人', worker: '工地人員', hiker: '登山客', hero: '英雄' };
+export const ROLE_LABEL = { mayor: '市長', citizen: '市民', elder: '長者', child: '學童', parent: '家長', cyclist: '通勤族', officeworker: '上班族', youth: '年輕人', servant: '公務員', researcher: '研究員', farmer: '農夫', traveler: '旅客', worker: '工地人員', hiker: '登山客', hero: '英雄' };
 const SKIN = [0xf3cfae, 0xe6b48f, 0xcf9670, 0xf0c4a0], HAIR = [0x2e2522, 0x4a3426, 0x1f1d22, 0x6b4a33], CASUAL = [0x6f7fb5, 0x58a6a6, 0xe8c547, 0xf2a1a1, 0x8fb37a, 0xb58fd0];
 export function createPeople(scene, colors, heroCfgs) {
   const G = { leg: new RoundedBoxGeometry(1, 1, 1, 2, 0.3), body: new THREE.CapsuleGeometry(0.5, 0.6, 4, 10), arm: new RoundedBoxGeometry(1, 1, 1, 2, 0.35), head: new THREE.SphereGeometry(0.5, 16, 12), cap: new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), eye: new THREE.SphereGeometry(0.5, 8, 6), box: new RoundedBoxGeometry(1, 1, 1, 2, 0.2), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 10), cone: new THREE.ConeGeometry(0.5, 1, 14), torus: new THREE.TorusGeometry(0.5, 0.09, 6, 18), shadow: new THREE.CircleGeometry(0.5, 20) };
@@ -27,7 +27,7 @@ export function createPeople(scene, colors, heroCfgs) {
     add('cyl', [0, 0.268, 0], [0.05, 0.03, 0.05], skin);
     if (!H && !MAYOR) { add('box', [0, 0.157, 0], [0.139, 0.016, 0.119], 0x3b3a42); add('box', [0, 0.255, 0.035], [0.075, 0.022, 0.05], 0xfbfbf7); }
     add('head', [0, 0.345, 0], [0.19, 0.178, 0.172], skin, 'head');
-    const hatted = ['child', 'cyclist', 'hiker', 'worker'].includes(role) || (H && ['chief', 'driver', 'fireman'].includes(heroCls)) || MAYOR;
+    const hatted = ['child', 'cyclist', 'hiker', 'worker', 'farmer'].includes(role) || (H && ['chief', 'driver', 'fireman'].includes(heroCls)) || MAYOR;
     add('cap', [0, 0.352, -0.006], [0.206, MAYOR ? 0.18 : hatted ? 0.17 : 0.19, 0.204], hair, 'head', [MAYOR ? -0.36 : -0.32, 0, 0]);
     if (!hatted) { const styles = role === 'elder' ? ['short', 'bun', 'short'] : role === 'youth' ? ['beanie', 'long', 'pony', 'puff'] : ['short', 'long', 'bun', 'pony', 'short', 'puff']; const st = styles[Math.floor(rnd() * styles.length)];
       if (st === 'long') add('box', [0, 0.31, -0.07], [0.19, 0.13, 0.05], hair, 'head', [0.12, 0, 0]); if (st === 'bun') add('eye', [0, 0.44, -0.07], [0.075, 0.07, 0.07], hair, 'head'); if (st === 'pony') add('eye', [0, 0.33, -0.115], [0.055, 0.1, 0.05], hair, 'head', [0.35, 0, 0]);
@@ -46,11 +46,15 @@ export function createPeople(scene, colors, heroCfgs) {
       case 'elder': add('cyl', [0.105, 0.09, 0.03], [0.012, 0.18, 0.012], 0x7a5a3e, 'armR'); add('box', [0, 0.21, 0], [0.13, 0.1, 0.11], 0x9c8a6a); break;
       case 'child': add('cap', [0, 0.39, 0], [0.205, 0.13, 0.195], 0xf1c232, 'head'); add('cyl', [0, 0.39, 0.02], [0.24, 0.008, 0.22], 0xf1c232, 'head'); add('box', [0, 0.2, -0.07], [0.1, 0.11, 0.05], [colors.coral, 0x4a6fa5, 0x58a6a6][Math.floor(rnd() * 3)]); break;
       case 'parent': add('box', [0, 0.1, 0.25], [0.1, 0.08, 0.14], 0x6f7fb5, 'stroller'); add('cap', [0, 0.14, 0.21], [0.11, 0.1, 0.1], 0x58a6a6, 'stroller'); for (const [dx, dz] of [[-0.05, 0.2], [0.05, 0.2], [-0.05, 0.3], [0.05, 0.3]]) add('torus', [dx, 0.03, dz], [0.045, 0.045, 0.045], 0x2a2524, 'wheelX'); add('box', [0, 0.17, 0.13], [0.008, 0.008, 0.12], 0x2a2524, 'stroller', [0.6, 0, 0]); break;
-      case 'cyclist': add('cap', [0, 0.385, 0], [0.205, 0.12, 0.195], 0xe8c547, 'head'); break;
+      case 'cyclist': add('cap', [0, 0.385, 0], [0.205, 0.12, 0.195], 0xe8c547, 'head'); { const fc = [0xdb6a41, 0x58a6a6, 0x3b3a42][Math.floor(rnd() * 3)]; for (const dz of [-0.12, 0.12]) add('torus', [0.06, 0.07, dz], [0.14, 0.14, 0.14], 0x2a2524, 'wheelX'); add('box', [0.06, 0.1, 0], [0.012, 0.012, 0.22], fc); add('box', [0.06, 0.13, -0.05], [0.012, 0.09, 0.012], fc, null, [0.4, 0, 0]); add('box', [0.06, 0.15, 0.09], [0.012, 0.1, 0.012], fc, null, [-0.3, 0, 0]); add('box', [0.06, 0.2, 0.11], [0.09, 0.012, 0.012], 0x3b3a42); add('box', [0.06, 0.17, -0.07], [0.03, 0.012, 0.05], 0x3b3a42); } break; // 通勤族：牽著腳踏車
       case 'hiker': add('box', [0, 0.21, -0.075], [0.11, 0.14, 0.07], 0xc06a3a); add('cyl', [0.1, 0.12, 0.03], [0.01, 0.24, 0.01], 0x4a4a52, 'armR'); add('cap', [0, 0.39, 0], [0.214, 0.1, 0.206], 0x58a6a6, 'head'); break;
       case 'worker': add('cap', [0, 0.395, 0], [0.21, 0.13, 0.2], 0xf1c232, 'head'); add('cyl', [0, 0.39, 0.02], [0.22, 0.01, 0.22], 0xf1c232, 'head'); break;
       case 'officeworker': add('cyl', [0.1, 0.16, 0.03], [0.03, 0.05, 0.03], 0xf6efe3, 'armR'); break;
       case 'youth': add('box', [0, 0.21, -0.07], [0.1, 0.1, 0.05], 0x2f3a46); break;
+      case 'servant': add('box', [0, 0.205, 0.004], [0.14, 0.112, 0.112], 0x3e7c8c); add('box', [0.032, 0.222, 0.062], [0.026, 0.036, 0.004], 0xfbfbf7); add('box', [0.032, 0.25, 0.061], [0.004, 0.028, 0.004], 0xdb6a41); break; // 公務員：背心＋識別證
+      case 'researcher': add('box', [0, 0.165, 0.002], [0.146, 0.17, 0.124], 0xfbfbf7); add('box', [0, 0.24, 0.064], [0.03, 0.05, 0.004], 0xa8c4c2); for (const dx of [-0.038, 0.038]) add('torus', [dx, 0.35, 0.09], [0.05, 0.044, 0.05], 0x3b3a42, 'head'); break; // 研究員：白袍＋眼鏡
+      case 'farmer': add('cone', [0, 0.43, 0], [0.36, 0.11, 0.36], 0xd9b56a, 'head'); add('cyl', [0, 0.385, 0], [0.22, 0.014, 0.22], 0xc49a4e, 'head'); add('box', [0, 0.2, 0], [0.13, 0.1, 0.11], 0x8fb37a); break; // 農夫：斗笠
+      case 'traveler': add('rbox', [0.1, 0.085, -0.13], [0.07, 0.13, 0.11], [0x6f7fb5, 0xdb6a41, 0x58a6a6][Math.floor(rnd() * 3)]); add('box', [0.1, 0.19, -0.1], [0.008, 0.11, 0.008], 0x3b3a42, null, [0.45, 0, 0]); for (const dz of [-0.17, -0.09]) add('eye', [0.1, 0.015, dz], [0.018, 0.018, 0.018], 0x211d1d); break; // 旅客：拖著行李箱
     }
     if (MAYOR) { // 市長：西裝頭（左側分線、頂部往後梳出蓬度、兩側修短）、濃眉；深藍西裝外套蓋到臀部、寬翻領、白襯衫開領不打領帶、胸袋巾；左手麥克風，演講時右手握拳
       const hp = P.find(q => q.g === 'head'); hp.s = [0.18, 0.19, 0.17];

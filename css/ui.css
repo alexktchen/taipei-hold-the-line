@@ -362,3 +362,85 @@ body.in-shift .nameplate.policy{display:none!important}
 /* .ic 是 SVG 圖示的共用 class（line-height:0），職業卡與房間名單裡放的是 emoji，要把行高還回來；.go 的底色不能被一般按鈕樣式蓋掉 */
 .classes .cls .ic,.room-list li .ic{line-height:1.2;display:block;vertical-align:baseline}
 .room-btns .go,.res-btns .go{background:var(--coral);color:#fff8f4;border:0}
+
+/* ═══════════════ 逛政策島（參考「政策島」互動規格）═══════════════ */
+/* 載入畫面 */
+.loading{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#fffdf9,#edddcf);transition:opacity .4s}
+.loading.done{opacity:0;pointer-events:none} .ld-box{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:0 24px}
+.ld-box .future{font-weight:900;letter-spacing:.14em;font-size:12px;color:var(--coral)} .ld-box .future span{color:var(--ink)} .ld-box b{font-size:40px;font-weight:900;color:var(--coral);letter-spacing:.04em} .ld-box span{font-size:14px;color:var(--muted)}
+.ld-bar{display:block;width:180px;height:4px;border-radius:2px;background:#e9dccf;overflow:hidden;position:relative} .ld-bar::after{content:"";position:absolute;inset:0;width:40%;background:var(--coral);border-radius:2px;animation:ld 1.1s ease-in-out infinite}
+@keyframes ld{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+#stage{background:radial-gradient(circle at 50% 35%,#fffdf9,#edddcf)}
+/* 規格的按鈕與標籤樣式：最小高度 44px、圓角 9px；hover 黃底、按下 ink 底、focus 珊瑚外框；chip 全圓角＋柔和陰影；眉標等寬字 */
+.xb,.xl-tabs button,.is-list button,.xl-body .it{min-height:44px;border-radius:9px;border:1px solid #ece3dd;background:#fff;color:var(--ink);font-weight:700;cursor:pointer;transition:background .15s}
+.xb:hover,.xl-tabs button:hover,.is-list button:hover,.xl-body .it:hover{background:var(--gold)} .xb[aria-pressed="true"],.xl-tabs button[aria-selected="true"]{background:var(--ink);color:#fff8f4;border-color:var(--ink)}
+.xb:focus-visible,.xl-tabs button:focus-visible,.is-list button:focus-visible,.xl-body .it:focus-visible,#xlSearch:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
+.card .chip,.iscard .chip{box-shadow:0 2px 8px #4a2a1414}
+.xlist .eyebrow,.iscard .eyebrow{font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:2px}
+/* 大廳的「逛政策島」 */
+.lh-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap} .lh-row h2{margin:0}
+.explore{display:flex;flex-direction:column;align-items:center;border-radius:14px;padding:8px 16px;font-weight:900;min-height:44px} .explore small{font-size:11px;font-weight:500}
+/* 底部 HUD 工具列：時段四鈕＋開關（圖示在上、字在下） */
+.xbar{left:50%;bottom:44px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;border-radius:16px;max-width:calc(100vw - 28px);z-index:3}
+.xb-times{display:flex;gap:6px} .xbar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+.xb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px 9px;font-size:11px;white-space:nowrap;min-width:52px} .xb .i{font-size:17px;line-height:1.1}
+.xb.clock{font-variant-numeric:tabular-nums;font-size:14px;min-width:64px} .xb.primary{background:var(--coral);color:#fff8f4;border-color:var(--coral)} .xb.primary:hover{background:#c85a33}
+.xb.clock{display:none}
+body.exploring .hint{bottom:118px}
+body.exploring .parody-badge{bottom:118px}
+/* 右側政策清單 */
+.xlist{right:max(14px,var(--sa-r));top:120px;bottom:118px;width:318px;padding:12px;display:flex;flex-direction:column;gap:8px;background:#fff8f4d9;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:4;border-radius:22px}
+.xlist .grip{display:none} .xl-head{display:flex;justify-content:space-between;align-items:flex-start} .xl-head b{font-size:18px;font-weight:900} .xl-head .close{border:0;background:transparent;font-size:24px;width:40px;height:40px;line-height:1}
+#xlSearch{border:1px solid #ece3dd;border-radius:9px;padding:10px 12px;background:#fff;font-size:14px;min-height:44px}
+.xl-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.xl-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:6px;padding-right:2px}
+.xl-body details{background:#fff;border:1px solid #ece3dd;border-radius:12px} .xl-body summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:10px 12px;font-weight:900;min-height:44px} .xl-body summary::-webkit-details-marker{display:none}
+.xl-body summary .n{font-family:var(--mono);font-size:11px;color:#fff8f4;background:var(--coral);border-radius:999px;padding:1px 7px} .xl-body summary small{margin-left:auto;color:var(--muted);font-weight:700} .xl-body summary .go-isl{border:0;background:none;color:var(--coral);font-weight:900;padding:4px 6px;min-height:0}
+.xl-body ol{list-style:none;margin:0;padding:0 8px 8px;display:grid;gap:4px} .xl-body .it{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 10px;font-weight:700;font-size:13px}
+.xl-body .it .no{flex:none;width:22px;height:22px;border-radius:50%;background:var(--coral);color:#fff;font-size:11px;display:grid;place-items:center} .xl-body .it small{margin-left:auto;color:var(--muted);font-weight:500;font-size:11px;white-space:nowrap}
+.xl-body .empty{color:var(--muted);font-size:13px;padding:8px}
+body.exploring.list-open .hotline{display:none}
+/* 島卡（和政策卡同一套外觀） */
+.iscard .c-ic.num{font-family:Georgia,serif;font-style:italic;font-weight:700;color:var(--coral);font-size:30px}
+.is-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px} .is-list button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:6px 12px}
+.is-list .no{flex:none;width:24px;height:24px;border-radius:50%;background:var(--coral);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center} .is-list small{display:block;font-weight:500;color:var(--muted);font-size:11px}
+/* 政策卡：從細項抓出的大數字磚（Georgia 斜體） */
+.bignums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px} .bignums:empty{display:none}
+.bignums div{background:#fff8f4;border:1px solid #f3d3c4;border-radius:14px;padding:8px 10px;min-width:0} .bignums b{display:block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:24px;line-height:1.1;color:var(--coral);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .bignums b small{font-family:var(--font);font-style:normal;font-size:12px;margin-left:2px;color:var(--ink)} .bignums span{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:2px}
+/* 島名標籤：前側崖邊的膠囊「01 北投區」；選到的島 ink 底、其他變淡；擠的時候只留號碼 */
+.nameplate.district{background:#fff8f4;color:var(--ink);box-shadow:0 3px 10px #78685e40;border-radius:999px;padding:3px 11px 3px 4px;font-size:12px;font-weight:900;letter-spacing:.04em;text-shadow:none;opacity:1;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px}
+.nameplate.district em{margin:0;font-style:normal;font-family:var(--mono);font-size:11px;color:#fff8f4;background:var(--coral);border-radius:999px;padding:1px 6px}
+.nameplate.district.sel{background:var(--ink);color:#fff8f4} .nameplate.district.dim{opacity:.45} .nameplate.district.mine:not(.sel){color:var(--coral)}
+.nameplate.compact .lbl,.nameplate.compact .rk{display:none} .nameplate.district.compact{padding:3px 4px}
+.nameplate.policy.compact{padding:3px 6px} .nameplate.policy.compact .lbl{display:none}
+.nameplate.policy .pin{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--coral);color:#fff;font-size:10px;margin-right:5px;font-weight:800}
+@media (pointer:coarse){ .nameplate.district{pointer-events:none} }
+body.in-shift .nameplate.district{opacity:.75;pointer-events:none}
+/* 第一次的操作說明 */
+.guide{position:absolute;inset:0;z-index:9;display:grid;place-items:center;background:#211d1d55;padding:16px}
+.g-box{background:var(--bg);border-radius:22px;padding:22px 24px;max-width:440px;width:100%;box-shadow:0 20px 60px #0004}
+.g-box h2{margin:2px 0 12px;font-size:22px;color:var(--coral)} .g-box ol{list-style:none;margin:0 0 16px;padding:0;counter-reset:g;display:grid;gap:10px}
+.g-box li{counter-increment:g;display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.5} .g-box li::before{content:counter(g);flex:none;width:28px;height:28px;border-radius:50%;background:var(--coral);color:#fff;font-weight:900;display:grid;place-items:center}
+.g-box li b{display:block} .g-box .go{width:100%;margin:0}
+@media (max-width:900px){
+  .xbar{bottom:calc(40px + env(safe-area-inset-bottom,0px));left:max(10px,var(--sa-l));right:max(10px,var(--sa-r));transform:none;max-width:none;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch}
+  .xb.clock{display:flex} .xb-times{display:none} .xbar.times-open .xb-times{display:flex} .xbar.times-open .xb:not(.clock):not(.xb-times .xb){display:none} .xbar.times-open .sep{display:none}
+  .xb{min-width:48px;padding:4px 7px}
+  .xlist{left:max(10px,var(--sa-l));right:max(10px,var(--sa-r));top:auto;bottom:calc(104px + env(safe-area-inset-bottom,0px));width:auto;height:52vh;border-radius:24px;padding:22px 12px 12px;transition:height .25s} .xlist.full{height:calc(100vh - 160px)}
+  .xlist .grip,.iscard .grip{display:block;position:absolute;left:50%;top:0;transform:translateX(-50%);width:80px;height:24px;border:0;background:transparent;padding:0;touch-action:none} .xlist .grip::before{content:"";display:block;width:44px;height:5px;margin:10px auto 0;border-radius:3px;background:#d8cfc9}
+  .card{max-height:34vh} .card.full{max-height:calc(100vh - 180px)}
+  body.exploring .card{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+  body.exploring .hint{display:none}
+  .bignums b{font-size:20px}
+}
+@media (prefers-reduced-motion: reduce){ .ld-bar::after{animation:none} .loading{transition:none} .xlist{transition:none} }
+/* 手機開工時左上縮小：這一波、倒數、金蛋擠成一行；同事改成一排小圓章（職業圖示＋血條＋右上角金蛋數），不遮畫面 */
+@media (max-width:900px){
+  .shud{flex-wrap:nowrap;gap:8px;padding:4px 10px;border-radius:999px;max-width:calc(100vw - 76px)}
+  .shud .k{font-size:10px} .sh-wave b{font-size:14px} .sh-time b{font-size:17px;min-width:2.7em} .sh-egg{padding:1px 8px 1px 5px;border-width:1.5px;gap:2px} .sh-egg b{font-size:14px} .sh-egg .egg{width:11px;height:14px} .sh-egg .bar{display:none} .sh-sp{font-size:10px;padding:1px 6px}
+  .shud::after{font-size:8px;padding:0 5px}
+  .team{top:50px;width:auto;padding:4px 5px;border-radius:14px} .team ol{display:flex;gap:4px}
+  .team li{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 5px 4px;border-radius:10px;min-width:36px;position:relative}
+  .team .nm,.team .st,.team .spd{display:none} .team .badge{width:22px;height:22px;font-size:12px;border-width:1.5px} .team .hp{width:26px;height:4px}
+  .team .g{position:absolute;top:-5px;right:-5px;font-size:10px;line-height:1.4;background:#fffbea;border-radius:999px;padding:0 4px;border:1px solid #efe2a6;gap:2px} .team .g::before{width:6px;height:8px}
+}
