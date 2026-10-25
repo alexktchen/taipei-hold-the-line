@@ -58,36 +58,58 @@ function cliffGeometry(cx, cz, r, yTop, yBot, type) {
 }
 function hexRing(rOut, rIn) { const s = new THREE.Shape(), h = new THREE.Path(); for (let k = 0; k < 6; k++) { const [x, z] = hexVertex(0, 0, rOut, k); k ? s.lineTo(x, -z) : s.moveTo(x, -z); const [x2, z2] = hexVertex(0, 0, rIn, k); k ? h.lineTo(x2, -z2) : h.moveTo(x2, -z2); } s.closePath(); h.closePath(); s.holes.push(h); const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); return g; }
 
+// 共用材質（第一次用到才建；之後新蓋的島也共用）
+const MATS = { top: new Map() };
+function mats() { if (!MATS.cliff) { MATS.cliff = new THREE.MeshLambertMaterial({ vertexColors: true }); MATS.ringTex = groundTexture('ringtile'); MATS.curb = new THREE.MeshStandardMaterial({ color: 0xe4d6c3, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); MATS.foam = new THREE.MeshBasicMaterial({ color: 0xf6fbfa, transparent: true, opacity: 0.55, depthWrite: false }); } return MATS; }
+const topMat = ground => { if (!MATS.top.has(ground)) MATS.top.set(ground, new THREE.MeshStandardMaterial({ map: groundTexture(ground), roughness: 0.92 })); return MATS.top.get(ground); };
+// 一座島：島面、步道環、路緣、島側、色帶、淺灘與浪花、島緣積木、路燈（積木與路燈放進 kit）
+function buildIsland(scene, i, c, kit) { const M = mats();
+  const topGeo = new THREE.CircleGeometry(R - 0.05, 6); topGeo.rotateZ(Math.PI / 6); topGeo.rotateX(-Math.PI / 2); const uv = topGeo.attributes.uv, p = topGeo.attributes.position; for (let n = 0; n < p.count; n++) uv.setXY(n, (p.getX(n) + c.x) / 2.2, (p.getZ(n) + c.z) / 2.2);
+  const top = new THREE.Mesh(topGeo, topMat(i.ground)); top.position.set(c.x, TOP, c.z); top.receiveShadow = true; top.userData = { island: i.id }; scene.add(top);
+  const rm = new THREE.MeshStandardMaterial({ map: M.ringTex, roughness: 0.9, color: RING_TINT[i.ground], polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  const ring = new THREE.Mesh(hexRing(RING_R + 0.14, RING_R - 0.14), rm); ring.position.set(c.x, TOP + 0.012, c.z); ring.receiveShadow = true; scene.add(ring);
+  const curb = new THREE.Mesh(hexRing(R, R - 0.07), M.curb); curb.position.set(c.x, TOP + 0.04, c.z); scene.add(curb);
+  const inner = new THREE.Mesh(hexRing(RING_R - 0.14, RING_R - 0.18), M.curb); inner.position.set(c.x, TOP + 0.02, c.z); scene.add(inner);
+  const cliff = new THREE.Mesh(cliffGeometry(c.x, c.z, R, TOP + 0.04, WATER_Y - 0.5, i.ground), M.cliff); cliff.castShadow = true; cliff.receiveShadow = true; cliff.userData = { island: i.id }; scene.add(cliff);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.012, R - 0.002, 0.16, 6, 1, true), new THREE.MeshStandardMaterial({ map: bandTexture(i.ground), roughness: 0.85 })); band.position.set(c.x, TOP - 0.04, c.z); scene.add(band);
+  const shallow = new THREE.Mesh(hexRing(R + 0.7, R - 0.02), new THREE.MeshBasicMaterial({ color: SHALLOW[i.ground], transparent: true, opacity: 0.55, depthWrite: false })); shallow.position.set(c.x, WATER_Y + 0.008, c.z); scene.add(shallow);
+  const foam = new THREE.Mesh(hexRing(R + 0.16, R - 0.02), M.foam); foam.position.set(c.x, WATER_Y + 0.012, c.z); scene.add(foam);
+  // 島緣：一圈彩色圓角積木（島的辨識色）
+  { const cols = EDGE_BLOCKS[i.ground] || [0xf4efe6, 0xd9cbb4]; let n = 0; for (let e = 0; e < 6; e++) { const [ax, az] = hexVertex(c.x, c.z, R, e), [bx, bz] = hexVertex(c.x, c.z, R, e + 1); const mx = (ax + bx) / 2 - c.x, mz = (az + bz) / 2 - c.z, ml = Math.hypot(mx, mz); const yaw = Math.atan2(-(bz - az), bx - ax); const N = 7, L = Math.hypot(bx - ax, bz - az);
+    for (let k = 0; k < N; k++) { const t = (k + 0.5) / N; const x = ax + (bx - ax) * t + (mx / ml) * 0.05, z = az + (bz - az) * t + (mz / ml) * 0.05; kit.part('rbox', [x, TOP - 0.08, z], [L / N * 0.9, 0.18, 0.13], cols[(n++) % cols.length], [0, yaw, 0]); } } }
+  // 步道環上的路燈
+  for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R + 0.3, k); kit.cyl(vx, TOP + 0.22, vz, 0.03, 0.44, 0x6a665f); kit.bulb(vx, TOP + 0.47, vz, 0.07); }
+  return { top, cliff }; }
+// 步道環上的 12 個點（頂點＋邊中點）
+export function ringPoints(c) { const out = []; for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R, k), [wx, wz] = hexVertex(c.x, c.z, RING_R, k + 1); out.push(new THREE.Vector3(vx, TOP + 0.03, vz), new THREE.Vector3((vx + wx) / 2, TOP + 0.03, (vz + wz) / 2)); } return out; }
+// 兩座島步道環上最近的一對點
+export function nearestRingPair(ca, cb) { let best = null; for (const a of ringPoints(ca)) for (const b of ringPoints(cb)) { const d = a.distanceTo(b); if (!best || d < best.d) best = { pa: a, pb: b, d }; } return best; }
+// 陸橋：有拱架、橋墩、欄杆、燈的人行陸橋
+function buildLink(kit, pa, pb, colors) { const len = pa.distanceTo(pb), dir = pb.clone().sub(pa).normalize(), yaw = Math.atan2(dir.x, dir.z), side = new THREE.Vector3(dir.z, 0, -dir.x); const N = Math.max(8, Math.round(len / 0.22));
+  for (let s2 = 0; s2 < N; s2++) { const t = (s2 + 0.5) / N, q = pa.clone().lerp(pb, t); kit.hbox(q.x, TOP + 0.04, q.z, 0.46, 0.04, len / N + 0.005, s2 % 2 ? 0xd4a07e : 0xc49470, null, [0, yaw, 0]); }
+  kit.hbox((pa.x + pb.x) / 2, TOP + 0.0, (pa.z + pb.z) / 2, 0.5, 0.06, len, 0xe4d6c3, null, [0, yaw, 0]);
+  for (const sgn of [-1, 1]) { const o = side.clone().multiplyScalar(0.24 * sgn); const M = Math.round(len / 0.3);
+    for (let k = 0; k <= M; k++) { const q = pa.clone().lerp(pb, k / M).add(o); kit.hbox(q.x, TOP + 0.13, q.z, 0.025, 0.18, 0.025, 0xfff8f4); }
+    const mid = pa.clone().lerp(pb, 0.5).add(o); kit.hbox(mid.x, TOP + 0.22, mid.z, 0.03, 0.03, len, colors.accent, null, [0, yaw, 0]);
+    // 拱架：一節節方塊沿拋物線排起來，吊索垂到橋面
+    const A = 14, H = Math.min(1.1, 0.25 + len * 0.18); let prev = null;
+    for (let k = 0; k <= A; k++) { const t = k / A; const q = pa.clone().lerp(pb, t).add(o); q.y = TOP + 0.22 + Math.sin(t * Math.PI) * H; if (prev) { const m2 = prev.clone().lerp(q, 0.5), seg = q.distanceTo(prev); const pitch = Math.atan2(q.y - prev.y, Math.hypot(q.x - prev.x, q.z - prev.z)); kit.part('box', [m2.x, m2.y, m2.z], [0.05, 0.05, seg + 0.01], 0xfff8f4, [-pitch, yaw, 0]); }
+      if (k > 0 && k < A && k % 2 === 0) { kit.hbox(q.x, (q.y + TOP + 0.22) / 2, q.z, 0.012, q.y - TOP - 0.22, 0.012, 0x9a8a7a); }
+      if (k % 4 === 2) kit.bulb(q.x, q.y + 0.05, q.z, 0.05, 0xfff0c2); prev = q; } }
+  for (let k = 1; k < 4; k++) { const q = pa.clone().lerp(pb, k / 4); kit.cyl(q.x, (TOP - 0.02 + WATER_Y - 0.4) / 2, q.z, 0.16, TOP - 0.02 - (WATER_Y - 0.4), 0xd9cbb4); kit.cyl(q.x, WATER_Y + 0.02, q.z, 0.3, 0.04, 0xf6fbfa); }
+  for (const end of [pa, pb]) { kit.cyl(end.x + side.x * 0.3, TOP + 0.3, end.z + side.z * 0.3, 0.05, 0.6, colors.accent); kit.cyl(end.x - side.x * 0.3, TOP + 0.3, end.z - side.z * 0.3, 0.05, 0.6, colors.accent); } }
+// 新蓋的島（蓋城市的填海造島）：島本身＋一座陸橋接到指定的島
+export function buildExtraIsland(scene, isl, c, linkC, kit, colors) { const v = buildIsland(scene, isl, c, kit); const { pa, pb } = nearestRingPair(c, linkC); buildLink(kit, pa, pb, colors); return { ...v, pa, pb }; }
 export function buildIslands(scene, islands, kit, colors) {
   const centers = new Map(), axialMap = new Map(), views = new Map(), tops = [];
-  const detached = new Set(islands.filter(i => i.detached).map(i => i.id));
   for (const i of islands) { const w = axialToWorld(...i.axial); if (i.offset) { w.x += i.offset[0] * MAP_K; w.z += i.offset[1] * MAP_K; } centers.set(i.id, w); if (!i.detached) axialMap.set(i.axial.join(','), i.id); }
-  const topMats = {}; for (const i of islands) if (!topMats[i.ground]) topMats[i.ground] = new THREE.MeshStandardMaterial({ map: groundTexture(i.ground), roughness: 0.92 });
-  const cliffMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const ringTex = groundTexture('ringtile'); const curbMat = new THREE.MeshStandardMaterial({ color: 0xe4d6c3, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
-  const foamMat = new THREE.MeshBasicMaterial({ color: 0xf6fbfa, transparent: true, opacity: 0.55, depthWrite: false });
   const neighbors = new Map();
   for (const i of islands) {
-    const c = centers.get(i.id);
-    const topGeo = new THREE.CircleGeometry(R - 0.05, 6); topGeo.rotateZ(Math.PI / 6); topGeo.rotateX(-Math.PI / 2); const uv = topGeo.attributes.uv, p = topGeo.attributes.position; for (let n = 0; n < p.count; n++) uv.setXY(n, (p.getX(n) + c.x) / 2.2, (p.getZ(n) + c.z) / 2.2);
-    const top = new THREE.Mesh(topGeo, topMats[i.ground]); top.position.set(c.x, TOP, c.z); top.receiveShadow = true; top.userData = { island: i.id }; scene.add(top); tops.push(top);
-    const rm = new THREE.MeshStandardMaterial({ map: ringTex, roughness: 0.9, color: RING_TINT[i.ground], polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
-    const ring = new THREE.Mesh(hexRing(RING_R + 0.14, RING_R - 0.14), rm); ring.position.set(c.x, TOP + 0.012, c.z); ring.receiveShadow = true; scene.add(ring);
-    const curb = new THREE.Mesh(hexRing(R, R - 0.07), curbMat); curb.position.set(c.x, TOP + 0.04, c.z); scene.add(curb);
-    const inner = new THREE.Mesh(hexRing(RING_R - 0.14, RING_R - 0.18), curbMat); inner.position.set(c.x, TOP + 0.02, c.z); scene.add(inner);
-    const cliff = new THREE.Mesh(cliffGeometry(c.x, c.z, R, TOP + 0.04, WATER_Y - 0.5, i.ground), cliffMat); cliff.castShadow = true; cliff.receiveShadow = true; cliff.userData = { island: i.id }; scene.add(cliff); tops.push(cliff);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.012, R - 0.002, 0.16, 6, 1, true), new THREE.MeshStandardMaterial({ map: bandTexture(i.ground), roughness: 0.85 })); band.position.set(c.x, TOP - 0.04, c.z); scene.add(band);
-    const shallow = new THREE.Mesh(hexRing(R + 0.7, R - 0.02), new THREE.MeshBasicMaterial({ color: SHALLOW[i.ground], transparent: true, opacity: 0.55, depthWrite: false })); shallow.position.set(c.x, WATER_Y + 0.008, c.z); scene.add(shallow);
-    const foam = new THREE.Mesh(hexRing(R + 0.16, R - 0.02), foamMat); foam.position.set(c.x, WATER_Y + 0.012, c.z); scene.add(foam);
+    const c = centers.get(i.id); const { top, cliff } = buildIsland(scene, i, c, kit); tops.push(top, cliff);
     const pts = Array.from({ length: 7 }, (_, k) => { const [x, z] = hexVertex(c.x, c.z, R + 0.01, k); return new THREE.Vector3(x, TOP + 0.07, z); });
     const outline = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: colors.accent })); outline.visible = false; scene.add(outline);
     const nb = []; for (const [dq, dr] of NEIGHBORS) { const id = i.detached ? null : axialMap.get([i.axial[0] + dq, i.axial[1] + dr].join(',')); nb.push({ id: id || null, dq, dr }); } neighbors.set(i.id, nb);
     views.set(i.id, { top, cliff, outline, center: c });
-    // 島緣：一圈彩色圓角積木（島的辨識色）
-    { const cols = EDGE_BLOCKS[i.ground] || [0xf4efe6, 0xd9cbb4]; let n = 0; for (let e = 0; e < 6; e++) { const [ax, az] = hexVertex(c.x, c.z, R, e), [bx, bz] = hexVertex(c.x, c.z, R, e + 1); const mx = (ax + bx) / 2 - c.x, mz = (az + bz) / 2 - c.z, ml = Math.hypot(mx, mz); const yaw = Math.atan2(-(bz - az), bx - ax); const N = 7, L = Math.hypot(bx - ax, bz - az);
-      for (let k = 0; k < N; k++) { const t = (k + 0.5) / N; const x = ax + (bx - ax) * t + (mx / ml) * 0.05, z = az + (bz - az) * t + (mz / ml) * 0.05; kit.part('rbox', [x, TOP - 0.08, z], [L / N * 0.9, 0.18, 0.13], cols[(n++) % cols.length], [0, yaw, 0]); } } }
-    // 步道環上的路燈與長椅
-    for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R + 0.3, k); kit.cyl(vx, TOP + 0.22, vz, 0.03, 0.44, 0x6a665f); kit.bulb(vx, TOP + 0.47, vz, 0.07); }
   }
   // 橋
   const bridges = [], seen = new Set();
@@ -98,23 +120,9 @@ export function buildIslands(scene, islands, kit, colors) {
     for (let s = 0; s <= 8; s++) { const t = s / 8, pnt = pa.clone().lerp(pb, t); kit.hbox(pnt.x, TOP + 0.03 + Math.sin(t * Math.PI) * arch, pnt.z, 0.3, 0.035, len / 9 + 0.01, s % 2 ? deck[0] : deck[1], null, [Math.cos(t * Math.PI) * -arch * 2, yaw, 0]); }
     for (const side of [-1, 1]) { const ox = Math.cos(yaw) * 0.15 * side, oz = -Math.sin(yaw) * 0.15 * side; for (let s = 0; s <= 4; s++) { const t = s / 4, pnt = pa.clone().lerp(pb, t); kit.hbox(pnt.x + ox, TOP + 0.13 + Math.sin(t * Math.PI) * arch, pnt.z + oz, 0.022, 0.16, 0.022, colors.cream); } kit.hbox(mid.x + ox, TOP + 0.21 + arch * 0.66, mid.z + oz, 0.02, 0.02, len, 0x9a7454, null, [0, yaw, 0]); }
   }
-  // 陸橋：獨立島與指定的島之間，取兩島步道環上最近的一對節點，做一座有拱架、橋墩、欄杆、燈的人行陸橋
-  const ringPts = (id) => { const c = centers.get(id), out = []; for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R, k), [wx, wz] = hexVertex(c.x, c.z, RING_R, k + 1); out.push(new THREE.Vector3(vx, TOP + 0.03, vz), new THREE.Vector3((vx + wx) / 2, TOP + 0.03, (vz + wz) / 2)); } return out; };
+  // 陸橋：獨立島與指定的島之間，取兩島步道環上最近的一對節點
   const links = [];
-  for (const i of islands) { if (!i.link || !centers.has(i.link)) continue; let best = null; for (const a of ringPts(i.id)) for (const b of ringPts(i.link)) { const d = a.distanceTo(b); if (!best || d < best.d) best = { a, b, d }; } const { a: pa, b: pb } = best; links.push({ a: i.id, b: i.link, pa, pb });
-    const len = pa.distanceTo(pb), dir = pb.clone().sub(pa).normalize(), yaw = Math.atan2(dir.x, dir.z), side = new THREE.Vector3(dir.z, 0, -dir.x); const N = Math.max(8, Math.round(len / 0.22));
-    for (let s2 = 0; s2 < N; s2++) { const t = (s2 + 0.5) / N, q = pa.clone().lerp(pb, t); kit.hbox(q.x, TOP + 0.04, q.z, 0.46, 0.04, len / N + 0.005, s2 % 2 ? 0xd4a07e : 0xc49470, null, [0, yaw, 0]); }
-    kit.hbox((pa.x + pb.x) / 2, TOP + 0.0, (pa.z + pb.z) / 2, 0.5, 0.06, len, 0xe4d6c3, null, [0, yaw, 0]);
-    for (const sgn of [-1, 1]) { const o = side.clone().multiplyScalar(0.24 * sgn); const M = Math.round(len / 0.3);
-      for (let k = 0; k <= M; k++) { const q = pa.clone().lerp(pb, k / M).add(o); kit.hbox(q.x, TOP + 0.13, q.z, 0.025, 0.18, 0.025, 0xfff8f4); }
-      const mid = pa.clone().lerp(pb, 0.5).add(o); kit.hbox(mid.x, TOP + 0.22, mid.z, 0.03, 0.03, len, colors.accent, null, [0, yaw, 0]);
-      // 拱架：一節節方塊沿拋物線排起來，吊索垂到橋面
-      const A = 14, H = Math.min(1.1, 0.25 + len * 0.18); let prev = null;
-      for (let k = 0; k <= A; k++) { const t = k / A; const q = pa.clone().lerp(pb, t).add(o); q.y = TOP + 0.22 + Math.sin(t * Math.PI) * H; if (prev) { const m2 = prev.clone().lerp(q, 0.5), seg = q.distanceTo(prev); const pitch = Math.atan2(q.y - prev.y, Math.hypot(q.x - prev.x, q.z - prev.z)); kit.part('box', [m2.x, m2.y, m2.z], [0.05, 0.05, seg + 0.01], 0xfff8f4, [-pitch, yaw, 0]); }
-        if (k > 0 && k < A && k % 2 === 0) { kit.hbox(q.x, (q.y + TOP + 0.22) / 2, q.z, 0.012, q.y - TOP - 0.22, 0.012, 0x9a8a7a); }
-        if (k % 4 === 2) kit.bulb(q.x, q.y + 0.05, q.z, 0.05, 0xfff0c2); prev = q; } }
-    for (let k = 1; k < 4; k++) { const q = pa.clone().lerp(pb, k / 4); kit.cyl(q.x, (TOP - 0.02 + WATER_Y - 0.4) / 2, q.z, 0.16, TOP - 0.02 - (WATER_Y - 0.4), 0xd9cbb4); kit.cyl(q.x, WATER_Y + 0.02, q.z, 0.3, 0.04, 0xf6fbfa); }
-    for (const end of [pa, pb]) { kit.cyl(end.x + side.x * 0.3, TOP + 0.3, end.z + side.z * 0.3, 0.05, 0.6, colors.accent); kit.cyl(end.x - side.x * 0.3, TOP + 0.3, end.z - side.z * 0.3, 0.05, 0.6, colors.accent); } }
+  for (const i of islands) { if (!i.link || !centers.has(i.link)) continue; const { pa, pb } = nearestRingPair(centers.get(i.id), centers.get(i.link)); links.push({ a: i.id, b: i.link, pa, pb }); buildLink(kit, pa, pb, colors); }
   return { centers, neighbors, views, bridges, tops, links };
 }
 // 行人路網：每島 12 個環節點（頂點 + 邊中點），橋連接邊中點。

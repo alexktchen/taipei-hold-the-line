@@ -125,3 +125,5 @@
 - **打工現場**（`live` 頻道，`store.liveOn(who, on)` 依用途計數）：打工的房主／單人 `ui.js` 每秒檢查，換波、金蛋、魔王、倒下有變才送（最快 3 秒一次），沒變 10 秒心跳，收工送 `le`；逛城市的人剛進來送 `lq`，打工的人下一秒就回報。城市端 `exploreui.js` 驗證後列出、`explore.setLive()` 在岸外放魔王（裝飾）、`main.js liveSigns()` 掛牌子；25 秒沒更新就拿掉。訊息量：每班約每 3～10 秒一則 × 正在逛城市的人數。
 - **萬聖節套裝**：穿著字串多第四段（`帽子.背心.配件.套裝`），舊三段式照樣認得。`price: 0` 免費、隨時換（`store.buy` 直接換上），其他在服飾店買。外型在 `people.js` 的 `SUIT`（膚色／髮色／背心／褲子）與 `switch (F.suit)`。公車司機手上的方向盤拿掉了。
 - **服飾店與建設位置**：`config.explore.boutiques` 改成 `[島, 第幾棟小房子]`；廣場島的 1、2 號小房子在地標兩側，會被大地標擋住（例如信義區市政府），金蛋噴水池改到 0 號（市政府右前方）。
+- **島變大、間距變寬**：`config.world` 的 `islandK`（島的大小，1.15）與 `mapK`（島與島的距離，1.25）。`islands.js` 的 `slotLayout` 先用原本尺寸排好建築，再整組等比放大，房子不會跟著變胖；`env.js` 的地形、樹環、陰影範圍與 `main.js` 的鏡頭距離都乘上 `MAP_K`。
+- **填海造島**：`config.econ.city` 裡 `kind: 'island'` 的項目（`axial` 是新島的六角座標、`link` 接到哪一區、`ground`／`landmark` 外觀）。施工中：工地名牌在 `link` 那座島靠新島的岸邊（`shoreOf`），海上是隨進度長大的沙洲（`reclaim`，每 10% 換一次）；完工：`growIsland` 用 `islands.js` 的 `buildExtraIsland` 蓋島與橋，`nav.addIsland` 把島面、橋與地標碰撞加進走路網格。新島不是行政區，不算 12 區對抗。

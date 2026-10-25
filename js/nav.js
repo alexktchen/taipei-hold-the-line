@@ -4,7 +4,10 @@ import { R, insideHex } from './islands.js';
 export function createNav({ islands, centers, bridges, links, graph }) {
   const HEX = (R - 0.06) * 0.8660254, nodes = graph.nodes, N = nodes.length;
   const isl = islands.map(i => ({ id: i.id, c: centers.get(i.id) }));
-  const segs = [...bridges.map(b => [b.pa, b.pb, 0.3]), ...links.map(l => [l.pa, l.pb, 0.36])].map(([a, b, w]) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return { ax: a.x, az: a.z, dx, dz, L2: L * L, L, ux: dx / L, uz: dz / L, w }; }); // 橋的可走寬度比橋面寬一點，不用對得很準
+  const segOf = ([a, b, w]) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return { ax: a.x, az: a.z, dx, dz, L2: L * L, L, ux: dx / L, uz: dz / L, w }; };
+  const segs = [...bridges.map(b => [b.pa, b.pb, 0.3]), ...links.map(l => [l.pa, l.pb, 0.36])].map(segOf); // 橋的可走寬度比橋面寬一點，不用對得很準
+  // 蓋城市新蓋好的島：加進能走的範圍（島面＋陸橋）與障礙物
+  function addIsland(id, c, pa, pb, obstacles = []) { isl.push({ id, c }); segs.push(segOf([pa, pb, 0.36])); statics = [...statics, ...obstacles]; obst = [...statics, ...dyn]; gridDirty = true; }
   let statics = [], dyn = [], obst = [];
   const setObstacles = (s, d) => { if (s) statics = s; if (d) dyn = d; obst = [...statics, ...dyn]; gridDirty = true; };
   function islandAt(x, z) { for (const I of isl) if (insideHex(x - I.c.x, z - I.c.z, HEX)) return I.id; return null; }
@@ -74,5 +77,5 @@ export function createNav({ islands, centers, bridges, links, graph }) {
     // 拉直：從目前位置往後找看得到的最遠點
     const out = []; let cx = fx, cz = fz, k = 0; while (k < pts.length) { let far = k; for (let m = pts.length - 1; m > k; m--) if (gridLos(cx, cz, pts[m][0], pts[m][1])) { far = m; break; } out.push(pts[far]); [cx, cz] = pts[far]; k = far + 1; }
     return out; }
-  return { walkable, islandAt, move, push, los, waypoint, pathLen, nearestWalkable, setObstacles, nodeFor, gridPath, gridLos: (a, b, c, d) => { if (gridDirty) buildGrid(); return gridLos(a, b, c, d); }, get obstacles() { return obst; } };
+  return { walkable, islandAt, addIsland, move, push, los, waypoint, pathLen, nearestWalkable, setObstacles, nodeFor, gridPath, gridLos: (a, b, c, d) => { if (gridDirty) buildGrid(); return gridLos(a, b, c, d); }, get obstacles() { return obst; } };
 }
