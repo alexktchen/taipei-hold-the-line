@@ -74,13 +74,45 @@ button,input,select{font:inherit;color:inherit} button{cursor:pointer} :focus-vi
 .empty{left:50%;top:50%;transform:translate(-50%,-50%);padding:20px 24px;max-width:420px;text-align:center}
 .empty h2{margin:0 0 6px;color:var(--coral)}
 
+/* 路網事件 */
+.evpanel{left:max(14px,var(--sa-l));top:268px;bottom:calc(92px + var(--sa-b));width:330px;display:flex;flex-direction:column;padding:10px 10px 8px}
+.ev-head{display:flex;align-items:center;gap:8px;padding:0 4px 6px} .ev-head>b{font-size:15px;font-weight:900;white-space:nowrap} .ev-head .close{margin-left:auto;border:0;background:none;font-size:20px;color:var(--muted)}
+.tabs{display:flex;gap:4px} .tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700} .tabs button[aria-selected="true"]{background:var(--ink);color:#fff8f4;border-color:var(--ink)}
+.ev-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:2px} .ev-body>*{flex:none} .ev-body .empty,.ev-body .lead{margin:4px;font-size:12px;color:var(--muted)}
+.ev{display:flex;gap:8px;text-align:left;border:1px solid #ece3dd;background:#fff;border-radius:12px;padding:7px 9px;font-size:12px;line-height:1.4} .ev:hover{background:var(--soft)}
+.ev .ic{font-size:18px;flex:none} .ev .tx{display:flex;flex-direction:column;min-width:0} .ev b{font-size:13px} .ev small{color:var(--muted);font-size:11px}
+.ev .tx>span{display:block} .tag{display:inline-block;font-style:normal;font-size:10px;font-weight:800;padding:0 6px;margin-right:5px;border-radius:999px;background:#efe7f6;color:#6a4f86;vertical-align:1px} .tag.safe{background:#fde3d6;color:#b04a24}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 2px} .chips button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700} .chips button[aria-pressed="true"]{background:var(--ink);color:#fff8f4;border-color:var(--ink)}
+.ev.sev3{border-left:4px solid var(--bad)} .ev.sev2{border-left:4px solid #e8893a} .ev.sev1{border-left:4px solid #f2c14e}
+.bar button em{font-style:normal;font-size:10px;font-weight:900;background:var(--bad);color:#fff;border-radius:999px;padding:0 5px;margin-left:4px} .bar button em:empty{display:none}
+.scmenu{position:fixed;bottom:calc(84px + var(--sa-b));left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:10px;width:min(520px,calc(100vw - 28px));z-index:20}
+.scmenu button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 10px;text-align:left;font-size:13px;font-weight:700;white-space:normal} .scmenu small{grid-column:1/-1;color:var(--muted);font-size:11px}
+/* 地圖上的事件標記 */
+.pin{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50% 50% 50% 4px;transform-origin:0 0;border:2px solid #fff;font-size:15px;line-height:1;display:grid;place-items:center;pointer-events:auto;cursor:pointer;box-shadow:0 3px 10px #211d1d40;padding:0;rotate:0deg}
+.pin.sev3{background:#c23b2a} .pin.sev2{background:#e8893a} .pin.sev1{background:#f2c14e}
+/* 導播：上下黑邊、下方字幕 */
+body.director::before,body.director::after{content:"";position:fixed;left:0;right:0;height:7vh;background:#141110;z-index:15;pointer-events:none} body.director::before{top:0} body.director::after{bottom:0}
+/* 導播的上下黑邊不蓋住工具列、出處與「非官方」字樣：把它們移到黑邊內側 */
+body.director .bar{bottom:calc(7vh + 28px + var(--sa-b))} body.director .credits{bottom:calc(7vh + 4px + var(--sa-b))} body.director .brand{transform:translateY(7vh)}
+body.director .stats,body.director .evpanel,body.director .legend,body.director .cam{opacity:.25}
+.caption{position:fixed;left:50%;transform:translateX(-50%);width:max-content;bottom:calc(7vh + 90px);z-index:16;max-width:min(860px,calc(100vw - 32px));background:#141110e6;color:#fff8f4;border-radius:14px;padding:10px 16px;display:flex;flex-direction:column;gap:3px;box-shadow:0 8px 30px #0006}
+@media (min-width:761px){body.director:has(#inspect:not([hidden])) .caption{left:calc(50% - 180px);max-width:min(640px,calc(100vw - 420px))}}
+.caption b{font-size:15px;color:#ffd27a} .caption span{font-size:13px;line-height:1.5}
+.toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:30;background:var(--ink);color:#fff8f4;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;box-shadow:0 6px 20px #0004}
+body.rain #stage{filter:saturate(.8) brightness(.94)}
+/* 路口卡：試算與診斷 */
+.tune{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px} .tune button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700} .tune button.warn{color:var(--bad)}
+.findings{margin:8px 0 0;padding:8px 10px;background:#fff7e6;border:1px solid #f2dca4;border-radius:10px;font-size:12px;line-height:1.5} .findings b{display:block;margin-bottom:2px} .findings>span{display:block;margin-top:2px}
+.evnote{margin:8px 0 0;padding:8px 10px;background:#fdecea;border:1px solid #f1c2bb;border-radius:10px;font-size:12px;line-height:1.5}
+.mrow{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px} .mrow div{background:#fff;border-radius:10px;padding:6px 8px;font-size:11px;color:var(--muted)} .mrow b{display:block;font-size:13px;color:var(--ink)}
 @media (max-width:760px){
+  .evpanel{left:10px;right:10px;width:auto;top:auto;bottom:calc(140px + var(--sa-b));height:38vh} .caption{bottom:calc(7vh + 84px)} .scmenu{grid-template-columns:1fr}
   .brand{padding:8px 12px} .brand h1{font-size:18px} .brand .future{font-size:9px}
   .cam{top:52px;bottom:auto;right:max(10px,var(--sa-r));max-width:none;padding:5px;flex-direction:column;gap:4px} .cam button{padding:5px 9px;font-size:12px}
   .stats{top:auto;left:max(10px,var(--sa-l));bottom:calc(92px + var(--sa-b));min-width:0;grid-template-columns:repeat(2,auto);gap:0 10px} .stats b{font-size:14px} .stats .wide{display:none}
   .legend{top:12px;bottom:auto;right:max(10px,var(--sa-r));gap:6px;font-size:10px;padding:5px 8px} .legend i{width:12px}
   .bar{bottom:calc(26px + var(--sa-b));left:10px;right:10px;transform:none;max-width:none}
-  .inspect{left:10px;right:10px;width:auto;top:auto;bottom:calc(92px + var(--sa-b));max-height:46vh}
+  .inspect{left:10px;right:10px;width:auto;top:auto;bottom:calc(92px + var(--sa-b));max-height:46vh} body.director .inspect{display:none} body:has(#evPanel:not([hidden])) .stats{display:none}
   .credits{font-size:9px}
 }
 @media (prefers-reduced-motion: reduce){ .ld-bar::after{animation:none} .loading{transition:none} }

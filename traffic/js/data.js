@@ -56,3 +56,22 @@ export function edgeGrid(net, cell = 150) { const g = new Map(); const key = (cx
 // 點到折線的距離
 export function distToEdge(e, x, z) { const P = e.pts; let best = 1e9, bs = 0; for (let i = 0; i + 3 < P.length; i += 2) { const ax = P[i], az = P[i + 1], bx = P[i + 2], bz = P[i + 3], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1; let t = ((x - ax) * dx + (z - az) * dz) / L2; t = Math.max(0, Math.min(1, t)); const d = Math.hypot(ax + dx * t - x, az + dz * t - z); if (d < best) { best = d; bs = e.cum[i / 2] + t * Math.sqrt(L2); } } return [best, bs]; }
 export const halfWidth = e => (e.f > 0 && e.r > 0 ? Math.max(e.f, e.r) : (e.f + e.r) / 2) * LANE_W;
+
+// 路口的退縮：路口越寬，停止線離路口中心越遠。deg≥3 的節點才是路口（deg 2 只是一條路的折點，不退縮）。
+// L.stop＝終點那頭停止線離節點多遠，L.s0＝起點那頭車道從離節點多遠開始（中間是路口，車子走曲線過去）。
+export function setbacks(net) { const half = new Map();
+  for (const e of net.edges) { const hw = halfWidth(e); for (const n of [e.a, e.b]) { const a = half.get(n) || []; a.push([e.id, hw]); half.set(n, a); } }
+  const cross = (n, eid) => { let m = 0; for (const [id, hw] of half.get(n) || []) if (id !== eid) m = Math.max(m, hw); return m; };
+  for (const L of net.links) { const dTo = net.deg[L.to], dFrom = net.deg[L.from], room = L.len * 0.35;
+    L.stop = dTo >= 3 ? Math.min(room, cross(L.to, L.e) + 2.2) : 0; L.s0 = dFrom >= 3 ? Math.min(room, cross(L.from, L.e) + 0.8) : 0; } }
+// 某條車道上距離 s 的位置（含高度與行進方向）
+const _p = { x: 0, z: 0, dx: 1, dz: 0, seg: 0 };
+export function lanePoint(net, L, lane, s, out) { pointAt(L.pts, L.cum, Math.max(0, Math.min(L.len, s)), _p, out.seg || 0); const lat = L.off0 + lane * LANE_W, e = net.edges[L.e];
+  out.x = _p.x - _p.dz * lat; out.z = _p.z + _p.dx * lat; out.dx = _p.dx; out.dz = _p.dz; out.seg = _p.seg; out.y = heightAt(net, e, L.dir > 0 ? s : L.len - s); return out; }
+// 過路口的曲線：從 L 的停止線（那條車道）到 M 的起點（那條車道），三次貝茲曲線；回傳取樣表（距離→位置）
+export function connector(net, L, laneL, M, laneM) { const a = lanePoint(net, L, laneL, L.len - L.stop, { seg: 0 }), b = lanePoint(net, M, laneM, M.s0, { seg: 0 }); const d = Math.hypot(b.x - a.x, b.z - a.z), k = d * 0.42;
+  const P = [a.x, a.z, a.x + a.dx * k, a.z + a.dz * k, b.x - b.dx * k, b.z - b.dz * k, b.x, b.z], N = 10, xs = new Float32Array(N + 1), zs = new Float32Array(N + 1), cum = new Float32Array(N + 1);
+  for (let i = 0; i <= N; i++) { const t = i / N, u = 1 - t, w0 = u * u * u, w1 = 3 * u * u * t, w2 = 3 * u * t * t, w3 = t * t * t; xs[i] = w0 * P[0] + w1 * P[2] + w2 * P[4] + w3 * P[6]; zs[i] = w0 * P[1] + w1 * P[3] + w2 * P[5] + w3 * P[7]; if (i) cum[i] = cum[i - 1] + Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]); }
+  return { xs, zs, cum, len: Math.max(0.5, cum[N]), y0: a.y, y1: b.y }; }
+export function connPoint(c, d, out) { const N = c.cum.length - 1; let i = 0; while (i < N - 1 && c.cum[i + 1] < d) i++; const L = c.cum[i + 1] - c.cum[i] || 1, t = Math.max(0, Math.min(1, (d - c.cum[i]) / L));
+  out.x = c.xs[i] + (c.xs[i + 1] - c.xs[i]) * t; out.z = c.zs[i] + (c.zs[i + 1] - c.zs[i]) * t; out.dx = (c.xs[i + 1] - c.xs[i]) / L; out.dz = (c.zs[i + 1] - c.zs[i]) / L; out.y = c.y0 + (c.y1 - c.y0) * (d / c.len); return out; }

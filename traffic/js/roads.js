@@ -5,21 +5,22 @@
 import * as THREE from 'three';
 import { LANE_W, heightAt } from './data.js';
 
-export const GROUPS = [{ cls: [0, 1], y: 0.6, minPx: 3.2, casing: 0xd08a3c, base: 0xf7c86a }, { cls: [2], y: 0.45, minPx: 2.6, casing: 0xc4b39b, base: 0xffffff }, { cls: [3, 4], y: 0.3, minPx: 1.7, casing: 0xcdbfaa, base: 0xfffcf6 }, { cls: [5, 6], y: 0.15, minPx: 1.0, casing: 0xd6cab8, base: 0xfdfaf4 }];
+// asphalt：拉近時的柏油色（路況顏色只留一點點），walk：人行道寬（公尺）
+export const GROUPS = [{ cls: [0, 1], y: 0.6, minPx: 3.2, casing: 0xd08a3c, base: 0xf7c86a, asphalt: 0x86827d, walk: 1.2 }, { cls: [2], y: 0.45, minPx: 2.6, casing: 0xc4b39b, base: 0xffffff, asphalt: 0x8e8a85, walk: 3.2 }, { cls: [3, 4], y: 0.3, minPx: 1.7, casing: 0xcdbfaa, base: 0xfffcf6, asphalt: 0x95918b, walk: 2.6 }, { cls: [5, 6], y: 0.15, minPx: 1.0, casing: 0xd6cab8, base: 0xfdfaf4, asphalt: 0xaba69e, walk: 1.2 }];
 export const FLOW = [[0.12, 0x8a2318], [0.3, 0xc23b2a], [0.5, 0xe8893a], [0.72, 0xf2c14e], [9, 0x5f9a4c]];
 const flowHex = r => { for (const [k, c] of FLOW) if (r < k) return c; return 0x5f9a4c; };
 
 const VERT = `
 attribute vec2 aN; attribute float aOff; attribute float aHalf; attribute vec3 color;
-uniform float uPx; uniform float uMinPx; uniform float uGrowPx; uniform float uCasing; uniform vec3 uCasingColor;
+uniform float uPx; uniform float uMinPx; uniform float uGrowPx; uniform float uCasing; uniform vec3 uCasingColor; uniform float uClose; uniform vec3 uAsphalt; uniform vec3 uWalk; uniform float uWalkM;
 varying vec3 vCol;
 #include <fog_pars_vertex>
 void main(){
   vec3 p = position; float dist = distance(cameraPosition, (modelMatrix * vec4(p, 1.0)).xyz); float px = uPx * dist;
   float off = aOff * max(1.0, 0.5 * uMinPx * px / max(aHalf, 0.1));
-  if (uCasing > 0.5) off += sign(aOff) * uGrowPx * px;
+  if (uCasing > 0.5) off += sign(aOff) * max(uGrowPx * px, uClose * uWalkM); // 拉近時外框變成人行道
   p.x += aN.x * off; p.z += aN.y * off; p.y -= uCasing * 0.08;
-  vCol = uCasing > 0.5 ? uCasingColor : color;
+  vCol = uCasing > 0.5 ? mix(uCasingColor, uWalk, uClose) : mix(color, uAsphalt, uClose * 0.82); // 拉近：柏油路，只透一點路況色
   vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }`;
@@ -30,11 +31,11 @@ void main(){ gl_FragColor = vec4(vCol, uOpacity);
   #include <colorspace_fragment>
   #include <fog_fragment>
 }`;
-export const shared = { uPx: { value: 0.001 } };
+export const shared = { uPx: { value: 0.001 }, uClose: { value: 0 } };
 // 地面上的東西（陸地、水、綠地、道路）都不做深度測試，照 renderOrder 由下往上畫：不會互相閃爍，建築和車照常做深度測試蓋在上面
-export function ribbonMaterial(minPx, casingHex) { const m = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, fog: true, transparent: false, side: THREE.DoubleSide, depthTest: false, depthWrite: false,
-  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uMinPx: { value: minPx }, uGrowPx: { value: 1.1 }, uCasing: { value: casingHex != null ? 1 : 0 }, uCasingColor: { value: new THREE.Color(casingHex || 0) }, uOpacity: { value: 1 } }]) });
-  m.uniforms.uPx = shared.uPx; return m; } // 每像素幾公尺（依視窗高度與視角），所有道路共用
+export function ribbonMaterial(minPx, casingHex, g = {}) { const m = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, fog: true, transparent: false, side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uMinPx: { value: minPx }, uGrowPx: { value: 1.1 }, uCasing: { value: casingHex != null ? 1 : 0 }, uCasingColor: { value: new THREE.Color(casingHex || 0) }, uOpacity: { value: 1 }, uAsphalt: { value: new THREE.Color(g.asphalt ?? 0x8e8a85) }, uWalk: { value: new THREE.Color(0xe7e1d6) }, uWalkM: { value: g.walk ?? 2 } }]) });
+  m.uniforms.uPx = shared.uPx; m.uniforms.uClose = shared.uClose; return m; } // 每像素幾公尺（依視窗高度與視角），所有道路共用
 
 // 一層道路的幾何：minorStyle＝每點 2 個頂點（整條同色，巷弄用，省記憶體）；否則每點 4 個頂點（左右兩半分開上色）
 function buildGroup(net, edges, g, split) {
@@ -61,9 +62,9 @@ export function createRoads(scene, net) {
   const layers = GROUPS.map((g, gi) => ({ g, gi, meshes: [], parts: [] }));
   // edges 是新接進來的路（主要道路或巷弄）：依等級分到各層，各做一組網格
   function add(e0, e1) { for (const layer of layers) { const edges = []; for (let i = e0; i < e1; i++) { const e = net.edges[i]; if (layer.g.cls.includes(e.cls) && e.lv >= 0) edges.push(e); } if (!edges.length) continue;
-      const split = layer.gi < 3, { geo, base } = buildGroup(net, edges, layer.g, split); const fill = new THREE.Mesh(geo, ribbonMaterial(layer.g.minPx, null)); fill.renderOrder = 20 + (3 - layer.gi); scene.add(fill);
+      const split = layer.gi < 3, { geo, base } = buildGroup(net, edges, layer.g, split); const fill = new THREE.Mesh(geo, ribbonMaterial(layer.g.minPx, null, layer.g)); fill.renderOrder = 20 + (3 - layer.gi); scene.add(fill);
       const part = { geo, base, edges, fill, casing: null }; for (const e of edges) e.part = part; layer.meshes.push(fill);
-      if (layer.g.casing) { const cas = new THREE.Mesh(geo, ribbonMaterial(layer.g.minPx, layer.g.casing)); cas.renderOrder = 10 + (3 - layer.gi); scene.add(cas); part.casing = cas; layer.meshes.push(cas); }
+      if (layer.g.casing) { const cas = new THREE.Mesh(geo, ribbonMaterial(layer.g.minPx, layer.g.casing, layer.g)); cas.renderOrder = 10 + (3 - layer.gi); scene.add(cas); part.casing = cas; layer.meshes.push(cas); }
       layer.parts.push(part); } }
   // 路況上色：只改這一段路的頂點顏色（髒了才改）
   const tmp = new THREE.Color();
