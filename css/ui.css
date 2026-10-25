@@ -8,7 +8,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14p
 button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #app{position:fixed;inset:0}
 #stage{position:absolute;inset:0;touch-action:none;background:#a9d8db}
-#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1;transition:opacity .3s ease}
+body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌藏起來，鏡頭拉遠推近時不跟著跳 */
 .nameplate{position:absolute;left:0;top:0;white-space:nowrap;background:#fff8f4;color:#211d1d;border:0;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:900;box-shadow:0 3px 10px #78685e40;will-change:transform;transition:opacity .2s} .nameplate em{font-style:normal;font-family:var(--mono);color:#db6a41;margin-right:5px;font-size:.9em}
 .nameplate.goal{background:#db6a41;color:#fff8f4;font-size:14px}
 .nameplate.hidden{opacity:0;pointer-events:none!important}
@@ -505,12 +506,12 @@ body.exploring .gstrip,body.exploring .dpanel,body.exploring .hotline{display:no
 .cloudwipe.in,.cloudwipe.cover{pointer-events:auto}
 .cloudwipe .cw-fog{position:absolute;inset:0;background:radial-gradient(circle at 50% 46%,#f4f9fb 0 30%,#d9eaf2 75%,#c3dbe7 100%);opacity:0;transition:opacity .5s ease .3s}
 .cloudwipe .puff{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:calc(var(--w) * .42);margin:calc(var(--w) * -.21) 0 0 calc(var(--w) * -.5);border-radius:999px;background:linear-gradient(#ffffff,#f3ece4);
-  filter:drop-shadow(0 16px 26px #7f9fb066);opacity:0;transform:translate(var(--ox),var(--oy)) scale(.35);transition:transform .9s cubic-bezier(.2,.75,.25,1) var(--d,0s),opacity .55s ease var(--d,0s)}
+  box-shadow:0 18px 30px -10px #7f9fb055;will-change:transform,opacity;backface-visibility:hidden;opacity:0;transform:translate(var(--ox),var(--oy)) scale(.35);transition:transform .9s cubic-bezier(.2,.75,.25,1) var(--d,0s),opacity .55s ease var(--d,0s)}
 .cloudwipe .puff::before,.cloudwipe .puff::after{content:"";position:absolute;border-radius:50%;background:#fff}
 .cloudwipe .puff::before{width:46%;aspect-ratio:1;left:12%;top:-42%} .cloudwipe .puff::after{width:58%;aspect-ratio:1;left:36%;top:-62%}
 .cloudwipe.in .puff,.cloudwipe.cover .puff{opacity:1;transform:translate(0,0) scale(1.15)} .cloudwipe.in .cw-fog,.cloudwipe.cover .cw-fog{opacity:1}
 .cloudwipe.cover .puff,.cloudwipe.cover .cw-fog{transition:none}
-.cloudwipe.out .puff{opacity:0;transform:translate(calc(var(--ox) * 1.6),calc(var(--oy) * 1.6)) scale(2.6);transition:transform 1.1s cubic-bezier(.4,0,.2,1),opacity .9s ease .1s} .cloudwipe.out .cw-fog{opacity:0;transition:opacity .5s ease}
+.cloudwipe.out .puff{opacity:0;transform:translate(calc(var(--ox) * 1.6),calc(var(--oy) * 1.6)) scale(1.9);transition:transform 1.1s cubic-bezier(.4,0,.2,1),opacity .9s ease .1s} .cloudwipe.out .cw-fog{opacity:0;transition:opacity .5s ease}
 .cw-text{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.9);font-size:clamp(22px,4vw,40px);font-weight:900;color:var(--coral);letter-spacing:.06em;white-space:nowrap;opacity:0;transition:opacity .35s ease,transform .5s ease;text-shadow:0 2px 0 #fff;background:#ffffffd9;border-radius:999px;padding:10px 26px;box-shadow:0 10px 30px #7f9fb044}
 .cloudwipe.in .cw-text,.cloudwipe.cover .cw-text{opacity:1;transform:translate(-50%,-50%) scale(1);transition-delay:.45s} .cloudwipe.out .cw-text{opacity:0;transform:translate(-50%,-50%) scale(1.25);transition-delay:0s}
 @media (prefers-reduced-motion: reduce){ .cloudwipe .puff,.cloudwipe .cw-fog,.cw-text{transition:opacity .2s linear!important;transform:none!important} }
