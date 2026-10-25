@@ -54,7 +54,7 @@ export function createAnimals(scene, ANIMALS, opts = {}) { const chantSize = opt
     if (p.wings) { const f = Math.sin(e.wing) * 0.7; for (const wg of p.wings) wg.rotation.x = wg.userData.side * f; }
     if (A.hop) { const ph = e.hopT % 1; p.inner.position.y = Math.sin(ph * Math.PI) * 0.22 * A.size; p.inner.scale.y = ph < 0.1 || ph > 0.9 ? 0.78 : 1; }
     if (p.segs) p.segs.forEach((s, i) => { s.position.y = (0.14 + Math.abs(Math.sin(t * 6 - i * 0.8)) * 0.06) * A.size * U; });
-    if (p.shift && A.stealth) { const hue = (t * 0.15 + e.seed) % 1; for (const m of p.shift) m.color.setHSL(hue, 0.55, 0.5); p.tail.rotation.y = Math.sin(t * 4) * 0.4; }
+    if (p.shift && (A.stealth || A.shift)) { const hue = (t * 0.15 + e.seed) % 1; for (const m of p.shift) m.color.setHSL(hue, 0.55, 0.5); p.tail.rotation.y = Math.sin(t * 4) * 0.4; }
     if (A.model === 'mouse') p.inner.position.y = Math.abs(Math.sin(t * 18 + e.seed * 10)) * 0.02;
     if (A.fly) p.inner.position.y = 0.5 + Math.sin(t * 3 + e.seed * 6) * 0.04; }
   // 打工版的狀態外觀：f = { stun, bomb, shield, stealth（0～1 透明度）, flash }

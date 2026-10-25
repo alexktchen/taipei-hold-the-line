@@ -1,11 +1,12 @@
-/* 全版 UI：大廳（開工、快速配對、房間）、開工中的 HUD／同事名單／動作鈕／手機搖桿、結算與打工職級、政策卡、熱線與快訊。 */
+/* 全版 UI：大廳（打工／守城兩個分頁；開工、快速配對、房間）、開工中的 HUD／同事名單／動作鈕／手機搖桿、結算與打工職級、政策卡、熱線與快訊。守城的畫面在 tdui.js。 */
 import { CONFIG as C } from './config.js';
 import { HOTLINE } from './hotline.js';
 import { nextNews, genHotline } from './news.js';
 import { ICONS, policyIcon } from './icons.js';
 import { createRoom } from './room.js';
+import { createTDUI } from './tdui.js';
 const SH = C.shift, GR = C.grades, $ = id => document.getElementById(id);
-export function createUI({ game, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
+export function createUI({ game, td, tdCallbacks, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const num = v => typeof v === 'number' && Number.isFinite(v), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, n) : '';
@@ -32,7 +33,11 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
   const myProfile = () => { const g = myGrade(); return { nick: nickVal(), cls: chosenCls, district: myDistrict(), grade: g.lv, pts: g.pts }; };
   function profileChanged() { renderGoWho(); if (room.code) room.setProfile(myProfile()); S.setPresence({ nick: nickVal(), cls: chosenCls }); }
   $('homeDistrict').addEventListener('change', () => { districtPicked = true; renderDistricts(); profileChanged(); });
-  function renderGoWho() { const h = S.hero() || {}, random = !districtPicked && !h.district; $('goWho').textContent = `以${C.heroes[chosenCls].name}替${districtName(myDistrict())}打工${random ? '（區是隨機選的，可以換）' : ''}。`; }
+  function renderGoWho() { const h = S.hero() || {}, random = !districtPicked && !h.district; $('goWho').textContent = `以${C.heroes[chosenCls].name}替${districtName(myDistrict())}${mode === 'td' ? '出戰' : '打工'}${random ? '（區是隨機選的，可以換）' : ''}。`; }
+  // ── 玩法分頁：打工（4 人一隊搬金蛋）／守城（原本的塔防，大家同框）；選過的記在裝置上 ──
+  const MODE_KEY = 'pi-mode'; let mode = (() => { try { return localStorage.getItem(MODE_KEY) === 'td' ? 'td' : 'shift'; } catch (e) { return 'shift'; } })();
+  function setMode(m) { mode = m === 'td' ? 'td' : 'shift'; try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* 無痕 */ } renderLobby(); }
+  $('modes').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
   // 怎麼玩：數字都從 config 帶，改參數不用改文案
   const HOWTO = () => [
     ['選職業、選你的區', `${Object.keys(C.heroes).length} 種職業各有武器和一招特殊技（一班 ${SH.specials} 次）。搬進籃子的金蛋都算進你選的行政區。`],
@@ -47,7 +52,19 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
     ['打工職級', `過關 +${GR.clear} 點，滿 100 升一級（${GR.names.join('→')}）。職級越高危險度越高：配額變多、魔王來得更快更硬。`],
     ['快捷鍵', 'Q 特殊技、E／空白鍵丟蛋、1 2 3 快速訊號、H 打工場全景、F 鏡頭跟著自己、P 暫停（只有單人）、Esc 關卡片。'],
   ];
-  $('howto').innerHTML = $('howtoHelp').innerHTML = HOWTO().map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('');
+  const TR = C.td.round, HOWTO_TD = () => [
+    ['選英雄、選你的區', `${Object.keys(C.td.heroes).length} 種英雄各有專長。英雄會從你選的行政區出發。守城不賺金蛋，金蛋只有打工賺。`],
+    ['守住市政府', `一場約 ${Math.round(TR.seconds / 60)} 分鐘。網軍依議題從${Object.values(C.landings).map(l => l.name).join('、')}登陸，沿步道和橋走向信義區市政府；擠進門口滿意度就會掉。`],
+    ['英雄怎麼打', `自動攻擊開著時，英雄自己找最前面的網軍開火。點島嶼＝走過去（${C.td.heroMode.manualSeconds} 秒內聽你的），點網軍＝重擊（傷害 ×${TR.focusDmgMul}）。`],
+    ['大招', `「台北人站出來」：全地圖網軍扣 ${Math.round(TR.ultPct * 100)}% 血並減速，冷卻 ${TR.ultCooldown} 秒。按大招鈕或 Q。`],
+    ['居民與市長', `每區居民平常在步道散步，網軍一來就圍上去勸退。${C.mayor.name}巡迴政策建築，回合中每講一次滿意度 +${C.td.mayorBonus}%。`],
+    ['一起守', '其他正在守城的玩家，英雄會出現在你的地圖上幫忙打。用表情列打招呼（1～6）、點別人的英雄擊掌，大招大家都看得到。'],
+    ['快捷鍵', 'Q 大招、A 自動攻擊開關、空白鍵暫停、H 全景、F 鏡頭跟著英雄、Esc 關政策卡。'],
+    ['一定守得住', `第 ${TR.surgeAt} 秒起全民護城，${TR.wipeAt} 秒清場。二創惡搞，每一波都守得下來；守住後 ${TR.autoNextSeconds} 秒自動開下一波。`],
+  ];
+  const LEAD = { shift: '打工場是幾座相鄰的島，金蛋籃在中間那座島的廣場上。網軍會從岸邊一波波上岸，打倒魔王會掉金蛋，搬進籃子湊滿配額才算過關，三波都過就收工。進場後點右上角的「?」也能隨時看。', td: '網軍從四條河岸登陸，沿步道和橋走向信義區市政府。英雄自動開火，居民會圍上去勸退，市長每講一次政策滿意度就回升。所有正在守城的玩家都在同一張地圖上。' };
+  function renderHowto() { const list = mode === 'td' ? HOWTO_TD() : HOWTO(); $('howto').innerHTML = $('howtoHelp').innerHTML = list.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join(''); $('howtoLead').textContent = LEAD[mode]; }
+  renderHowto(); $('lobbyBox').dataset.mode = mode;
   $('bossList').innerHTML = C.bossTypes.map(k => C.animals[k]).map(A => `<li><b>${esc(A.name)}</b><span>${esc(A.desc)}</span></li>`).join('');
   const closeHelp = () => { $('helpOverlay').hidden = true; };
   $('btnHelp').addEventListener('click', () => { $('helpOverlay').hidden = false; }); $('btnHelpClose').addEventListener('click', closeHelp); $('helpOverlay').addEventListener('click', e => { if (e.target === $('helpOverlay')) closeHelp(); });
@@ -68,9 +85,10 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
   // ── 大廳 ──
   function renderGrade() { const g = myGrade(), max = gradeMax(g.lv); $('gradeCard').innerHTML = `<div class="gl"><span class="k">打工職級</span><b>${esc(GR.names[g.lv])}</b><span class="pts">${g.pts}／${max}</span></div><span class="bar"><i style="width:${Math.min(100, g.pts / max * 100).toFixed(1)}%"></i></span><small>危險度 ${Math.round((hazardOf(g.lv, g.pts) + (isFinalNow() ? C.election.hazardBonus : 0)) * 100)}%・過關 +${GR.clear}${g.lv >= GR.failSafeBelow ? '、沒過會扣點' : '、現在沒過也不扣點'}</small>`; }
   function renderStageLine() { const now = stageNow(), nx = stageNext(); $('stageLine').innerHTML = `現在的打工場：<b>${esc(now.name)}</b>（${now.islands.length} 座島）<span>・${hms(rotMs - Date.now() % rotMs)} 後換成${esc(nx.name)}</span>`;
-    const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊、危險度 +${Math.round(C.election.hazardBonus * 100)}%）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
-  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls && C.heroes[h.cls]) chosenCls = h.cls; if (!districtPicked && h.district && DISTRICTS.some(i => i.id === h.district)) $('homeDistrict').value = h.district; renderGoWho(); /* 已存的職業只當預設值，使用者點選過就以點選為準 */
-    $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}<em>${esc(H.weapon)}</em></b><small>${esc(H.desc)}</small><small class="sp">特殊技「${esc(H.special.name)}」：${esc(H.special.desc)}</small></span></button>`).join('');
+    const d = daysToEve(); $('countdown').textContent = d > 0 ? `距離大選前夜總攻擊還有 ${d} 天（${eveDate()}，那天起每一波都是總攻擊${mode === 'td' ? '' : `、危險度 +${Math.round(C.election.hazardBonus * 100)}%`}）` : d === 0 ? '今晚就是總攻擊之夜：每一波都是總攻擊' : `總攻擊之夜已過，每一波照樣是總攻擊議題`; }
+  function renderLobby() { const h = S.hero() || {}; const me = S.state.me; $('lobbyBox').dataset.mode = mode; $('modes').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === mode))); $('lobbyTitle').textContent = mode === 'td' ? '守住市政府。' : '今天也來搬金蛋。'; renderHowto(); if (!$('nick').value) $('nick').value = h.nick || me.name || ''; if (!clsPicked && h.cls && C.heroes[h.cls]) chosenCls = h.cls; if (!districtPicked && h.district && DISTRICTS.some(i => i.id === h.district)) $('homeDistrict').value = h.district; renderGoWho(); /* 已存的職業只當預設值，使用者點選過就以點選為準 */
+    $('classes').innerHTML = Object.entries(C.heroes).map(([id, H]) => { const T = C.td.heroes[id]; return mode === 'td' && T ? `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}</b><small>${esc(T.desc)}</small><small class="sp">傷害 ${T.dmg}・射程 ${T.range}${T.chain ? `・連鎖 ${T.chain}` : ''}${T.slow ? '・減速' : ''}${T.regen ? '・回滿意度' : ''}</small></span></button>` : `<button type="button" class="cls" data-id="${id}" aria-pressed="${id === chosenCls}"><span class="ic">${H.icon}</span><span><b>${H.name}<em>${esc(H.weapon)}</em></b><small>${esc(H.desc)}</small><small class="sp">特殊技「${esc(H.special.name)}」：${esc(H.special.desc)}</small></span></button>`; }).join('');
+    tdui.renderLobby();
     renderGrade(); renderStageLine();
     $('onlineList').innerHTML = online > 1 ? `<p><b>${fmt(online)}</b> 人在線・<b>${fmt(playingCount())}</b> 人正在打工</p><ol class="plist">${sortedPeople().map(p => personRow(p)).join('')}</ol>` : '目前只有你，邀朋友一起來打工。';
     $('lobbyStats').innerHTML = `<div><b>${fmt(online)}</b><span>人在線</span></div><div><b>${fmt(globals.shifts)}</b><span>班打工完成</span></div><div><b>${fmt(globals.eggs)}</b><span>顆金蛋入籃</span></div>` + (globals.visitors != null ? `<div class="vis"><b>${fmt(globals.visitors)}</b><span>人來過${globals.visitorsToday ? `・今天新來 ${fmt(globals.visitorsToday)}` : ''}</span></div>` : '');
@@ -83,7 +101,14 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
   function renderStrip() { $('gVisitorsBox').hidden = globals.visitors == null; $('gVisitors').textContent = fmt(globals.visitors); $('gOnline').textContent = fmt(online); const playing = playingCount(); $('gPlaying').textContent = playing ? `・${fmt(playing)} 人在打工` : ''; $('gShifts').textContent = fmt(globals.shifts); $('gEggs').textContent = fmt(globals.eggs); $('gWorkers').textContent = fmt(globals.workers); const d = daysToEve(); $('gCountdown').textContent = d > 0 ? `總攻擊倒數 ${d} 天` : '總攻擊之夜'; }
   function renderLog(log) { $('log').innerHTML = log.map(l => `<li class="${l.cls}"><time>${esc(l.t)}</time><span>${esc(l.txt)}</span></li>`).join(''); }
   let bannerT = 0; function banner(txt, secs) { const b = $('banner'); b.textContent = txt; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), secs * 1000); }
-  let hintT = 0; function hint(txt, bad) { const h = $('hint'); h.textContent = txt || (G.phase === 'lobby' ? '拖曳旋轉、滾輪縮放；點政策建築看政策卡。' : 'WASD／搖桿走路・點敵人鎖定・Q 特殊技・E 丟蛋'); h.classList.toggle('bad', !!bad); clearTimeout(hintT); hintT = setTimeout(() => hint(''), bad ? 2500 : 4500); }
+  let hintT = 0; function hint(txt, bad) { const h = $('hint'); h.textContent = txt || (tdOn() ? '點島嶼讓英雄走過去；點敵人重擊；Q 大招；拖曳旋轉、滾輪縮放。' : G.phase === 'lobby' ? '拖曳旋轉、滾輪縮放；點政策建築看政策卡。' : 'WASD／搖桿走路・點敵人鎖定・Q 特殊技・E 丟蛋'); h.classList.toggle('bad', !!bad); clearTimeout(hintT); hintT = setTimeout(() => hint(''), bad ? 2500 : 4500); }
+  // ── 守城（tdui.js）：大廳與畫面共用這裡的小工具 ──
+  const tdOn = () => td.G.phase === 'round' || td.G.phase === 'result';
+  const tdui = createTDUI({ td, S, callbacks: tdCallbacks, shared: { esc, fmt, hint, banner, renderLog, isFinalNow, todayTPE, eveDate, districtName, issues: () => issues, online: () => online,
+    profile: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict() }),
+    enter: async () => { if (room.code) { await room.leave(); dropRoomParam(); } $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); input.clear(); overview(); renderFollowBtn(); },
+    exit: () => { follow.stop(); renderLobby(); $('lobby').hidden = false; overview(); renderFollowBtn(); hint(''); },
+    refresh: () => { globals = S.totals(); renderStrip(); } } });
   // ── 政策卡：編號標題、摘要、為什麼、細項、主責局處、遊戲裡的狀態（市長巡迴、相關議題）、相關政策 ──
   let cardPol = null, cardIsl = null, cardTimer = 0; const tagOf = p => String(p.tag || '').replace(/^#/, ''); const md = s => s.split('-').slice(1).map(Number).join('/');
   function mayorLine(pol) { const M = G.mayor, st = game.mayorStops(), n = st.length, me = st.findIndex(x => x.pol.id === pol.id); if (!M || me < 0) return ''; const who = esc(C.mayor.name);
@@ -184,7 +209,7 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
       players: (Array.isArray(r.players) ? r.players : []).slice(0, 4).map((p, i) => ({ slot: i, id: clean(p && p.id, 64), nick: clean(p && p.nick, 30) || '同事', cls: p && Object.hasOwn(C.heroes, p.cls) ? p.cls : 'chief', npc: !!(p && p.npc), district: p && DISTRICTS.some(d => d.id === p.district) ? p.district : null, gold: n(p && p.gold), power: n(p && p.power), rescues: n(p && p.rescues), downs: n(p && p.downs) })) }; }
   function begin(cfg, role) { $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); clearTimeout(resultT); input.clear(); game.startShift(cfg, role); }
   function setPhasePresence() { if (room.code) { room.setStage(G.phase !== 'lobby' && G.phase !== 'result' ? 'shift' : 'wait'); return; } S.setPresence({ phase: G.phase !== 'lobby' && G.phase !== 'result' ? 'shift' : 'lobby', nick: nickVal(), cls: chosenCls }); }
-  function onShift(kind) { const inShift = kind === 'start'; document.body.classList.toggle('in-shift', inShift); $('shiftHud').hidden = !inShift; $('teamPanel').hidden = !inShift; $('actionBar').hidden = !inShift; $('joy').hidden = !inShift || !touch || G.me < 0;
+  function onShift(kind) { const inShift = kind === 'start'; td.setHideRemotes(inShift); document.body.classList.toggle('in-shift', inShift); $('shiftHud').hidden = !inShift; $('teamPanel').hidden = !inShift; $('actionBar').hidden = !inShift; $('joy').hidden = !inShift || !touch || G.me < 0;
     $('btnPause').hidden = !(inShift && G.role === 'solo'); $('btnQuit').hidden = !inShift; G.paused = false; $('btnPause').textContent = '暫停'; $('btnPause').setAttribute('aria-pressed', 'false');
     if (inShift) { if (!follow.start('hero', true)) stageView(); renderSpecial(); renderTeam(); renderShift(); hint(''); } else { follow.stop(); overview(); }
     renderFollowBtn(); setPhasePresence(); }
@@ -236,17 +261,17 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
     $('resultBox').hidden = false; }
   $('btnAgain').addEventListener('click', () => { if (G.role === 'client') return; if (room.code && room.isHost) startRoomShift(); else startSolo(); });
   $('btnResLobby').addEventListener('click', () => { $('resultBox').hidden = true; game.backToLobby(); renderLobby(); $('lobby').hidden = false; });
-  $('btnQuit').addEventListener('click', async () => { if (G.phase === 'lobby') return; if (G.phase !== 'result' && !confirm(G.role === 'host' ? '你是房主，收工的話這班所有人都會結束。確定嗎？' : '確定要提早收工嗎？這班不會算進戰績。')) return;
+  $('btnQuit').addEventListener('click', async () => { if (tdOn()) { tdui.toLobby(); return; } if (G.phase === 'lobby') return; if (G.phase !== 'result' && !confirm(G.role === 'host' ? '你是房主，收工的話這班所有人都會結束。確定嗎？' : '確定要提早收工嗎？這班不會算進戰績。')) return;
     if (G.phase === 'result') { $('btnResLobby').click(); return; } if (G.role === 'client') { await room.leave(); game.abort('quit'); renderRoom(); } else game.abort('quit'); });
   // ═══════════════ 鏡頭按鈕 ═══════════════
-  function renderFollowBtn() { const k = follow.kind; $('btnFollow').setAttribute('aria-pressed', String(!!k)); $('followLbl').textContent = G.phase === 'lobby' ? '跟隨市長' : '跟著我'; }
-  $('btnFollow').addEventListener('click', () => { if (follow.kind) follow.stop(); else if (!follow.start(G.phase === 'lobby' ? 'mayor' : 'hero', G.phase !== 'lobby')) hint('沒有可以跟隨的對象', true); renderFollowBtn(); });
+  function renderFollowBtn() { const k = follow.kind; $('btnFollow').setAttribute('aria-pressed', String(!!k)); $('followLbl').textContent = tdOn() ? '跟著英雄' : G.phase === 'lobby' ? '跟隨市長' : '跟著我'; }
+  $('btnFollow').addEventListener('click', () => { if (follow.kind) follow.stop(); else if (!follow.start(tdOn() ? 'tdhero' : G.phase === 'lobby' ? 'mayor' : 'hero', G.phase !== 'lobby')) hint('沒有可以跟隨的對象', true); renderFollowBtn(); });
   $('btnHome').addEventListener('click', () => { if (G.phase === 'lobby') overview(); else if (follow.kind) stageView(); else follow.start('hero', true) || stageView(); renderFollowBtn(); });
   Object.assign(callbacks, { follow: () => renderFollowBtn(), hud: renderShift, log: renderLog, banner, hint, end: onEnd, team: renderTeam, shift: onShift, card: showCard });
   $('btnCardMayor').addEventListener('click', () => { if (follow.start('mayor')) { closeCard(); renderFollowBtn(); } });
   // ═══════════════ 暫停（只有單人）、背景分頁 ═══════════════
   function togglePause() { if (G.role !== 'solo' || G.phase === 'lobby') return; G.paused = !G.paused; $('btnPause').textContent = G.paused ? '繼續' : '暫停'; $('btnPause').setAttribute('aria-pressed', String(G.paused)); if (G.paused) banner('⏸ 暫停中（P 繼續）', 2); }
-  $('btnPause').addEventListener('click', togglePause);
+  $('btnPause').addEventListener('click', () => tdOn() ? tdui.togglePause() : togglePause());
   // 房主切到背景時畫面不會更新，這裡用計時器繼續跑模擬、送快照（瀏覽器會把背景計時器放慢到約每秒一次）
   let hiddenAt = 0; document.addEventListener('visibilitychange', () => { S.setPresence({ away: document.hidden }); hiddenAt = performance.now(); if (document.hidden && G.role === 'solo' && G.phase !== 'lobby' && G.phase !== 'result' && !G.paused) togglePause(); });
   setInterval(() => { if (!document.hidden || G.role !== 'host' || G.phase === 'lobby') return; const now = performance.now(), dt = Math.min(1.2, (now - hiddenAt) / 1000); hiddenAt = now; const sub = Math.ceil(dt / 0.025); for (let i = 0; i < sub; i++) game.step(dt / sub); }, 250);
@@ -255,10 +280,10 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
   let lastUp = null, lastUpAt = 0;
   setInterval(() => { if (G.role !== 'client' || !room.code || G.phase === 'lobby' || G.phase === 'result') return; const m = game.myInput(); if (!m) return; const now = Date.now(); const moved = !lastUp || Math.hypot(m.x - lastUp.x, m.z - lastUp.z) > 0.03 || Math.abs(m.y - lastUp.y) > 0.25 || m.f !== lastUp.f; if (!moved && now - lastUpAt < C.net.heartbeat * 1000) return; lastUp = m; lastUpAt = now; room.sendUp(m); }, 1000 / C.net.upHz);
   // ═══════════════ 在線名單 ═══════════════
-  const STATUS = { shift: '打工中', room: '在房間等', lobby: '在大廳', away: '暫離' };
+  const STATUS = { shift: '打工中', td: '守城中', room: '在房間等', lobby: '在大廳', away: '暫離' };
   function statusOf(p) { return p.away ? 'away' : p.phase; }
-  function playingCount() { return people.filter(p => statusOf(p) === 'shift').length; }
-  function sortedPeople() { const me = myUid(), order = { shift: 0, room: 1, lobby: 2, away: 3 }; return [...people].sort((a, b) => (b.id === me) - (a.id === me) || order[statusOf(a)] - order[statusOf(b)] || a.nick.localeCompare(b.nick, 'zh-Hant')); }
+  function playingCount() { return people.filter(p => statusOf(p) === 'shift' || statusOf(p) === 'td').length; }
+  function sortedPeople() { const me = myUid(), order = { shift: 0, td: 0, room: 1, lobby: 2, away: 3 }; return [...people].sort((a, b) => (b.id === me) - (a.id === me) || order[statusOf(a)] - order[statusOf(b)] || a.nick.localeCompare(b.nick, 'zh-Hant')); }
   function personRow(p) { const me = p.id === myUid(), H = p.cls && C.heroes[p.cls], st = statusOf(p), canJoin = !me && p.host && p.pub && p.rs === 'wait' && p.rn < C.net.roomMax && p.room !== room.code && room.available() && G.phase === 'lobby';
     return `<li class="${st}${me ? ' me' : ''}"><i></i><span class="pn">${esc(p.nick || '匿名打工仔')}${me ? ' <em>你</em>' : ''}</span><small>${H ? H.icon + ' ' : ''}${STATUS[st]}${p.host ? `・房 ${esc(p.room)} ${p.rn}/${C.net.roomMax}` : ''}</small>${canJoin ? `<button type="button" class="pj" data-room="${esc(p.room)}">加入</button>` : ''}</li>`; }
   function renderPlayers() { $('plTitle').textContent = `${fmt(online)} 人在線・${fmt(playingCount())} 人在打工${globals.visitors != null ? `・累計 ${fmt(globals.visitors)} 人來過` : ''}`; const html = sortedPeople().map(p => personRow(p)).join('') || '<li class="empty">目前只有你</li>'; if ($('plList').dataset.html !== html) { $('plList').innerHTML = html; $('plList').dataset.html = html; } }
@@ -269,14 +294,14 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
   // ═══════════════ 快捷鍵 ═══════════════
   document.addEventListener('keydown', ev => { if (/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return; const k = ev.key.toLowerCase();
     if (ev.key === 'Escape') { closeCard(); closeHelp(); return; }
-    if (G.phase === 'lobby') { if (k === 'h') overview(); else if (k === 'f') $('btnFollow').click(); return; }
+    if (G.phase === 'lobby') { if (k === 'h') overview(); else if (k === 'f') $('btnFollow').click(); else if (ev.key === 'Enter' && !$('lobby').hidden && mode === 'td') $('btnGo').click(); return; }
     if (k === 'q') { ev.preventDefault(); doSpecial(); } else if (k === 'e' || ev.key === ' ') { ev.preventDefault(); doThrow(); } else if (k >= '1' && k <= String(C.emotes.length)) doEmote(C.emotes[+k - 1].k); else if (k === 'h') $('btnHome').click(); else if (k === 'f') { follow.start('hero', false); renderFollowBtn(); } else if (k === 'p') togglePause(); });
   const fsBtn = $('btnFull'); if (!document.fullscreenEnabled) fsBtn.hidden = true; fsBtn.addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => { hint('這個環境不允許全螢幕', true); }); }); document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? '⤡ 離開全螢幕' : '⤢ 全螢幕'; });
   $('btnLogToggle').addEventListener('click', () => { $('logPanel').classList.toggle('open'); });
-  $('btnSolo').addEventListener('click', startSolo);
+  $('btnSolo').addEventListener('click', startSolo); $('btnGo').addEventListener('click', () => tdui.start());
   $('nick').addEventListener('input', profileChanged);
   $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteProj').textContent = C.site.proj; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
-  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
+  S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); tdui.renderBoard(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
   S.onOnline((n, names, list) => { online = n; people = list || []; renderStrip(); if (!$('lobby').hidden) renderLobby(); if (!$('playersPanel').hidden) renderPlayers(); });
   S.init().then(() => { const h = S.hero(); S.setPresence({ nick: (h && h.nick) || '', cls: (h && h.cls) || null, phase: 'lobby', away: document.hidden }); renderLobby();
     const code = new URLSearchParams(location.search).get('room'); if (code && room.available()) roomAction(() => room.join(code), r => `加入房間 ${r.code}`); else if (code) hint(REASON.offline, true); });
@@ -324,5 +349,5 @@ export function createUI({ game, callbacks, overview, stageView, flyTo, placePol
     el.style.setProperty('--from', track.clientWidth + 'px'); el.style.setProperty('--to', -el.scrollWidth + 'px'); el.style.animation = `tk ${dur}s linear 1`; }
   $('tkText').addEventListener('animationend', nextTicker); requestAnimationFrame(nextTicker);
   let distTick = 0;
-  return { tick() { renderShift(); if (G.phase !== 'lobby') renderTeam(); if (++distTick % 5) return; if (!$('lobby').hidden) renderStageLine(); if (!$('playersPanel').hidden) renderPlayers(); }, room };
+  return { tick() { renderShift(); tdui.tick(); if (G.phase !== 'lobby') renderTeam(); if (++distTick % 5) return; if (!$('lobby').hidden) renderStageLine(); if (!$('playersPanel').hidden) renderPlayers(); }, room, tdui };
 }
