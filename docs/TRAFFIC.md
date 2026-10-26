@@ -4,7 +4,7 @@
 
 ## 資料流程（GitHub Actions）
 - 這個雲端開發環境連不到 overpass-api.de、data.gov.tw、data.taipei，所以資料在 GitHub 的機器上抓：`.github/workflows/traffic-data.yml` 跑 `scripts/traffic/build-data.mjs`，結果 commit 回 main 的 `traffic/data/`（Cloudflare Pages 接著部署）。
-- 觸發：GitHub → Actions →「台北車流資料」→ Run workflow；或改了 `scripts/traffic/**`、這個 workflow 檔推上 main 時自動跑。大約 10 分鐘。
+- 觸發：GitHub → Actions →「台北車流資料」→ Run workflow；改了 `scripts/traffic/**`、這個 workflow 檔推上 main 時；以及每天 02:23 UTC（台灣 10:23，歐洲半夜 Overpass 最不塞）自動跑。大約 10 分鐘。
 - 來源：
   - Overpass：道路（`highway` motorway～service，service 只留 alley 或沒標的）、`highway=traffic_signals` 節點、市界（`ISO3166-2=TW-TPE`）、12 區界、水域、綠地。鏡像站會回 502 或空結果，腳本會換站重試（`minCount`）。
   - 政府資料開放平臺 API（`https://data.gov.tw/api/v2/rest/dataset/<id>`）找下載網址：121890 臺北市號誌位置（tab 分隔 CSV：流水號、地點、行政區、WGS 經緯度）、145720 臺北市路口號誌時制計畫（兩個 JSON＋一個 CSV）。

@@ -3,6 +3,9 @@
 name: 台北車流資料
 on:
   workflow_dispatch:
+  # 每天歐洲半夜（Overpass 最不塞的時候）自動重抓一次：上一次沒抓到的道路、建物、捷運接著補，臺北市時制也跟著更新
+  schedule:
+    - cron: '23 2 * * *'
   push:
     branches: [main]
     paths:
