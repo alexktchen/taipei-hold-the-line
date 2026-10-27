@@ -73,7 +73,7 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-26T03:01:51+08:00"
+  "InfoTime": "2026-10-27T03:01:51+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -149,7 +149,7 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-26T03:01:51+08:00"
+  "InfoTime": "2026-10-27T03:01:51+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -225,7 +225,83 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-26T03:01:51+08:00"
+  "InfoTime": "2026-10-27T03:01:51+08:00"
+ },
+ {
+  "Agency_name": "臺北市政府交通局",
+  "AgencyCodes": "379530000H",
+  "icid": "I0SSA",
+  "icname": "老泉街　　　　防汛道路",
+  "deviceid": "S0SSA10",
+  "segmenttype": 2,
+  "subsegment": [
+   {
+    "subsegmentid": 1,
+    "time": "0000",
+    "planid（SeqNo）": "5"
+   },
+   {
+    "subsegmentid": 2,
+    "time": "0100",
+    "planid（SeqNo）": "6"
+   },
+   {
+    "subsegmentid": 3,
+    "time": "0500",
+    "planid（SeqNo）": "11"
+   },
+   {
+    "subsegmentid": 4,
+    "time": "0600",
+    "planid（SeqNo）": "1"
+   },
+   {
+    "subsegmentid": 5,
+    "time": "0700",
+    "planid（SeqNo）": "9"
+   },
+   {
+    "subsegmentid": 6,
+    "time": "0900",
+    "planid（SeqNo）": "4"
+   },
+   {
+    "subsegmentid": 7,
+    "time": "1100",
+    "planid（SeqNo）": "4"
+   },
+   {
+    "subsegmentid": 8,
+    "time": "1300",
+    "planid（SeqNo）": "2"
+   },
+   {
+    "subsegmentid": 9,
+    "time": "1400",
+    "planid（SeqNo）": "2"
+   },
+   {
+    "subsegmentid": 10,
+    "time": "1630",
+    "planid（SeqNo）": "10"
+   },
+   {
+    "subsegmentid": 11,
+    "time": "1900",
+    "planid（SeqNo）": "8"
+   },
+   {
+    "subsegmentid": 12,
+    "time": "2100",
+    "planid（SeqNo）": "12"
+   },
+   {
+    "subsegmentid": 13,
+    "time": "2300",
+    "planid（SeqNo）": "5"
+   }
+  ],
+  "InfoTime": "2026-10-27T03:01:51+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -301,82 +377,6 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-26T03:01:51+08:00"
- },
- {
-  "Agency_name": "臺北市政府交通局",
-  "AgencyCodes": "379530000H",
-  "icid": "I0SSA",
-  "icname": "老泉街　　　　防汛道路",
-  "deviceid": "S0SSA10",
-  "segmenttype": 3,
-  "subsegment": [
-   {
-    "subsegmentid": 1,
-    "time": "0000",
-    "planid（SeqNo）": "5"
-   },
-   {
-    "subsegmentid": 2,
-    "time": "0100",
-    "planid（SeqNo）": "6"
-   },
-   {
-    "subsegmentid": 3,
-    "time": "0500",
-    "planid（SeqNo）": "11"
-   },
-   {
-    "subsegmentid": 4,
-    "time": "0600",
-    "planid（SeqNo）": "1"
-   },
-   {
-    "subsegmentid": 5,
-    "time": "0700",
-    "planid（SeqNo）": "9"
-   },
-   {
-    "subsegmentid": 6,
-    "time": "0900",
-    "planid（SeqNo）": "4"
-   },
-   {
-    "subsegmentid": 7,
-    "time": "1100",
-    "planid（SeqNo）": "4"
-   },
-   {
-    "subsegmentid": 8,
-    "time": "1300",
-    "planid（SeqNo）": "2"
-   },
-   {
-    "subsegmentid": 9,
-    "time": "1400",
-    "planid（SeqNo）": "2"
-   },
-   {
-    "subsegmentid": 10,
-    "time": "1630",
-    "planid（SeqNo）": "10"
-   },
-   {
-    "subsegmentid": 11,
-    "time": "1900",
-    "planid（SeqNo）": "8"
-   },
-   {
-    "subsegmentid": 12,
-    "time": "2100",
-    "planid（SeqNo）": "12"
-   },
-   {
-    "subsegmentid": 13,
-    "time": "2300",
-    "planid（SeqNo）": "5"
-   }
-  ],
-  "InfoTime": "2026-10-26T03:01:51+08:00"
+  "InfoTime": "2026-10-27T03:01:51+08:00"
  }
 ]
