@@ -113,6 +113,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 
 /* 二創惡搞警語：大廳頂部醒目框、底部免責框、地圖上常駐徽章 */
 .parody{display:flex;flex-direction:column;gap:2px;background:#fcea8b;border:2px solid #211d1d;border-radius:14px;padding:10px 14px;margin:-4px 0 12px}
+.lobby-tribute{text-align:center;font-size:15px;font-weight:900;letter-spacing:.12em;color:var(--navy);margin:-4px 0 10px}
 .parody b{font-size:15px;font-weight:900;color:#211d1d;letter-spacing:.06em} .parody span{font-size:13px;color:#211d1d;line-height:1.5}
 .overlay .foot{background:#f3e7de;border-radius:12px;padding:10px 14px;margin-top:14px;max-width:none;font-size:12px;color:var(--ink);border:0} .overlay .foot b{display:block;font-size:12px;margin-bottom:2px} .overlay .foot p{margin:0;color:var(--muted)}
 .brand .tag{background:#fcea8b;color:#211d1d;border:1.5px solid #211d1d;font-weight:900}
