@@ -23,6 +23,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 .brand h1{margin:0;font-size:26px;font-weight:900;letter-spacing:.04em;line-height:1.1;color:var(--coral)}
 .brand .proj{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.14em;color:var(--muted);margin-top:4px} .brand .proj em{font-style:normal;font-weight:900;color:var(--navy);background:var(--navy-soft);padding:0 5px;border-radius:3px;letter-spacing:.04em}
 .brand .tag{font-size:10px;color:var(--muted);border:1px solid var(--line);padding:1px 7px;border-radius:999px;display:inline-block;margin-top:6px}
+.brand .tribute{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--navy);margin-top:4px}
 .gstrip{left:50%;top:14px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:6px 16px;background:var(--paper);color:var(--ink);border-radius:999px;white-space:nowrap}
 .gstrip>div{display:flex;align-items:baseline;gap:5px} .gstrip b{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--coral)} .gstrip span{font-size:11px;color:var(--muted)} .gstrip .cd{background:var(--gold);color:#211d1d;padding:1px 9px;border-radius:999px;font-size:11px;font-weight:700}
 .hud{right:max(14px,var(--sa-r));top:14px;padding:10px 12px;width:300px;display:flex;flex-direction:column;gap:4px}

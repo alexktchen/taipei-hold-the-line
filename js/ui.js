@@ -337,7 +337,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   $('btnLogToggle').addEventListener('click', () => { $('logPanel').classList.toggle('open'); });
   $('btnSolo').addEventListener('click', startSolo);
   $('nick').addEventListener('input', profileChanged);
-  $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteProj').textContent = C.site.proj; $('siteTag').textContent = C.site.tag; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
+  $('siteName').textContent = C.site.name; $('siteSub').textContent = C.site.sub; $('siteProj').textContent = C.site.proj; $('siteTag').textContent = C.site.tag; $('siteTribute').textContent = C.site.tribute; $('parodyTitle').textContent = C.site.parody; $('parodyLong').textContent = C.site.parodyLong; $('disclaimer').textContent = C.site.disclaimer + ' ' + C.site.credit; $('parodyBadge').textContent = '二創惡搞';
   S.onGlobal(g => { globals = g; renderStrip(); if (!$('lobby').hidden) renderLobby(); }); S.onLeaderboard(list => { renderBoard(list); renderDistricts(); shop.sync(); if (xOn() && !$('shopPanel').hidden) shop.render(); }); S.onIssues(list => { issues = list; fillIssueSelect(); }); S.onPolicies(list => { policies = list; fillPolicySelect(); placePolicies(list); });
   S.onOnline((n, names, list) => { online = n; people = list || []; renderStrip(); if (!$('lobby').hidden) renderLobby(); if (!$('playersPanel').hidden) renderPlayers(); });
   // 上次在城市：先用雲蓋住畫面（不先閃一下大廳），載入完直接散開到城市
