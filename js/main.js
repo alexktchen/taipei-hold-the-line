@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG as C } from './config.js';
 import { createEnvironment } from './env.js';
-import { buildIslands, buildGraph, slotLayout, buildExtraIsland, nearestRingPair, axialToWorld, TOP, INNER, R, RING_R, MAP_K, ISLAND_K, hexVertex, dirOf } from './islands.js';
+import { buildIslands, buildGraph, slotLayout, buildCampusZone, axialToWorld, TOP, R, H, RING_H, MAP_K, SIZE_K, NEIGHBORS } from './islands.js';
+import { createProgress } from './progress.js';
 import { createKit, createModels, GLOW, GLOW_GHOST, CUT, setCutVisible } from './buildings.js';
 import { createPeople } from './people.js';
 import { createAnimals } from './animals.js';
@@ -12,7 +13,7 @@ import { createExplore } from './explore.js';
 import { createNav } from './nav.js';
 import { ICONS } from './icons.js';
 import { createUI } from './ui.js';
-import { mulberry, WATER_Y } from './env.js';
+import { mulberry } from './env.js';
 const stage = document.getElementById('stage');
 const quality = (navigator.hardwareConcurrency || 4) >= 6 && !/Mobi|Android/i.test(navigator.userAgent) ? 'high' : 'medium';
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -23,63 +24,60 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.3, 320);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minPolarAngle = THREE.MathUtils.degToRad(25); controls.maxPolarAngle = THREE.MathUtils.degToRad(70); controls.minDistance = 4; controls.maxDistance = 70 * MAP_K; controls.enablePan = true; controls.screenSpacePanning = false;
 const TOUCH_MAP = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }, TOUCH_FOLLOW = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }; controls.touches = { ...TOUCH_MAP }; // 手機：單指拖地圖、雙指縮放旋轉（跟地圖 App 一樣）
 const colors = C.palette;
-// 島與建築
+// 草原小鎮與建築
 const kit = createKit(TOP);
-const { centers, neighbors, views, tops, links, bridges } = buildIslands(scene, C.islands, kit, colors);
+const CAMPUS = C.econ.city.filter(p => p.kind === 'island'); // 蓋校園的新校區：一開始是野地，蓋好才變成區塊
+const world = buildIslands(scene, C.islands, kit, colors, CAMPUS, () => createKit(TOP));
+const { centers, neighbors, views, tops, links, bridges, gates, cells } = world;
 const center = new THREE.Vector3(); for (const c of centers.values()) center.add(c); center.divideScalar(centers.size); center.y = TOP;
 const model = createModels(kit, colors); const rnd = mulberry(5);
-// 每座島固定 8 個槽位：前 5 個給課程建築（動態），後 3 個放小房子（靜態）
-const POLICY_SLOTS = 5, LAYOUT = new Map(), STATIC_OBST = [], CITY_POS = new Map(), BOUTIQUES = []; // BOUTIQUES：逛校園的服飾店（那幾座島的第 1 棟小房子） // STATIC_OBST：闖關時不能穿過的建築（地標、小房子），課程建築另外動態加
-const PZ = C.plaza, inPlaza = (x, z, h) => Math.abs(x) < PZ.r + h && z + h > PZ.z - PZ.r && z - h < PZ.z + PZ.len; // 金蛋籃廣場：島中央前方一條走道不放建築
+// 每個區塊 8 個槽位：前 3 個給課程建築（動態），後 5 個放小房子（靜態）
+const POLICY_SLOTS = 3, LAYOUT = new Map(), STATIC_OBST = [], CITY_POS = new Map(), BOUTIQUES = []; // BOUTIQUES：逛校園的服飾店；STATIC_OBST：不能穿過的建築（地標、小房子），課程建築另外動態加
+const PZ = C.plaza;
 const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'round', boardwalk: 'round', rubber: 'round', street: 'round', courtyard: 'blossom', meadow: 'willow', lawn: 'round', granite: 'round', terracotta: 'round', schoolyard: 'round', gravel: 'round' };
-const TRIM = { lawn: 'hedge', garden: 'hedge', forest: 'logs', softpad: 'picket' }; // 其他島：牧場木圍欄
-for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95 * ISLAND_K], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
-  const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
-  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18 * ISLAND_K, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42 * ISLAND_K]);
-  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { const bq = C.explore.boutiques.some(([id, h]) => id === isl.id && h === i), kind = bq ? 'shop' : ['shop', 'house', 'house2'][i % 3], cp = C.econ.city.find(p => p.island === isl.id && p.house === i); // 蓋校園的位置先空著，由 placeCity 決定放小房子、工地或蓋好的建築
+const FARM = new Set(['gravel', 'boardwalk', 'courtyard']); // 泥土地的區塊是牧場：牛、羊、牧草地
+// 區塊的散景：步道環外圈一圈樹與花草（門口留路）、環內空地放田地與牧場小物；沒有廣場的區塊前方中間放池塘或牧場
+function decorateZone(isl, c, lay, k, m, r, occ) { const style = TREE_STYLE[isl.ground] || 'round', free = (x, z, rr) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > rr + orr);
+  const gateSide = NEIGHBORS.map(([dq, dr]) => gates.some(g => (g.a === isl.id || g.b === isl.id) && Math.sign(Math.round(g.x - c.x)) === dq && Math.sign(Math.round(g.z - c.z)) === dr));
+  const band = (RING_H + H) / 2 + 0.05, BAND = ['tree', 'bush', 'flowers', 'tree', 'hay', 'flowers', 'tree', 'barrel', 'bush', 'tree', 'flowers', 'stump'];
+  NEIGHBORS.forEach(([dq, dr], s) => { for (let t = -RING_H + 0.5, n = 0; t <= RING_H - 0.5; t += 0.72 + r() * 0.25, n++) { if (gateSide[s] && Math.abs(t) < 0.85) continue; const x = dq ? dq * band : t, z = dr ? dr * band : t; const kind = BAND[(n + s * 3 + isl.number) % BAND.length];
+      if (kind === 'tree') k.tree(c.x + x, c.z + z, 0.36 + r() * 0.16, n + isl.number, style); else m(kind, c.x + x, c.z + z, 0.55, n + isl.number); } });
+  if (!isl.plaza) { const fx = 0, fz = 1.5; occ.push([fx, fz, 1.0]); if (FARM.has(isl.ground)) { m('paddock', c.x + fx, c.z + fz, 1.2, isl.number); } else m('pond', c.x + fx, c.z + fz, 1.1, isl.number); }
+  const MIX = FARM.has(isl.ground) ? ['field', 'hay', 'cow', 'field', 'sheep', 'scarecrow', 'well', 'barrel', 'crate', 'field', 'sheep', 'flowers'] : ['tree', 'field', 'flowers', 'bench', 'scarecrow', 'well', 'tree', 'flowers', 'crate', 'signpost', 'field', 'bush'];
+  let placed = 0; for (let tries = 0; tries < 600 && placed < 14; tries++) { const lx = (r() - 0.5) * (RING_H - 0.45) * 2, lz = (r() - 0.5) * (RING_H - 0.45) * 2; const t = MIX[tries % MIX.length];
+    const rr = t === 'tree' ? 0.3 : t === 'field' ? 0.4 : t === 'cow' || t === 'sheep' ? 0.25 : t === 'bench' || t === 'well' || t === 'scarecrow' ? 0.22 : 0.15; if (!free(lx, lz, rr)) continue; occ.push([lx, lz, rr]);
+    if (t === 'tree') k.tree(c.x + lx, c.z + lz, 0.34 + r() * 0.2, placed + isl.number, style); else m(t, c.x + lx, c.z + lz, t === 'field' ? 0.75 : 0.6, placed + isl.number); placed++; } }
+for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8); LAYOUT.set(isl.id, lay);
+  const occ = [[0, lay.heroZ, 0.95 * SIZE_K], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.62]), ...(isl.plaza ? [[0, PZ.basketZ, 1.15], [0, PZ.basketZ + 1.4, 0.4]] : [])];
+  model(isl.landmark, c.x, c.z + lay.heroZ, 1.18 * SIZE_K, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42 * SIZE_K]);
+  lay.slots.slice(POLICY_SLOTS).forEach(([sx, sz], i) => { const bq = C.explore.boutiques.some(([id, h]) => id === isl.id && h === i), kind = bq ? 'shop' : ['house', 'house2', 'shop', 'house', 'house2'][i % 5], cp = C.econ.city.find(p => p.island === isl.id && p.house === i); // 蓋校園的位置先空著，由 placeCity 決定放小房子、工地或蓋好的建築
     if (cp) CITY_POS.set(cp.id, { x: c.x + sx, z: c.z + sz, size: lay.size, kind, seed: isl.number * 3 + i }); else model(kind, c.x + sx, c.z + sz, lay.size * 1.05, isl.number * 3 + i); STATIC_OBST.push([c.x + sx, c.z + sz, lay.size * 0.38]);
     if (bq && !cp) BOUTIQUES.push({ x: c.x + sx, z: c.z + sz, island: isl.id }); });
-  // 島緣：沒有橋的邊放圍欄／樹籬／矮牆
-  const nb = neighbors.get(isl.id); const bridgeDirs = nb.filter(n => n.id).map(n => dirOf(n.dq, n.dr)); for (const L of links) if (L.a === isl.id || L.b === isl.id) { const mine = L.a === isl.id ? L.pa : L.pb; const v = mine.clone().sub(c).setY(0).normalize(); bridgeDirs.push([v.x, v.z]); } const trim = TRIM[isl.ground];
-  for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.12, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.12, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
-    for (let s = 0; s <= 8; s++) { const t = 0.08 + (s / 8) * 0.84; const x = c.x + ax + (bx - ax) * t, z = c.z + az + (bz - az) * t;
-      if (trim === 'bollard') { if (s % 2 === 0) { kit.cyl(x, TOP + 0.07, z, 0.045, 0.14, 0x3b3a42); kit.cyl(x, TOP + 0.15, z, 0.05, 0.03, 0xe8c547); } }
-      else if (trim === 'hedge') kit.part('leaf', [x, TOP + 0.1, z], [0.22, 0.18, 0.22], s % 2 ? 0x9cc27a : 0x8db86f);
-      else if (trim === 'wall') { if (s % 2 === 0) kit.hbox(x, TOP + 0.08, z, 0.08, 0.16, 0.08, 0xd9cbb4); }
-      else if (trim === 'logs') { if (s % 2 === 0) kit.cyl(x, TOP + 0.09, z, 0.06, 0.18, 0x7a5c42); }
-      else if (trim === 'picket') kit.hbox(x, TOP + 0.08, z, 0.025, 0.16, 0.025, [0xfff8f4, 0xf7ede0][s % 2]);
-      else if (s % 2 === 0) kit.hbox(x, TOP + 0.1, z, 0.04, 0.2, 0.04, 0x8a6a4a); }
-    if (trim === 'wall') kit.hbox(c.x + mx, TOP + 0.08, c.z + mz, 0.06, 0.14, len * 0.84, 0xe4d6c3, null, [0, yaw, 0]);
-    else if (trim === 'picket') kit.hbox(c.x + mx, TOP + 0.16, c.z + mz, 0.015, 0.015, len * 0.84, 0xfff8f4, null, [0, yaw, 0]);
-    else if (!trim) { kit.hbox(c.x + mx, TOP + 0.16, c.z + mz, 0.025, 0.025, len * 0.84, 0xb48560, null, [0, yaw, 0]); kit.hbox(c.x + mx, TOP + 0.08, c.z + mz, 0.025, 0.025, len * 0.84, 0xb48560, null, [0, yaw, 0]); } }
-  // 散景：樹、灌木、花、長椅（有人坐）、單車架、垃圾桶、花盆、鵝卵石、小攤
-  const MIX = ['tree', 'field', 'flowers', 'hay', 'tree', 'bush', 'field', 'scarecrow', 'pebble', 'bench', 'tree', 'well', 'flowers', 'barrel', 'bush', 'field', 'stump', 'signpost', 'crate', 'tree']; // 牧場物語：田地、乾草捲、稻草人、水井、木桶、樹樁
-  let placed = 0; for (let tries = 0; tries < 480 && placed < 22; tries++) { const lx = (rnd() - 0.5) * INNER * 1.93, lz = (rnd() - 0.5) * INNER * 1.64; const t = MIX[tries % MIX.length]; // 放不下就換下一種，不會卡在同一種 const r = t === 'tree' ? 0.22 : t === 'field' ? 0.32 : t === 'bench' || t === 'stand' || t === 'umbrella' || t === 'well' || t === 'scarecrow' ? 0.2 : t === 'vending' || t === 'signpost' || t === 'hay' || t === 'barrel' ? 0.13 : 0.1; if (Math.hypot(lx, lz) > INNER - 0.12 || Math.abs(lx) * 0.5 + Math.abs(lz) * 0.866 > INNER - 0.12 || !free(lx, lz, r)) continue; occ.push([lx, lz, r]);
-    if (t === 'tree') kit.tree(c.x + lx, c.z + lz, 0.3 + rnd() * 0.22, placed + isl.number, style); else model(t, c.x + lx, c.z + lz, 0.5, placed + isl.number); placed++; }
-  // 彩旗：夜市與老街風格的島，在路燈間掛旗
-  if (['boardwalk', 'courtyard', 'rubber'].includes(isl.ground)) for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(c.x, c.z, RING_R + 0.12, k), [bx, bz] = hexVertex(c.x, c.z, RING_R + 0.12, k + 1); for (let s = 1; s < 9; s++) { const t = s / 9; kit.hbox(ax + (bx - ax) * t, TOP + 0.5 - Math.sin(t * Math.PI) * 0.06, az + (bz - az) * t, 0.05, 0.07, 0.01, [0xdb6a41, 0xe8c547, 0x58a6a6, 0xf2a1a1][s % 4], null, [0, Math.atan2(bx - ax, bz - az), 0]); } kit.hbox((ax + bx) / 2, TOP + 0.47, (az + bz) / 2, 0.008, 0.008, Math.hypot(bx - ax, bz - az), 0x211d1d, null, [0, Math.atan2(bx - ax, bz - az), 0]); } }
-
-// 蓋校園的新島學期：位置先算好（海上裝飾避開這些位置），蓋好才真的從海上長出來（placeCity）
-const NEW_ISLES = new Map(C.econ.city.filter(p => p.kind === 'island').map(p => [p.id, { p, c: axialToWorld(...p.axial) }]));
-// ── 海上裝飾：小樹島、梯田小丘、沙洲陽傘、消波塊、小船、浮標、燈塔（避開島、未來的新島與登陸航線）──
-{ const srnd = mulberry(77); const placed = []; const W0 = WATER_Y; const lanes = Object.values(C.landings).map(l => { const lc = centers.get(l.island); const d = lc.clone().sub(center).setY(0).normalize(); return { a: lc, d }; });
-  const nearLane = (x, z) => lanes.some(({ a, d }) => { const vx = x - a.x, vz = z - a.z; const t = vx * d.x + vz * d.z; if (t < -1 || t > 12) return false; return Math.hypot(vx - d.x * t, vz - d.z * t) < 2.4; });
-  const ok = (x, z, r) => [...centers.values(), ...[...NEW_ISLES.values()].map(n => n.c)].every(c => Math.hypot(x - c.x, z - c.z) > R + 1.2 + r) && placed.every(([px, pz, pr]) => Math.hypot(x - px, z - pz) > pr + r + 1.2) && !nearLane(x, z);
-  const pav = (x, y, z, s, roof) => { for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) kit.cyl(x + dx * 0.18 * s, y + 0.18 * s, z + dz * 0.18 * s, 0.035 * s, 0.36 * s, 0xfff8f4); kit.part('hip', [x, y + 0.44 * s, z], [0.6 * s, 0.2 * s, 0.6 * s], roof); kit.part('rbox', [x, y + 0.03 * s, z], [0.5 * s, 0.06 * s, 0.5 * s], 0xd9cbb4); };
-  const KINDS = ['islet', 'breakwater', 'terrace', 'sandbar', 'boat', 'buoys', 'lighthouse', 'islet', 'boat', 'breakwater', 'buoys', 'sandbar'];
-  let made = 0;
-  for (let tries = 0; tries < 900 && made < KINDS.length; tries++) { const a = srnd() * Math.PI * 2, rad = (8 + srnd() * 11) * MAP_K; const x = center.x + Math.cos(a) * rad * 1.1, z = center.z + Math.sin(a) * rad * 0.95; const kind = KINDS[made]; const r = { islet: 1.6, terrace: 1.4, sandbar: 1.2, breakwater: 2.0, boat: 0.6, buoys: 0.6, lighthouse: 1.0 }[kind]; if (!ok(x, z, r)) continue; placed.push([x, z, r]); made++;
-    if (kind === 'islet') { kit.cyl(x, W0 + 0.08, z, 3.0, 0.22, 0xe6d6b8); kit.part('dome', [x, W0 + 0.18, z], [2.6, 0.5, 2.6], 0xa9c98a); for (let k = 0; k < 5; k++) { const aa = k * 1.25 + srnd(), rr = 0.35 + srnd() * 0.6; kit.tree(x + Math.cos(aa) * rr, z + Math.sin(aa) * rr, 0.38 + srnd() * 0.18, k, 'round', W0 + 0.33); } pav(x + 0.45, W0 + 0.38, z + 0.4, 1.2, 0xdb6a41); }
-    else if (kind === 'terrace') { for (let k = 0; k < 4; k++) { kit.cyl(x, W0 + 0.12 + k * 0.22, z, 2.6 - k * 0.55, 0.22, [0x9cc27a, 0xb3cf8e][k % 2]); kit.part('torus', [x, W0 + 0.23 + k * 0.22, z], [(2.6 - k * 0.55) / 2, (2.6 - k * 0.55) / 2, 0.6], 0x86ad6a, [Math.PI / 2, 0, 0]); } kit.cyl(x, W0 + 0.04, z, 2.9, 0.1, 0xe6d6b8); kit.tree(x, z, 0.4, 3, 'round', W0 + 1.0); }
-    else if (kind === 'sandbar') { kit.cyl(x, W0 + 0.04, z, 2.4, 0.1, 0xf0e2c4); kit.part('ico', [x + 0.5, W0 + 0.06, z - 0.3], [0.9, 0.12, 0.6], 0xe9d9b6); for (let k = 0; k < 3; k++) { const ux = x - 0.6 + k * 0.6, uz = z + (k % 2) * 0.3; kit.cyl(ux, W0 + 0.35, uz, 0.02, 0.6, 0x6a665f); kit.part('cone', [ux, W0 + 0.66, uz], [0.6, 0.18, 0.6], [0xdb6a41, 0xe8c547, 0x58a6a6][k]); kit.hbox(ux + 0.15, W0 + 0.1, uz + 0.2, 0.3, 0.01, 0.16, [0xf2a1a1, 0xfff8f4, 0x9fc4e6][k]); } }
-    else if (kind === 'breakwater') { const yaw = srnd() * Math.PI; const cs = [0xdb6a41, 0xf3e2c6, 0xe8c547, 0x58a6a6, 0xf2a1a1, 0xf4efe6]; for (let k = 0; k < 9; k++) { const t = (k - 4) * 0.42; const bx = x + Math.cos(yaw) * t, bz = z + Math.sin(yaw) * t; kit.part('rbox', [bx, W0 + 0.12 + (k % 2) * 0.06, bz], [0.36, 0.46, 0.36], cs[k % cs.length], [0, yaw + (k % 3 - 1) * 0.15, (k % 2 - 0.5) * 0.12]); if (k % 2) kit.part('ico', [bx + 0.12, W0 + 0.05, bz + 0.22], [0.2, 0.14, 0.2], 0x9d968a); if (k % 3 === 0) { kit.cyl(bx, W0 + 0.42, bz, 0.05, 0.12, 0xe8b04a); } } }
-    else if (kind === 'boat') { const yaw = srnd() * Math.PI * 2; kit.part('rbox', [x, W0 + 0.08, z], [0.9, 0.16, 0.34], 0xfbfbf7, [0, yaw, 0]); kit.part('rbox', [x, W0 + 0.04, z], [0.92, 0.04, 0.36], 0xdb6a41, [0, yaw, 0]); kit.part('rbox', [x - Math.cos(yaw) * 0.12, W0 + 0.26, z + Math.sin(yaw) * 0.12], [0.34, 0.2, 0.26], 0x58a6a6, [0, yaw, 0]); kit.cyl(x + Math.cos(yaw) * 0.15, W0 + 0.5, z - Math.sin(yaw) * 0.15, 0.025, 0.7, 0x6a665f); kit.part('box', [x + Math.cos(yaw) * 0.25, W0 + 0.75, z - Math.sin(yaw) * 0.25], [0.2, 0.12, 0.01], 0xdb6a41, [0, yaw, 0]); }
-    else if (kind === 'buoys') { for (let k = 0; k < 3; k++) { const bx = x + (k - 1) * 0.5, bz = z + (k % 2) * 0.3; kit.cyl(bx, W0 + 0.08, bz, 0.18, 0.18, k % 2 ? 0xe8c547 : 0xdb6a41); kit.cyl(bx, W0 + 0.2, bz, 0.16, 0.06, 0xfbfbf7); kit.part('sphere', [bx, W0 + 0.28, bz], [0.1, 0.1, 0.1], k % 2 ? 0xe8c547 : 0xdb6a41); } }
-    else if (kind === 'lighthouse') { kit.cyl(x, W0 + 0.08, z, 1.6, 0.24, 0xd9cbb4); kit.part('ico', [x + 0.5, W0 + 0.12, z + 0.3], [0.5, 0.3, 0.4], 0x9d968a); for (let k = 0; k < 4; k++) kit.cyl(x, W0 + 0.38 + k * 0.3, z, 0.42 - k * 0.04, 0.3, k % 2 ? 0xdb6a41 : 0xfbfbf7); kit.cyl(x, W0 + 1.66, z, 0.38, 0.06, 0x3b3a42); kit.part('glowsphere', [x, W0 + 1.82, z], [0.24, 0.24, 0.24], 0xfff0c2); kit.part('cone', [x, W0 + 2.02, z], [0.36, 0.2, 0.36], 0xdb6a41); } } }
+  decorateZone(isl, c, lay, kit, model, rnd, occ); }
+// 新校區：位置照 config 的格子；蓋的時候在野地上搭工地，蓋好變成區塊、門打開（placeCity）
+const NEW_ISLES = new Map(CAMPUS.map(p => [p.id, { p, c: axialToWorld(...p.grid) }]));
+for (const k of world.wildKits.values()) k.build(scene);
 kit.build(scene);
-const env = createEnvironment(scene, { center, quality }); env.setTime(720);
-const graph = buildGraph(C.islands, centers, neighbors, links);
-const nav = createNav({ islands: C.islands, centers, bridges, links, graph }); nav.setObstacles(STATIC_OBST, []);
+const env = createEnvironment(scene, { center, quality }); env.setTime(720); for (const m of world.rivers) m.material = env.waterMat;
+const graph = buildGraph(C.islands, centers, neighbors, links, gates);
+const nav = createNav({ islands: C.islands, centers, gates, graph, cells }); nav.setObstacles(STATIC_OBST, []);
+// ── 場景解鎖：鎖住的學期，門關著、門口掛「🔒」牌子寫要在哪裡答對幾題；解鎖後門打開（進度記在裝置上，progress.js）──
+const gateLabels = new Map(); const islName = id => (C.islands.find(i => i.id === id) || CAMPUS.find(p => p.id === id) || {}).name || id;
+let unlockedNow = [], unlockT = 0; // 一次解鎖好幾個學期時，公告合在一起
+const progress = createProgress({ islands: C.islands, neighbors, onUnlock: id => { unlockedNow.push(islName(id)); clearTimeout(unlockT); unlockT = setTimeout(() => { refreshGates(); callbacks.banner && callbacks.banner(`🔓 解鎖新場景：${unlockedNow.join('、')}！`, 3.5); unlockedNow = []; }, 0); } });
+const gkit = { k: null };
+// 門扇：關著＝兩片木門擋住門口（中間一塊黃色鎖牌）；開著＝兩片門往兩邊打開
+function gateDoors(k, g, open) { const along = g.axis === 'z' ? [1, 0] : [0, 1], across = [along[1], along[0]], yaw = g.axis === 'z' ? 0 : Math.PI / 2; const w = g.river ? 0.38 : 0.48;
+  for (const sg of [-1, 1]) { let x, z, ry = yaw, dir = along; if (!open) { x = g.x + along[0] * sg * w / 2; z = g.z + along[1] * sg * w / 2; } else { x = g.x + along[0] * sg * (w + 0.03) + across[0] * w / 2; z = g.z + along[1] * sg * (w + 0.03) + across[1] * w / 2; ry = yaw + Math.PI / 2; dir = across; }
+    k.hbox(x, TOP + 0.2, z, w, 0.04, 0.035, 0xb48560, null, [0, ry, 0]); k.hbox(x, TOP + 0.07, z, w, 0.04, 0.035, 0xb48560, null, [0, ry, 0]); for (const t of [-0.4, 0, 0.4]) k.hbox(x + dir[0] * t * w, TOP + 0.14, z + dir[1] * t * w, 0.05, 0.22, 0.04, 0xa07550, null, [0, ry, 0]); }
+  if (!open) { k.hbox(g.x, TOP + 0.18, g.z, 0.14, 0.12, 0.07, 0xf2c14e, null, [0, yaw, 0]); k.part('torus', [g.x, TOP + 0.26, g.z], [0.05, 0.05, 0.05], 0x6a665f, [0, yaw, 0]); } }
+function refreshGates() { if (gkit.k) gkit.k.dispose(scene); const k = createKit(TOP); gkit.k = k;
+  for (const b of gates) { const open = progress.isUnlocked(b.a) && progress.isUnlocked(b.b); nav.setBridgeOpen(b.a, b.b, open); gateDoors(k, b, open); const key = b.key;
+    const far = open ? null : progress.isUnlocked(b.a) ? b.b : progress.isUnlocked(b.b) ? b.a : null; const camp = far && NEW_ISLES.has(far); const h = far && !camp && progress.hint(far);
+    const txt = !far ? '' : camp ? `🚧 ${islName(far)}・全站一起投金蛋蓋好就開` : `🔒 ${islName(far)}${h ? `・在${islName(h.by)}答對 ${h.need} 題（${Math.min(h.have, h.need)}／${h.need}）` : ''}`;
+    let L = gateLabels.get(key); if (!txt) { if (L) { L.el.remove(); labels.splice(labels.indexOf(L), 1); gateLabels.delete(key); } continue; } if (!L) { L = addLabel(txt, new THREE.Vector3(b.x, TOP + 0.55, b.z), 'policy gate', '', 2); gateLabels.set(key, L); } if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.w = 0; } }
+  k.build(scene); }
+
 // 課程建築：有指定學期就放該區，沒有就依 id 雜湊隨機落島；清單改變時整批重建
 const pkit = createKit(TOP); const pmodel = createModels(pkit, colors); let policyMeshes = [], policyById = new Map(), policyIsland = new Map(), policyStops = [], gameRef = null, labelsReady = false;
 const hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h; };
@@ -93,11 +91,10 @@ const people = createPeople(scene, colors, C.heroes, C.econ.outfits); const anim
 const labelLayer = document.getElementById('labels'); const labels = [];
 function addLabel(txt, pos, cls, num, prio = 1) { const el = document.createElement('div'); el.className = 'nameplate ' + (cls || ''); if (num) { const em = document.createElement('em'); em.textContent = num; el.appendChild(em); } el.appendChild(document.createTextNode(txt)); labelLayer.appendChild(el); const L = { el, pos: pos.clone(), v: new THREE.Vector3(), prio, w: 0, h: 0 }; labels.push(L); return L; }
 const districtLabels = new Map();
-for (const isl of C.islands) { const c = centers.get(isl.id); if (isl.goal) addLabel(C.goalLabel, c.clone().setY(TOP + 2.4), 'goal', '', 3); districtLabels.set(isl.id, addLabel(isl.name, c.clone().add(new THREE.Vector3(0, 0, R * 0.78)).setY(TOP), 'district', '', 0)); }
+for (const isl of C.islands) { const c = centers.get(isl.id); if (isl.goal) addLabel(C.goalLabel, c.clone().setY(TOP + 2.4), 'goal', '', 3); districtLabels.set(isl.id, addLabel(isl.name, c.clone().add(new THREE.Vector3(0, 0, H * 0.86)).setY(TOP), 'district', '', 0)); }
 // 學期對抗：地上的區名後面掛名次（有戰績才掛），自己選的區換珊瑚色
 function setDistrictRanks(board, mine) { const rank = new Map(board.filter(r => r.kills > 0).map((r, i) => [r.id, i + 1]));
   for (const [id, L] of districtLabels) { const isl = C.islands.find(i => i.id === id), n = rank.get(id); L.el.textContent = isl.name; if (n) { const b = document.createElement('span'); b.className = 'rk' + (n === 1 ? ' top' : ''); b.textContent = `第${n}`; L.el.appendChild(b); } L.el.classList.toggle('mine', id === mine); L.w = 0; } }
-for (const l of Object.values(C.landings)) { const lc = centers.get(l.island); const away = lc.clone().sub(center).setY(0).normalize(); addLabel(`${l.name} →`, lc.clone().add(away.multiplyScalar(4.2 * MAP_K)).setY(TOP + 0.3), 'river', '', 0); }
 let policyLabels = [];
 function refreshPolicyLabels() { for (const L of policyLabels) { L.el.remove(); const i = labels.indexOf(L); if (i >= 0) labels.splice(i, 1); } policyLabels = [];
   for (const st of policyStops) { const L = addLabel(st.pol.title, st.pos.clone().setY(TOP + 0.95), 'policy', st.pol.tag || '', 2); L.st = st; L.el.addEventListener('click', () => callbacks.card && callbacks.card(st.pol, st.island)); policyLabels.push(L); } }
@@ -105,28 +102,24 @@ labelsReady = true; refreshPolicyLabels();
 // 蓋校園（金蛋商店）：還沒輪到＝原本的小房子、正在蓋＝工地、蓋好＝新建築；名牌寫名稱與進度
 const ckit = createKit(TOP), cmodel = createModels(ckit, colors); let citySig = '', citySite = null; const cityLabels = new Map();
 for (const b of BOUTIQUES) addLabel('👕 服飾店', new THREE.Vector3(b.x, TOP + 0.9, b.z), 'policy shopsign', '', 1.6); // 只在逛校園時顯示
-// 新島的區：蓋的時候海上一片沙洲（跟著進度長大）、浮標圍一圈、一艘吊車船；投金蛋的工地在要接的那座島靠海那邊（接三重的新莊要等三重蓋好）
+// 新校區：蓋的時候在野地上搭工地（跟著進度多一些材料），投金蛋的地點在要接的那個區塊的門口；蓋好時野地拿掉、變成新的區塊、門打開
 const isleSites = new Map(), isleBuilt = new Set();
-function shoreOf(n) { const l = centers.get(n.p.link); return l ? nearestRingPair(l, n.c).pa : null; }
-function reclaim(p) { const n = NEW_ISLES.get(p.id), pct = Math.max(0, Math.min(1, p.got / p.cost)), bucket = Math.floor(pct * 10); let g = isleSites.get(p.id); if (g && g.bucket === bucket) return; if (g) g.kit.dispose(scene);
-  const k = createKit(TOP), c = n.c, rr = R * (0.25 + 0.7 * pct), W = WATER_Y;
-  k.cyl(c.x, W + 0.01, c.z, rr * 2 + 0.3, 0.04, 0xcbbd9c); k.cyl(c.x, W + 0.05, c.z, rr * 2, 0.1, 0xe6d6b8); k.part('cone', [c.x - rr * 0.2, W + 0.16, c.z + rr * 0.1], [rr * 0.8, 0.18, rr * 0.7], 0xdccaa6);
-  for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; k.cyl(c.x + Math.cos(a) * (R + 0.3), W + 0.06, c.z + Math.sin(a) * (R + 0.3), 0.12, 0.1, i % 2 ? 0xdb6a41 : 0xfbfbf7); }
-  const bx = c.x + R + 0.75, bz = c.z; k.box(bx, W + 0.08, bz, 0.95, 0.16, 0.46, 0x3b5a7a); k.part('cone', [bx + 0.2, W + 0.26, bz], [0.36, 0.22, 0.3], 0xe6d6b8);
-  k.box(bx - 0.25, W + 0.66, bz, 0.08, 1.0, 0.08, 0xe8c547); k.box(bx - 0.6, W + 1.14, bz, 0.8, 0.06, 0.06, 0xe8c547); k.box(bx - 0.92, W + 0.82, bz, 0.012, 0.6, 0.012, 0x333333); k.box(bx - 0.92, W + 0.5, bz, 0.12, 0.08, 0.12, 0x6a665f);
+function shoreOf(n) { const g = gates.find(g => g.campus && (g.a === n.p.id || g.b === n.p.id)); const l = centers.get(n.p.link); if (!g || !l) return null; const dx = Math.sign(Math.round(l.x - g.x)), dz = Math.sign(Math.round(l.z - g.z)); return { x: g.x + dx * 0.9, z: g.z + dz * 0.9 }; }
+function reclaim(p) { const n = NEW_ISLES.get(p.id), pct = Math.max(0, Math.min(1, p.got / p.cost)), bucket = Math.floor(pct * 5); let g = isleSites.get(p.id); if (g && g.bucket === bucket) return; if (g) g.kit.dispose(scene);
+  const k = createKit(TOP), m = createModels(k, colors), c = n.c; const site = shoreOf(n), dx = site ? Math.sign(Math.round(site.x - c.x)) : 0, dz = site ? Math.sign(Math.round(site.z - c.z)) : 1;
+  const ox = c.x + dx * (H - 1.6), oz = c.z + dz * (H - 1.6); m('crane', ox, oz, 1.3, 3); if (bucket >= 1) m('scaffold', ox + (dz ? 1.3 : 0), oz + (dx ? 1.3 : 0), 0.9, 2); if (bucket >= 2) m('crate', ox - (dz ? 1.2 : 0), oz - (dx ? 1.2 : 0), 0.8, 1); if (bucket >= 3) m('hoarding', ox - dx * 1.1, oz - dz * 1.1, 1.0, 4); if (bucket >= 4) m('blueprint', ox + (dz ? 0.6 : -dx * 1.0), oz + (dx ? 0.6 : -dz * 1.0), 0.7, 5);
   k.build(scene); isleSites.set(p.id, { kit: k, bucket }); }
-function growIsland(id) { if (isleBuilt.has(id)) return; isleBuilt.add(id); const n = NEW_ISLES.get(id), s = isleSites.get(id); if (s) { s.kit.dispose(scene); isleSites.delete(id); }
-  const k = createKit(TOP), m = createModels(k, colors), c = n.c, r = buildExtraIsland(scene, { id, ground: n.p.ground }, c, centers.get(n.p.link), k, colors), lz = -0.58 * ISLAND_K;
-  m(n.p.landmark, c.x, c.z + lz, 1.18 * ISLAND_K, 7); const tr = mulberry(id.length * 13);
-  for (const [x, z] of [[-1.0, 0.4], [1.0, 0.5], [-0.5, 1.0], [0.6, 1.1], [-1.2, -0.2], [1.25, -0.1]]) { if (tr() < 0.75) k.tree(c.x + x * ISLAND_K, c.z + z * ISLAND_K, 0.32 + tr() * 0.18, Math.floor(tr() * 9), TREE_STYLE[n.p.ground] || 'round'); else m('bench', c.x + x * ISLAND_K, c.z + z * ISLAND_K, 0.5, 3); }
-  k.build(scene); tops.push(r.top, r.cliff); centers.set(id, c); stageSpotCache.clear();
-  nav.addIsland(id, c, r.pa, r.pb, [[c.x, c.z + lz, 0.42 * ISLAND_K]]);
-  addLabel(n.p.name, c.clone().add(new THREE.Vector3(0, 0, R * 0.78)).setY(TOP), 'district newland', '新島', 0); }
+function growIsland(id) { if (isleBuilt.has(id)) return; isleBuilt.add(id); const n = NEW_ISLES.get(id), s = isleSites.get(id); if (s) { s.kit.dispose(scene); isleSites.delete(id); } const wk = world.wildKits.get(id); if (wk) { wk.dispose(scene); world.wildKits.delete(id); }
+  const k = createKit(TOP), m = createModels(k, colors), c = n.c; buildCampusZone(scene, k, n.p, c, world); const lz = -1.45, isl = { id, number: 20 + id.length, ground: n.p.ground, plaza: false }; const lay = slotLayout(8);
+  m(n.p.landmark, c.x, c.z + lz, 1.18 * SIZE_K, 7); const occ = [[0, lz, 0.95 * SIZE_K]]; decorateZone(isl, c, lay, k, m, mulberry(id.length * 13), occ);
+  k.build(scene); centers.set(id, c); stageSpotCache.clear();
+  nav.addIsland(id, c, n.p.grid, [[c.x, c.z + lz, 0.42 * SIZE_K]]); progress.addExtra(id); refreshGates();
+  addLabel(n.p.name, c.clone().add(new THREE.Vector3(0, 0, H * 0.86)).setY(TOP), 'district newland', '新校區', 0); }
 function placeCity(list) { for (const p of list) if (p.kind === 'island') { if (p.st === 'done') growIsland(p.id); else if (p.st === 'now') reclaim(p); }
   const now = list.find(p => p.st === 'now'), isle = now && NEW_ISLES.get(now.id), shore = isle && shoreOf(isle), at = now && (shore || CITY_POS.get(now.id)); citySite = at ? { id: now.id, name: now.name, x: at.x, z: at.z } : null; const sig = list.map(p => p.st).join(','); if (sig !== citySig) { citySig = sig; ckit.dispose(scene);
     for (const p of list) { const at = CITY_POS.get(p.id); if (!at) continue; cmodel(p.st === 'done' ? p.model : p.st === 'now' ? 'crane' : at.kind, at.x, at.z, at.size * 1.05, at.seed); }
     ckit.build(scene); }
-  for (const p of list) { const ni = NEW_ISLES.get(p.id), at = ni ? { x: ni.c.x, z: ni.c.z } : CITY_POS.get(p.id); if (!at) continue; let L = cityLabels.get(p.id); const txt = p.st === 'done' ? (ni ? '' : p.name) : p.st === 'now' ? `🚧 ${ni ? '新島・' : ''}${p.name}${ni ? ' 接通工程' : ''} ${Math.floor(p.got / p.cost * 100)}%` : ''; // 蓋好的新島用島名名牌，這裡不另外掛
+  for (const p of list) { const ni = NEW_ISLES.get(p.id), at = ni ? { x: ni.c.x, z: ni.c.z } : CITY_POS.get(p.id); if (!at) continue; let L = cityLabels.get(p.id); const txt = p.st === 'done' ? (ni ? '' : p.name) : p.st === 'now' ? `🚧 ${ni ? '新校區・' : ''}${p.name}${ni ? ' 開發中' : ''} ${Math.floor(p.got / p.cost * 100)}%` : ''; // 蓋好的新島用島名名牌，這裡不另外掛
     if (!txt) { if (L) { L.el.remove(); labels.splice(labels.indexOf(L), 1); cityLabels.delete(p.id); } continue; }
     if (!L) { L = addLabel(txt, new THREE.Vector3(at.x, TOP + 0.95, at.z), 'policy city', '建設', 1.5); cityLabels.set(p.id, L); }
     if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.el.classList.toggle('now', p.st === 'now'); L.w = 0; } } }
@@ -158,11 +151,9 @@ gameRef = game; game.setStops(policyStops); game.spawnMayor(); people.build([...
 const xCallbacks = { tag: (...a) => callbacks.tag(...a), say: (...a) => callbacks.say(...a) };
 // 闖關現場：某個闖關場岸外的海面（魔王浮在那裡），朝外的方向（dx,dz）與要面向的島心（fx,fz）
 const stageSpotCache = new Map();
-function stageSpots(sid) { if (stageSpotCache.has(sid)) return stageSpotCache.get(sid); const st = C.stages.find(s => s.id === sid), out = []; if (!st) return out; const bc = centers.get(st.basket), all = [...centers.values()];
-  for (const id of st.islands) { if (id === st.basket) continue; const c = centers.get(id); let dx = c.x - bc.x, dz = c.z - bc.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
-    for (const da of [0, 0.7, -0.7]) { const ax = dx * Math.cos(da) - dz * Math.sin(da), az = dx * Math.sin(da) + dz * Math.cos(da), x = c.x + ax * (R + 1.1), z = c.z + az * (R + 1.1);
-      if (nav.walkable(x, z) || all.some(o => o !== c && Math.hypot(o.x - x, o.z - z) < R + 0.6)) continue; out.push({ x, z, dx: ax, dz: az, fx: c.x, fz: c.z }); break; } }
-  if (!out.length) out.push({ x: bc.x, z: bc.z + R + 1.1, dx: 0, dz: 1, fx: bc.x, fz: bc.z }); stageSpotCache.set(sid, out); return out; }
+function stageSpots(sid) { if (stageSpotCache.has(sid)) return stageSpotCache.get(sid); const st = C.stages.find(s => s.id === sid), out = []; if (!st) return out; const c = centers.get(st.basket); if (!c) return out;
+  for (const [x, z, dx] of [[-1.7, 2.6, -1], [1.7, 2.6, 1], [0, 3.0, 0], [-2.6, 1.4, -1], [2.6, 1.4, 1]]) out.push({ x: c.x + x, z: c.z + z, dx: dx * 0.7, dz: 0.3, fx: c.x, fz: c.z + PZ.basketZ });
+  stageSpotCache.set(sid, out); return out; }
 const explore = createExplore({ scene, nav, people, centers, animals, callbacks: xCallbacks, rebuild: list => game.setExtraWalkers(list), boutiques: () => BOUTIQUES, site: () => citySite, mayor: () => game.G.mayor, stageSpots });
 // 闖關場頭上的牌子：「🔴 闖關中 2 隊」（只在逛校園時顯示）
 const liveLabels = new Map();
@@ -283,9 +274,9 @@ renderer.domElement.addEventListener('pointerup', e => { if (!down) return; cons
 // UI
 function flyTo(islandId) { const c = centers.get(islandId); if (!c) return; controls.target.copy(c); const pol = THREE.MathUtils.degToRad(48), d = narrow() ? 13 : 10; fly = { from: camera.position.clone(), to: new THREE.Vector3(c.x + Math.sin(0.3) * Math.sin(pol) * d, c.y + Math.cos(pol) * d, c.z + Math.cos(0.3) * Math.sin(pol) * d), t: 0 }; }
 // 鳥瞰：鏡頭到校園中心正上方往下看；關掉就回到跟著自己
-function bird(on) { if (on) { stopFollow(); controls.target.copy(center); fly = { from: camera.position.clone(), to: center.clone().add(new THREE.Vector3(0.01, C.explore.birdHeight, C.explore.birdBack)), t: 0 }; } else if (explore.G.on) startFollow('xme', true); else overview(false); }
+function bird(on) { if (on) { stopFollow(); const sc = (explore.G.on && explore.G.scene && centers.get(explore.G.scene)) || center; controls.target.copy(sc); fly = { from: camera.position.clone(), to: sc.clone().add(new THREE.Vector3(0.01, C.explore.birdHeight, C.explore.birdBack)), t: 0 }; } else if (explore.G.on) startFollow('xme', true); else overview(false); }
 const policyPos = id => { const st = policyStops.find(x => x.pol.id === id); return st && { x: st.pos.x, z: st.pos.z }; };
-const ui = createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, stageCenter: sid => { const st = C.stages.find(s => s.id === sid); const c = st && centers.get(st.basket); return c && { x: c.x, z: c.z + C.plaza.basketZ }; }, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
+const ui = createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, progress, refreshGates, islName, stageCenter: sid => { const st = C.stages.find(s => s.id === sid); const c = st && centers.get(st.basket); return c && { x: c.x, z: c.z + C.plaza.basketZ }; }, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
   follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } }, input: { stick, clear: () => { keys.clear(); stick.x = stick.y = 0; }, aim: () => { fwd.copy(controls.target).sub(camera.position).setY(0).normalize(); return [fwd.x, fwd.z]; } } });
 // 迴圈：天色與霧跟著波次（一般波早→午→下午、搗蛋夜是晚上、起大霧時霧拉近）
 let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = scene.fog.near, fogFar = scene.fog.far; const G = game.G; const FOG0 = [scene.fog.near, scene.fog.far];
@@ -304,4 +295,4 @@ function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = no
   requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 { const ld = document.getElementById('loading'); if (ld) requestAnimationFrame(() => requestAnimationFrame(() => { ld.classList.add('done'); setTimeout(() => ld.remove(), 450); })); } // 第一幀畫完再收掉載入畫面
-window.PI = { game, explore, nav, layout: LAYOUT, cityPos: CITY_POS, boutiques: BOUTIQUES, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)), get flightInfo() { return { flying: !!flight, warping, camY: +camera.position.y.toFixed(2), cloudY: +clouds.y.toFixed(2) }; } }; // 除錯用
+window.PI = { game, explore, nav, progress, centers, layout: LAYOUT, cityPos: CITY_POS, boutiques: BOUTIQUES, people, scene, camera, controls, graph, centers, ui, get policies() { return policyById; }, get policyIsland() { return policyIsland; }, pickPolicy: id => callbacks.card(policyById.get(id), policyIsland.get(id)), get flightInfo() { return { flying: !!flight, warping, camY: +camera.position.y.toFixed(2), cloudY: +clouds.y.toFixed(2) }; } }; // 除錯用

@@ -24,8 +24,8 @@ export const CONFIG = {
     enemyCap: 34,              // 場上敵人總數上限（手機效能）
     hpK0: 0.75, hpK1: 0.25,    // 敵人血量倍率 = hpK0 + hpK1 × 危險度
     dmgK0: 0.65, dmgK1: 0.35,  // 敵人傷害倍率 = dmgK0 + dmgK1 × 危險度（新生被打比較輕）
-    unitsPerSec: 1,            // 敵速 1.0 = 每秒走幾個世界單位（一座島直徑約 4）
-    landSeconds: 1.2,          // 從水裡游上岸的時間
+    unitsPerSec: 1,            // 敵速 1.0 = 每秒走幾個世界單位（一個學期區塊寬約 8.4）
+    landSeconds: 1.2,          // 從圍欄外翻進來的時間
     separation: 0.28,          // 敵人彼此推開的距離
     retarget: 0.8,             // 敵人每幾秒重新挑最近的人
     aggroRange: 14,
@@ -48,17 +48,20 @@ export const CONFIG = {
   quiz: { bonusEggs: 2, cooldown: 12, reward: 2, dailyCap: 3, choices: 4, perShift: 6, storageKey: 'pi.quiz.v1', gradeKey: 'pi.quiz.grade' },
   // 每 rotateHours 小時換一個闖關場（大家同時間看到同一個場）
   rotateHours: 2,
-  // 闖關場：basket = 金蛋籃所在的島（島中央前方有廣場），islands = 這個場用到的島（敵人從外圍島的岸邊登陸）
+  // 闖關場：每個場就是一個學期區塊，basket = 金蛋籃所在的區塊（區塊前方有廣場），敵人從四邊的圍欄外翻進來
   stages: [
-    { id: 'xinyi',      name: '大操場',     basket: 'xinyi',      islands: ['xinyi', 'daan', 'songshan', 'nangang', 'wenshan'] },
-    { id: 'daan',       name: '圖書館前',   basket: 'daan',       islands: ['daan', 'zhongzheng', 'wenshan', 'xinyi', 'zhongshan'] },
-    { id: 'zhongzheng', name: '科學館廣場', basket: 'zhongzheng', islands: ['zhongzheng', 'wanhua', 'datong', 'daan'] },
-    { id: 'zhongshan',  name: '音樂廳前',   basket: 'zhongshan',  islands: ['zhongshan', 'datong', 'shilin', 'neihu', 'songshan'] },
-    { id: 'shilin',     name: '體育館前',   basket: 'shilin',     islands: ['shilin', 'beitou', 'neihu', 'shezi'] },
+    { id: 'beitou',     name: '一年級上・大操場',   basket: 'beitou',     islands: ['beitou'] },
+    { id: 'shilin',     name: '一年級下・圖書館前', basket: 'shilin',     islands: ['shilin'] },
+    { id: 'zhongshan',  name: '三年級上・科學館廣場', basket: 'zhongshan', islands: ['zhongshan'] },
+    { id: 'zhongzheng', name: '五年級上・音樂廳前', basket: 'zhongzheng', islands: ['zhongzheng'] },
+    { id: 'daan',       name: '五年級下・體育館前', basket: 'daan',       islands: ['daan'] },
   ],
   // 島的大小與整張地圖的間距（相對最早的版本）：島放大 islandK 倍、地圖攤開 mapK 倍
-  world: { islandK: 1.15, mapK: 1.25 },
-  plaza: { z: 0.5, len: 1.1, r: 0.5, basketZ: 0.62 }, // 金蛋籃廣場：島中心往前 z 開始、長 len、半寬 r 的走道不放建築；籃子在中心往前 basketZ
+  // 草原小鎮：zone 區塊半寬、sizeK 建築大小、mapK 環境與鏡頭距離；rivers 小河（axis 'z' 東西向、位在第 at 列與下一列之間、從第 from 欄流到第 to 欄；axis 'x' 南北向）
+  world: { zone: 4.2, sizeK: 1.5, mapK: 1.4, rivers: [{ axis: 'z', at: 1.5, from: -2, to: 5 }, { axis: 'x', at: 0.5, from: 1.5, to: 4 }] },
+  // 場景解鎖：free 一開始就開；其他場景要在相鄰（上下左右）已解鎖的場景答對 need 題才開（自己選的學期也一開始就開）
+  unlock: { need: 3, free: ['shezi', 'beitou'] },
+  plaza: { z: 0.5, len: 1.8, r: 0.9, basketZ: 1.4 }, // 金蛋籃廣場：島中心往前 z 開始、長 len、半寬 r 的走道不放建築；籃子在中心往前 basketZ
   // 闖關等級：點數 0～100，滿 100 升一級（從 promoteTo 點開始），低於 0 降一級（從 demoteTo 點開始）；最高級的點數可以一直累積
   grades: {
     names: ['新生', '小學生', '小組長', '副班長', '班長', '模範生', '學霸'],
@@ -76,7 +79,7 @@ export const CONFIG = {
       quizOk: '答對了！加 {n} 顆金蛋！', quizNo: '沒關係，再想想！',
     } },
   // 居民（校園裡的同學與老師）：平常在步道上散步；闖關時場上的居民會先離開
-  residents: { perIsland: 7, speed: [0.32, 0.40], bikeSpeed: [0.62, 0.70], roles: ['citizen','elder','child','parent','officeworker','youth','cyclist','worker','hiker','servant','researcher','farmer','traveler'] }, // 走路速度 0.32～0.40、腳踏車 0.62～0.70
+  residents: { perIsland: 8, speed: [0.32, 0.40], bikeSpeed: [0.62, 0.70], roles: ['citizen','elder','child','parent','officeworker','youth','cyclist','worker','hiker','servant','researcher','farmer','traveler'] }, // 走路速度 0.32～0.40、腳踏車 0.62～0.70
   // 闖關角色（id 不要改：Supabase heroes.cls 有檢查）。武器自動瞄準射程內的敵人；點敵人＝鎖定它
   // special：一關 2 次的特殊技
   heroes: {
@@ -101,8 +104,8 @@ export const CONFIG = {
     bigv:        { name: '錯字大嘴鳥', model: 'bird',   color: 0x0e5f6b, accent: 0xf2c14e, hp: 520,  speed: 0.75, dmg: 40, size: 1.8, boss: true, ai: 'bomber', fly: false, every: 6.5, windup: 1.6, bombHp: 110, fuse: 1.6, blastR: 1.0, blastDmg: 90, throwRange: 6, desc: '頭頂舉起錯字本丟人；舉著的時候猛打，本子會在牠頭上爆炸。', chants: ['錯字來了','的得地','在再不分','再再再'] },
     frogking:    { name: '大考蛙王',   model: 'frog',   color: 0x2e7d32, accent: 0xf2c14e, hp: 650,  speed: 0.6,  dmg: 50, size: 2.1, boss: true, ai: 'leaper', hop: true, every: 5, aim: 1.3, air: 0.5, slamR: 0.85, slamDmg: 100, stun: 2, stunMul: 1.5, leapRange: 5, desc: '瞄準一個人跳過去壓；落地後會暈 2 秒，傷害 1.5 倍。', chants: ['呱!!!!','期中考','全部考','默寫!'] },
     ironfan:     { name: '鐵頭龍',     model: 'lizard', color: 0x5d6d7e, accent: 0xd94a3a, hp: 480,  speed: 0.5,  dmg: 70, size: 1.6, boss: true, ai: 'charger', shield: 0.15, shieldArc: 1.05, every: 6, aim: 0.8, chargeSpeed: 3.2, chargeTime: 2.2, stun: 2.5, desc: '正面有鐵頭護盾（只吃 15% 傷害），衝撞後會暈，繞到旁邊或背後打。', chants: ['我才對','不聽不聽','就是這樣','不改'] },
-    spamtower:   { name: '吵鬧塔',     model: 'tower',  color: 0x3b3a42, accent: 0x4ad6c8, hp: 420,  speed: 0.6,  dmg: 80, size: 1.6, boss: true, ai: 'tower', every: 4.5, aim: 1.1, beamW: 0.35, beamLen: 8, desc: '上岸就不動，一直對人發射吵鬧音波；看到紅線就閃開。', chants: ['吵吵吵','講話中','嘰嘰喳喳','好吵'] },
-    missile:     { name: '問號鸚鵡',   model: 'bird',   color: 0x8bc34a, accent: 0xd94a3a, hp: 380,  speed: 0.8,  dmg: 75, size: 1.7, boss: true, ai: 'missile', fly: true, pods: true, every: 7, aim: 1.6, blastR: 0.75, hover: 15, desc: '停在岸邊上空，對每個人丟問號炸彈；腳下出現紅圈就快跑。', chants: ['為什麼?','怎麼辦?','聽不懂','問問問'] },
+    spamtower:   { name: '吵鬧塔',     model: 'tower',  color: 0x3b3a42, accent: 0x4ad6c8, hp: 420,  speed: 0.6,  dmg: 80, size: 1.6, boss: true, ai: 'tower', every: 4.5, aim: 1.1, beamW: 0.35, beamLen: 8, desc: '翻進圍欄就不動，一直對人發射吵鬧音波；看到紅線就閃開。', chants: ['吵吵吵','講話中','嘰嘰喳喳','好吵'] },
+    missile:     { name: '問號鸚鵡',   model: 'bird',   color: 0x8bc34a, accent: 0xd94a3a, hp: 380,  speed: 0.8,  dmg: 75, size: 1.7, boss: true, ai: 'missile', fly: true, pods: true, every: 7, aim: 1.6, blastR: 0.75, hover: 15, desc: '停在圍欄邊的上空，對每個人丟問號炸彈；腳下出現紅圈就快跑。', chants: ['為什麼?','怎麼辦?','聽不懂','問問問'] },
     // 金色（特殊波）：被打就掉金蛋
     goldfrog:    { name: '金星蛙',   model: 'frog',   color: 0xf2c14e, accent: 0xb8860b, hp: 300,  speed: 0.9,  dmg: 30, size: 1.3, gold: true, hop: true, glow: true, eggEvery: 0.25, eggOnDeath: 2, chants: ['金金金','發財呱','抓不到'] },
     goldmouse:   { name: '金星鼠',   model: 'mouse',  color: 0xf2c14e, accent: 0xb8860b, hp: 120,  speed: 1.6,  dmg: 20, size: 1.0, gold: true, glow: true, eggOnDeath: 2, chants: ['金星!','打我啊','給你金蛋'] },
@@ -113,26 +116,30 @@ export const CONFIG = {
   chant: { on: 2.6, max: 2, every: 1.8, rest: 8, issueShare: 0.65, copyMax: 6, size: 0.32, space: 2.2 },
   // NPC 同學（人不夠時補滿 4 人）。名字都是虛構的
   npc: { names: ['小明', '小美', '阿凱', '佩佩', '志豪', '雅婷', '小宇', '小傑', '阿珠', '建宏'], think: 0.25, eggRange: 6, reviveRange: 7, bossRange: 7, home: 2.6, specialBosses: 3, kiteR: 0.8, kiteHp: 70, kiteCrowd: 3, kiteDist: 1.6 }, // kite：小怪貼身、血少或被圍時先拉開距離
-  // 12 座島 = 12 個學期（一上…六下）；grade = 年級（題目難度）。id 不要改：Supabase heroes.district 有檢查
+  // 13 個場景 = 12 個學期（一上…六下）加幼兒園，排在 4 欄的格子上（grid = [欄, 列]，蛇行排列讓前後學期上下左右相鄰）；grade = 年級（題目難度）。id 不要改：Supabase heroes.district 有檢查
+  //   幼  一上 一下 二上
+  //   四上 三下 三上 二下
+  //   四下 五上 五下 六上
+  //               六下
   islands: [
-    { id: 'beitou',    number: 1,  axial: [1, 0],  name: '一年級上', short: '一上', grade: 1, ground: 'meadow',     landmark: 'hotspring' },
-    { id: 'shilin',    number: 2,  axial: [0, 1],  name: '一年級下', short: '一下', grade: 1, ground: 'lawn',       landmark: 'palace', plaza: true },
-    { id: 'neihu',     number: 3,  axial: [1, 1],  name: '二年級上', short: '二上', grade: 2, ground: 'lawn',       landmark: 'techcampus' },
-    { id: 'datong',    number: 4,  axial: [-1, 2], name: '二年級下', short: '二下', grade: 2, ground: 'courtyard',  landmark: 'oldstreet' },
-    { id: 'zhongshan', number: 5,  axial: [0, 2],  name: '三年級上', short: '三上', grade: 3, ground: 'street',     landmark: 'grandhotel', plaza: true },
-    { id: 'songshan',  number: 6,  axial: [1, 2],  name: '三年級下', short: '三下', grade: 3, ground: 'street',     landmark: 'airport' },
-    { id: 'nangang',   number: 7,  axial: [2, 2],  name: '四年級上', short: '四上', grade: 4, ground: 'gravel',     landmark: 'expo' },
-    { id: 'wanhua',    number: 8,  axial: [-2, 3], name: '四年級下', short: '四下', grade: 4, ground: 'terracotta', landmark: 'temple' },
-    { id: 'zhongzheng',number: 9,  axial: [-1, 3], name: '五年級上', short: '五上', grade: 5, ground: 'granite',    landmark: 'station', plaza: true },
-    { id: 'daan',      number: 10, axial: [0, 3],  name: '五年級下', short: '五下', grade: 5, ground: 'garden',     landmark: 'park', plaza: true },
-    { id: 'xinyi',     number: 11, axial: [1, 3],  name: '六年級上', short: '六上', grade: 6, ground: 'granite',    landmark: 'cityhall', goal: true, plaza: true },
-    { id: 'wenshan',   number: 12, axial: [0, 4],  name: '六年級下', short: '六下', grade: 6, ground: 'forest',     landmark: 'gondola' },
-    // 幼兒園島：獨立在一年級西側的小沙洲，只靠一座陸橋連到一年級下
-    { id: 'shezi',     number: 13, axial: [-1, 1], offset: [-1.9, -0.8], detached: true, link: 'shilin', name: '幼兒園', short: '幼', grade: 0, ground: 'garden', landmark: 'wetland' },
+    { id: 'shezi',     number: 13, grid: [0, 0], name: '幼兒園',   short: '幼',   grade: 0, ground: 'garden',     landmark: 'wetland' },
+    { id: 'beitou',    number: 1,  grid: [1, 0], name: '一年級上', short: '一上', grade: 1, ground: 'meadow',     landmark: 'hotspring', goal: true, plaza: true },
+    { id: 'shilin',    number: 2,  grid: [2, 0], name: '一年級下', short: '一下', grade: 1, ground: 'lawn',       landmark: 'palace', plaza: true },
+    { id: 'neihu',     number: 3,  grid: [3, 0], name: '二年級上', short: '二上', grade: 2, ground: 'lawn',       landmark: 'techcampus' },
+    { id: 'datong',    number: 4,  grid: [3, 1], name: '二年級下', short: '二下', grade: 2, ground: 'courtyard',  landmark: 'oldstreet' },
+    { id: 'zhongshan', number: 5,  grid: [2, 1], name: '三年級上', short: '三上', grade: 3, ground: 'street',     landmark: 'grandhotel', plaza: true },
+    { id: 'songshan',  number: 6,  grid: [1, 1], name: '三年級下', short: '三下', grade: 3, ground: 'street',     landmark: 'airport' },
+    { id: 'nangang',   number: 7,  grid: [0, 1], name: '四年級上', short: '四上', grade: 4, ground: 'gravel',     landmark: 'expo' },
+    { id: 'wanhua',    number: 8,  grid: [0, 2], name: '四年級下', short: '四下', grade: 4, ground: 'terracotta', landmark: 'temple' },
+    { id: 'zhongzheng',number: 9,  grid: [1, 2], name: '五年級上', short: '五上', grade: 5, ground: 'granite',    landmark: 'station', plaza: true },
+    { id: 'daan',      number: 10, grid: [2, 2], name: '五年級下', short: '五下', grade: 5, ground: 'garden',     landmark: 'park', plaza: true },
+    { id: 'xinyi',     number: 11, grid: [3, 2], name: '六年級上', short: '六上', grade: 6, ground: 'granite',    landmark: 'cityhall' },
+    { id: 'wenshan',   number: 12, grid: [3, 3], name: '六年級下', short: '六下', grade: 6, ground: 'forest',     landmark: 'gondola' },
   ],
   goalLabel: '校長室',
+  scene: { fadeMs: 320 }, // 走到相鄰場景時的轉場（畫面淡出再淡入，像牧場物語換畫面）
   // 地圖上的河口標籤（純裝飾）。
-  landings: { west: { island: 'wanhua', name: '彩虹河' }, north: { island: 'beitou', name: '雲朵灣' }, east: { island: 'nangang', name: '鉛筆河' }, south: { island: 'wenshan', name: '故事溪' } },
+  landings: { west: { island: 'nangang', name: '彩虹河' }, north: { island: 'beitou', name: '雲朵灣' }, east: { island: 'datong', name: '鉛筆河' }, south: { island: 'wenshan', name: '故事溪' } },
   // 課程單元：每一筆是一棟可點擊的建築（課程卡顯示 summary 學什麼、why 為什麼要學、facts 學習重點最多 8 條、agencies 關鍵字、issue 相關挑戰代號），
   // district = 屬於哪個學期的島；quiz = 題庫主題（quiz.js），沒有就依科目與年級出題。後台（共享資料庫 policies 集合）新增的會自動出現。課程建築在闖關時也是障礙物。
   // model 可用：housing nursery elderhome busstop dome techcampus school smartpole garden crane containers theater kiosk station crossing nightmarket hub card court bigtree levee
@@ -187,15 +194,15 @@ export const CONFIG = {
     { id: 'fraction', title: '分數與小數', tag: '#數學', startsAt: '2026-11-01', intensity: 1.4, routes: ['west','south','east'], boss: 'frogking', mix: { caterpillar: 2, frog: 2, parrot: 1 }, chants: ['分母相加?','小數點呢','1/2 比 1/3 小?','沒通分','約分忘了'], desc: '拖延蛙群跳進來，大考蛙王殿後。' },
     { id: 'final',    title: '期末大考',   tag: '#期末考', startsAt: null, intensity: 2.2, routes: ['west','north','east','south'], boss: 'frogking', boss2: 'bigv', mix: { bird: 3, frog: 3, parrot: 2, caterpillar: 1, chameleon: 1, mouse: 4 }, chants: ['期末考!!','全部都考','默寫!','背起來','最後一題','時間到!!','交卷!','考試大成功'], desc: '四面八方、所有小怪、兩隻魔王。一樣守得下來。' },
   ],
-  // ═══ 逛校園：自己的角色（穿著金蛋買的衣服）在闖關島上散步；服飾店買衣服、工地投金蛋蓋校園、找校長捐書。其他正在逛的人也看得到 ═══
+  // ═══ 逛校園：自己的角色（穿著金蛋買的衣服）在草原小鎮散步；服飾店買衣服、工地投金蛋蓋校園、找校長捐書。其他正在逛的人也看得到 ═══
   explore: {
-    speed: 1.2, radius: 0.14, pathNodes: 70000,   // 走路速度（每秒幾個世界單位）、碰撞半徑、跨島找路最多展開幾格
+    speed: 1.35, radius: 0.14, pathNodes: 90000,   // 走路速度（每秒幾個世界單位）、碰撞半徑、跨區塊找路最多展開幾格
     // 服飾店：[島, 第幾棟小房子 0～2]（一律畫成商店）。要選鏡頭看得到的位置：廣場島的 1、2 號在地標兩側，會被大地標擋住
     boutiques: [['datong', 0], ['daan', 0], ['zhongshan', 0], ['beitou', 0], ['wanhua', 0], ['songshan', 0], ['wenshan', 0]],
     near: { boutique: 1.0, site: 1.05, mayor: 0.9 }, // 走到幾格內出現「進去」按鈕
     clockStart: 600, clockRate: 6,  // 逛校園的時鐘：從 10:00 開始，每秒走幾分鐘（遊戲時間）
     times: [ { min: 360, icon: '🌅', label: '清晨 06' }, { min: 720, icon: '☀️', label: '白天 12' }, { min: 1080, icon: '🌇', label: '黃昏 18' }, { min: 1260, icon: '🌙', label: '夜晚 21' } ],
-    birdHeight: 42, birdBack: 6,      // 鳥瞰：鏡頭在校園中心正上方多高、往後退多少
+    birdHeight: 16, birdBack: 3,      // 鳥瞰：鏡頭在目前場景正上方多高、往後退多少
     fireworks: { every: 1.4, night: 0.5 }, // 全校加成「校慶嘉年華」解鎖後，晚上（天色暗度 ≥ night）每 every 秒放一發煙火
     multi: { sendEvery: 0.5, sendPerPlayer: 0.1, sendMax: 4, heartbeat: 6, timeout: 20, presenceGrace: 5, maxRemote: 40, snapDist: 4, bubbleSeconds: 3, emoteCooldown: 1.5, rxMinGap: 0.12 },
     emotes: [ { k: 'hi', icon: '👋', say: '嗨！' }, { k: 'yay', icon: '🎉', say: '讚啦！' }, { k: 'love', icon: '❤️', say: '一起加油！' }, { k: 'thx', icon: '🙏', say: '謝啦！' } ],
@@ -251,28 +258,28 @@ export const CONFIG = {
       acc: { label: '配件', items: {
         scarf: { name: '圍巾', icon: '🧣', price: 12 }, sash: { name: '彩帶', icon: '🎗️', price: 20 }, cape: { name: '英雄披風', icon: '🦸', price: 45 } } },
     },
-    // 蓋校園：在逛校園時走到工地投金蛋（新島是在要接的那座島靠海那邊）。所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那座島上原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己學期的對抗。
+    // 蓋校園：在逛校園時走到工地投金蛋（新校區是在要接的那個區塊的門口）。所有人投入的金蛋加總，依序蓋；蓋好的建築換掉那個區塊原本的小房子（house = 第幾棟小房子 0～2），大家的地圖上都看得到。投入的金蛋也算進自己學期的對抗。
     city: [
       { id: 'fountain', name: '金蛋噴水池',   island: 'xinyi',      house: 0, model: 'garden',     cost: 30 }, // 校長室右前方（1 號在校長室左邊，會被大樓擋住）
       { id: 'market2',  name: '福利社',       island: 'shilin',     house: 0, model: 'nightmarket', cost: 60 },
       { id: 'stage',    name: '操場舞台',     island: 'datong',     house: 2, model: 'stage',      cost: 100 },
-      // kind: 'island'＝新校區：放在 12 個學期島外圍（axial），蓋好時從海上長出來、用陸橋接到相鄰的那座島（link；via＝橋名）；
-      // 蓋的時候在 link 島靠新島那一邊投金蛋。不算學期對抗。
-      { id: 'sanchong', name: '音樂島', kind: 'island', axial: [-2, 2], link: 'datong', via: '音符橋', ground: 'street', landmark: 'nightmarket', cost: 160 },
+      // kind: 'island'＝新校區：放在學期格子旁邊的空格（grid），蓋好時野地變成新的區塊、通往相鄰區塊的門打開（link；via＝橋名）；
+      // 蓋的時候在 link 區塊通往新校區的門口投金蛋。不算學期對抗。
+      { id: 'sanchong', name: '音樂島', kind: 'island', grid: [4, 1], link: 'datong', via: '音符橋', ground: 'street', landmark: 'nightmarket', cost: 160 },
       { id: 'nursery',  name: '幼兒園遊戲室', island: 'neihu',      house: 0, model: 'nursery',    cost: 190 },
       { id: 'teahouse', name: '茶藝教室',     island: 'wenshan',    house: 1, model: 'theater',    cost: 230 },
       { id: 'sports',   name: '運動中心',     island: 'nangang',    house: 0, model: 'football',   cost: 280 },
-      { id: 'yonghe',   name: '美術島', kind: 'island', axial: [-1, 4], link: 'zhongzheng', via: '畫筆橋', ground: 'courtyard', landmark: 'housing', cost: 360 },
+      { id: 'yonghe',   name: '美術島', kind: 'island', grid: [1, 3], link: 'zhongzheng', via: '畫筆橋', ground: 'courtyard', landmark: 'housing', cost: 360 },
       { id: 'housing',  name: '學生宿舍',     island: 'wanhua',     house: 2, model: 'housing',    cost: 400 },
       { id: 'dome2',    name: '小巨蛋體育館', island: 'songshan',   house: 1, model: 'dome',       cost: 460 },
       { id: 'clock',    name: '校園鐘樓',     island: 'zhongzheng', house: 0, model: 'clock',      cost: 540 },
-      { id: 'xizhi',    name: '科學島', kind: 'island', axial: [2, 1], link: 'nangang', ground: 'gravel', landmark: 'techcampus', cost: 650 },
+      { id: 'xizhi',    name: '科學島', kind: 'island', grid: [-1, 1], link: 'nangang', ground: 'gravel', landmark: 'techcampus', cost: 650 },
       { id: 'egg101',   name: '金蛋 101',     island: 'daan',       house: 2, model: 'tower101',   cost: 800 },
-      { id: 'banqiao',  name: '體育島', kind: 'island', axial: [-3, 4], link: 'wanhua', via: '跳繩橋', ground: 'granite', landmark: 'station', cost: 900 },
-      { id: 'zhonghe',  name: '圖書島', kind: 'island', axial: [-2, 4], link: 'wanhua', via: '書本橋', ground: 'garden', landmark: 'temple', cost: 1000 },
-      { id: 'xindian',  name: '生態島', kind: 'island', axial: [-1, 5], link: 'wenshan', ground: 'boardwalk', landmark: 'park', cost: 1100 },
-      { id: 'tamsui',   name: '天文島', kind: 'island', axial: [0, 0], link: 'beitou', ground: 'terracotta', landmark: 'oldstreet', cost: 1250 },
-      { id: 'xinzhuang', name: '電腦島', kind: 'island', axial: [-3, 2], link: 'sanchong', ground: 'schoolyard', landmark: 'school', cost: 1400 }, // 接音樂島（要先蓋好音樂島）
+      { id: 'banqiao',  name: '體育島', kind: 'island', grid: [-1, 2], link: 'wanhua', via: '跳繩橋', ground: 'granite', landmark: 'station', cost: 900 },
+      { id: 'zhonghe',  name: '圖書島', kind: 'island', grid: [0, 3], link: 'wanhua', via: '書本橋', ground: 'garden', landmark: 'temple', cost: 1000 },
+      { id: 'xindian',  name: '生態島', kind: 'island', grid: [2, 3], link: 'wenshan', ground: 'boardwalk', landmark: 'park', cost: 1100 },
+      { id: 'tamsui',   name: '天文島', kind: 'island', grid: [1, -1], link: 'beitou', ground: 'terracotta', landmark: 'oldstreet', cost: 1250 },
+      { id: 'xinzhuang', name: '電腦島', kind: 'island', grid: [4, 2], link: 'sanchong', ground: 'schoolyard', landmark: 'school', cost: 1400 }, // 接音樂島（要先蓋好音樂島）
     ],
     buildAmounts: [5, 20, 50],
     // 捐書：在逛校園時走到校長旁邊捐。全站累計到 at 顆解鎖全校加成，所有人都吃得到；自己捐了校長會回一句

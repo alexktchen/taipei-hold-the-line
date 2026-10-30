@@ -13,6 +13,9 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
     explore.start(p); S.playOn(true); S.liveOn('x', true); setTimeout(() => S.liveSend({ t: 'lq' }), 900); lastSent = null; setOn(true); shared.follow.start('xme', true); shared.followed(); shop.sync(); renderClock(); nowSid = ''; renderStage(); if (!guide()) hint('WASD／搖桿或點地板走路；走到服飾店、工地、校長旁邊會出現按鈕'); }
   function leave() { if (!active()) return; sayBye(); S.playOn(false); S.liveOn('x', false); lives.clear(); liveChanged(); closePanels(); setBird(false); explore.stop(); setOn(false); S.setPresence({ phase: 'lobby' }); }
   function setOn(on) { document.body.classList.toggle('exploring', on); $('xbar').hidden = !on; $('xAct').hidden = !on; $('xStage').hidden = !on; if (on) document.documentElement.style.setProperty('--brand-h', (document.querySelector('.brand') || {}).offsetHeight + 'px'); $('joy').hidden = !on || !shared.touch; if (!on) $('xPrompt').hidden = true; }
+  // ── 轉場：走到相鄰場景（過了橋）時畫面快速淡出再淡入，中間顯示場景名（像牧場物語換畫面）──
+  let fadeT = 0; callbacks.scene = (sid, first) => { const name = shared.districtName(sid) || ''; if (first) { hint(name ? `你在${name}` : ''); return; } const f = $('sceneFade'); f.querySelector('b').textContent = name; f.classList.add('on'); clearTimeout(fadeT); fadeT = setTimeout(() => f.classList.remove('on'), C.scene.fadeMs * 2); banner(`📍 ${name}`, 1.6); };
+  callbacks.gate = g => { if (!g) return; const h = shared.progress.hint(g.far); const far = shared.islName(g.far); hint(h ? `🔒 ${far}還沒解鎖：在${shared.islName(h.by)}答對 ${h.need} 題（${Math.min(h.have, h.need)}／${h.need}）` : `🔒 ${far}還沒解鎖`, true); };
   // ── 走到地點旁邊：出現「進去」的按鈕（E）──
   const PROMPT = { boutique: () => ['👕', '進服飾店'], site: n => ['🚧', `投金蛋蓋${n.name}`], mayor: () => ['🎙', '找校長捐書'] }, TAB = { boutique: 'fit', site: 'city', mayor: 'donate' };
   callbacks.near = n => { if (n && PROMPT[n.kind]) { const [ic, t] = PROMPT[n.kind](n); $('btnXPrompt').innerHTML = `<span class="pi">${ic}</span><b>${esc(t)}</b><span class="kbd">E</span>`; $('xPrompt').hidden = false; } else $('xPrompt').hidden = true; if (!$('shopPanel').hidden) shop.render(); };
@@ -72,7 +75,7 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
   // 面板：最上面是現在的闖關場（看一眼／走過去／去這裡闖關），中間是正在闖的關，最下面是魔王圖鑑（場上有的標出來）
   function renderLive() { $('xbLiveN').textContent = lives.size ? String(lives.size) : ''; if ($('livePanel').hidden) return;
     const I = shared.stageInfo(), onField = new Set([...lives.values()].flatMap(L => L.b));
-    const now = `<section class="live-now"><div class="ln-k">🥚 現在的闖關場</div><div class="ln-name"><b>${esc(I.now.name)}</b><small>${I.now.islands.length} 座島${I.where ? `・${esc(I.where)}` : ''}</small></div>
+    const now = `<section class="live-now"><div class="ln-k">🥚 現在的闖關場</div><div class="ln-name"><b>${esc(I.now.name)}</b><small>${I.where ? esc(I.where) : ''}</small></div>
       <p class="ln-rot">⏱ <b>${esc(I.left)}</b> 後換成<b>${esc(I.next.name)}</b></p><p class="ln-eve">${esc(I.eve)}</p>
       <div class="lc-btns"><button type="button" class="go2" data-look="${esc(I.now.id)}">📷 看一眼</button><button type="button" class="go2" data-walk="${esc(I.now.id)}">👣 走過去</button><button type="button" class="go2 go-there" data-gowork="1">🥚 去闖關</button></div></section>`;
     const dex = `<h3 class="lv-h">魔王圖鑑</h3><ul class="bosses">${C.bossTypes.map(k => { const A = C.animals[k]; return `<li class="${onField.has(k) ? 'on' : ''}"><b>${esc(A.name)}${onField.has(k) ? '<em>🔴 場上</em>' : ''}</b><span>${esc(A.desc)}</span></li>`; }).join('')}</ul>`;
@@ -95,7 +98,7 @@ export function createExploreUI({ explore, S, shop, callbacks, shared }) {
   // ── 第一次進來的三步說明 ──
   function guide() { try { if (localStorage.getItem(X.guideKey)) return false; } catch (e) { return false; }
     $('guideTitle').textContent = '逛校園怎麼玩'; $('guideSteps').innerHTML = [
-      ['走路', '電腦用 WASD 或方向鍵，手機用左下搖桿，也可以直接點地板；跨島會自己找橋。'],
+      ['走路', '電腦用 WASD 或方向鍵，手機用左下搖桿，也可以直接點地板；走到區塊邊上的門或木橋，就換到隔壁的學期（鎖著的門要先答題解鎖）。'],
       ['解題賺金蛋', '點課程建築打開課程卡，看完學習重點按「解題任務」，答對就有金蛋；去闖關場闖關也能賺。'],
       ['花金蛋', '走到「👕 服飾店」買衣服、走到「🚧 工地」投金蛋蓋校園、走到校長旁邊捐書給圖書館；右下的按鈕可以「帶我去」。'],
       ['和大家一起逛', '其他正在逛的人也在這張地圖上，穿著他們買的衣服。按表情打招呼，點別人可以擊掌。下方「🔴 闖關現場」看得到別人正在闖的關和魔王；「🥚 去闖關」穿過雲層到闖關場。'],

@@ -8,7 +8,7 @@ import { createExploreUI } from './exploreui.js';
 import { createShop } from './shop.js';
 import { createQuizUI, dailyTally, topicsForGrade } from './quiz.js';
 const SH = C.shift, GR = C.grades, $ = id => document.getElementById(id);
-export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, stageCenter, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
+export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, progress, refreshGates, islName, stageCenter, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
   const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const num = v => typeof v === 'number' && Number.isFinite(v), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, n) : '';
@@ -35,7 +35,9 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   const myFit = () => S.econ().outfit;
   const boostTiers = () => { const d = S.econ().donated; return C.econ.donate.tiers.filter(t => d >= t.at).length; }; // 捐書全校加成：解鎖了幾階
   const myProfile = () => { const g = myGrade(); return { nick: nickVal(), cls: chosenCls, district: myDistrict(), grade: g.lv, pts: g.pts, fit: myFit() }; };
-  function profileChanged() { renderGoWho(); if (room.code) room.setProfile(myProfile()); S.setPresence({ nick: nickVal(), cls: chosenCls }); }
+  function profileChanged() { renderGoWho(); if (room.code) room.setProfile(myProfile()); S.setPresence({ nick: nickVal(), cls: chosenCls }); syncHome(); }
+  // 自己選的學期一開始就解鎖；橋頭的鎖跟著更新
+  let homeSynced = ''; function syncHome() { const d = myDistrict(); if (!d || d === homeSynced) return; homeSynced = d; progress.setHome(d); refreshGates(); renderDistricts(); }
   $('homeDistrict').addEventListener('change', () => { districtPicked = true; renderDistricts(); profileChanged(); });
   function renderGoWho() { const h = S.hero() || {}, random = !districtPicked && !h.district; $('goWho').textContent = `以${C.heroes[chosenCls].name}替${districtName(myDistrict())}闖關${random ? '（學期是隨機選的，可以換）' : ''}。`; }
   // ── 玩法分頁：闖關（4 人一隊搬金蛋）／闖關（原本的舊版，大家同框）；選過的記在裝置上 ──
@@ -47,7 +49,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   // 怎麼玩：數字都從 config 帶，改參數不用改文案
   const HOWTO = () => [
     ['選角色、選你的學期', `${Object.keys(C.heroes).length} 種角色各有武器和一招特殊技（一關 ${SH.specials} 次）。搬進籃子的金蛋都算進你選的學期。`],
-    ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地面走過去，跨島會自己找橋。'],
+    ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地面走過去。每個學期是一個用木圍欄圍起來的區塊，走到上下左右的門（過河的是木橋）就換到隔壁的區塊。'],
     ['自動攻擊', '武器會自動打射程內的敵人。點敵人＝鎖定它，射程內就優先打（打魔王很好用）。'],
     ['金蛋', `魔王倒下會掉 ${SH.egg.perBoss} 顆金蛋，走過去就撿起來（一次一顆、搬著會變慢），走進金蛋籃的黃圈就算一顆。按 E 或空白鍵可以把蛋丟出去，離籃子 ${SH.egg.throwAim} 格內丟會直接進籃。`],
     ['解題', `按 R 或右下的「解題」會出一題（依你選的學期出題），答對這一波金蛋 +${C.quiz.bonusEggs}、血補滿；答錯要等 ${C.quiz.cooldown} 秒，每關最多 ${C.quiz.perShift} 題。`],
@@ -60,17 +62,17 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     ['快捷鍵', 'Q 特殊技、E／空白鍵丟蛋、1 2 3 快速訊號、H 闖關場全景、F 鏡頭跟著自己、P 暫停（只有單人）、Esc 關卡片。'],
   ];
   const XC = C.explore, HOWTO_X = () => [
-    ['選角色、選你的學期', '角色決定你的角色長相；角色從你選的學期出發。逛校園不賺金蛋，金蛋只有闖關賺。'],
-    ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地板走過去，跨島會自己找橋。'],
+    ['選角色、選你的學期', `角色決定你的角色長相；角色從你選的學期出發。一開始只有幼兒園、一年級上和你的學期開著，其他學期要在相鄰的場景答對 ${C.unlock.need} 題才會解鎖（橋頭有 🔒 的牌子寫著還差幾題）。`],
+    ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地板走過去。每個學期是一個場景，走到上下左右邊緣的木橋就換到隔壁的場景。'],
     ['買衣服', `走進地圖上標「👕 服飾店」的店（共 ${XC.boutiques.length} 間）買帽子、背心、配件；買過的隨時能換，闖關時也會穿著，其他玩家看得到。`],
     ['解題任務', `點課程建築打開課程卡，先看學習重點再按「解題任務」；答對每題 +${C.quiz.reward} 顆金蛋（每個單元每天 ${C.quiz.dailyCap} 題有獎勵，之後只是練習）。`],
-    ['蓋校園', `全站一起投金蛋，依序蓋 ${C.econ.city.length} 棟建設；走到「🚧 工地」旁邊投。蓋好的建築換掉那座島上的小房子，每個人的地圖上都看得到，投入的金蛋也算進你學期的學期對抗。`],
+    ['蓋校園', `全站一起投金蛋，依序蓋 ${C.econ.city.length} 棟建設；走到「🚧 工地」旁邊投。蓋好的建築換掉那個區塊裡的小房子，每個人的地圖上都看得到，投入的金蛋也算進你學期的學期對抗。`],
     ['捐書', '走到校長旁邊捐，校長會回你一句；全站累計解鎖全校加成（闖關更好過、晚上放煙火）。金蛋不是錢，這也不是真的捐款。'],
     ['帶我去', '右下的衣櫃、蓋校園、捐書按鈕會開面板；不在地點旁邊時按「帶我去」自動走過去。'],
     ['一起逛', '其他正在逛的人也在同一張地圖上。表情列打招呼（1～4）、點別人擊掌。'],
     ['工具列', '下方可以換時段（清晨、白天、黃昏、夜晚）、開關名牌、停住時間、鳥瞰全校、打開課程清單（點一項就走過去）。快捷鍵：E 進去、B 鳥瞰、L 清單、F 跟著自己、H 全景。'],
   ];
-  const LEAD = { shift: '闖關場是幾座相鄰的島，金蛋籃在中間那座島的廣場上。小怪會從岸邊一波波上岸，打倒魔王會掉金蛋，搬進籃子湊滿配額才算過關，三波都過就下課。隨時按 R 解題，答對直接加金蛋。進場後點右上角的「?」也能隨時看。', explore: '帶著你的角色在闖關島上散步：點課程建築看學習重點、按「解題任務」答題賺金蛋，走進服飾店買衣服、到工地投金蛋蓋校園、找校長捐書。其他正在逛的人也在同一張地圖上。' };
+  const LEAD = { shift: '闖關場是一個學期的區塊，金蛋籃在區塊前方的廣場上；開始闖關時四道門會關上。小怪會從圍欄外一波波翻進來，打倒魔王會掉金蛋，搬進籃子湊滿配額才算過關，三波都過就下課。隨時按 R 解題，答對直接加金蛋。進場後點右上角的「?」也能隨時看。', explore: '帶著你的角色在草原小鎮散步：點課程建築看學習重點、按「解題任務」答題賺金蛋，走進服飾店買衣服、到工地投金蛋蓋校園、找校長捐書。其他正在逛的人也在同一張地圖上。' };
   const li = list => list.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('');
   function renderHowto() { $('howto').innerHTML = li(HOWTO()); $('howtoLead').textContent = LEAD.shift; $('howtoHelp').innerHTML = li(world === 'city' ? HOWTO_X() : HOWTO()); $('helpTitle').textContent = world === 'city' ? '逛校園怎麼玩' : '闖關怎麼玩'; }
   renderHowto();
@@ -80,9 +82,9 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   // ── 學期對抗：大廳排名、左上面板、地圖區名掛名次（分數＝金蛋）──
   let rankSig = '';
   function renderDistricts() { const board = S.districtBoard(), mine = myDistrict(), top = Math.max(1, board[0] ? board[0].eggs : 0);
-    $('dboard').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}" data-id="${r.id}"><span class="rank">${r.eggs ? i + 1 : '–'}</span><span class="who">${esc(r.name)}${r.id === mine ? ' <em>你的學期</em>' : ''}</span><b>${fmt(r.eggs)}</b><small>${r.workers} 人</small><i style="width:${(r.eggs / top * 100).toFixed(1)}%"></i></li>`).join('');
+    $('dboard').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}" data-id="${r.id}"><span class="rank">${r.eggs ? i + 1 : '–'}</span><span class="who">${progress.isUnlocked(r.id) ? '' : '🔒 '}${esc(r.name)}${r.id === mine ? ' <em>你的學期</em>' : ''}</span><b>${fmt(r.eggs)}</b><small>${r.workers} 人</small><i style="width:${(r.eggs / top * 100).toFixed(1)}%"></i></li>`).join('');
     const mi = board.findIndex(r => r.id === mine); $('dpMine').innerHTML = mi >= 0 && board[mi].eggs ? `你的學期第 ${mi + 1}<em>・${fmt(board[mi].eggs)} 顆</em>` : '';
-    $('dpList').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}"><span class="r">${r.eggs ? i + 1 : '–'}</span><span class="n">${esc(r.name)}</span><b>${fmt(r.eggs)}</b><i style="width:${(r.eggs / top * 100).toFixed(1)}%"></i></li>`).join('');
+    $('dpList').innerHTML = board.map((r, i) => `<li class="${r.id === mine ? 'mine' : ''}${progress.isUnlocked(r.id) ? '' : ' locked'}"><span class="r">${r.eggs ? i + 1 : '–'}</span><span class="n">${progress.isUnlocked(r.id) ? '' : '🔒 '}${esc(r.name)}</span><b>${fmt(r.eggs)}</b><i style="width:${(r.eggs / top * 100).toFixed(1)}%"></i></li>`).join('');
     const sig = mine + '|' + board.map(r => r.id + (r.eggs > 0 ? 1 : 0)).join(','); if (sig !== rankSig) { rankSig = sig; setDistrictRanks(board.map(r => ({ ...r, kills: r.eggs })), mine); } }
   const setDpOpen = open => { $('dPanel').classList.toggle('open', open); $('dpHead').setAttribute('aria-expanded', String(open)); };
   setDpOpen((() => { try { const v = localStorage.getItem(C.ui.districtPanelKey); if (v) return v === 'open'; } catch (e) {} return !matchMedia('(max-width:900px)').matches; })());
@@ -93,7 +95,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     const up = board[i - 1]; return `你替${name}搬了 ${fmt(eggs)} 顆金蛋。${name}目前第 ${i + 1} 名，再 ${fmt(up.eggs - me.eggs + 1)} 顆就超過${up.name}。`; }
   // ── 大廳 ──
   function renderGrade() { const g = myGrade(), max = gradeMax(g.lv); $('gradeCard').innerHTML = `<div class="gl"><span class="k">闖關等級</span><b>${esc(GR.names[g.lv])}</b><span class="pts">${g.pts}／${max}</span></div><span class="bar"><i style="width:${Math.min(100, g.pts / max * 100).toFixed(1)}%"></i></span><small>危險度 ${Math.round((hazardOf(g.lv, g.pts) + (isFinalNow() ? C.exam.hazardBonus : 0)) * 100)}%・過關 +${GR.clear}${g.lv >= GR.failSafeBelow ? '、沒過會扣點' : '、現在沒過也不扣點'}</small>`; }
-  function renderStageLine() { const now = stageNow(), nx = stageNext(); $('stageLine').innerHTML = `現在的闖關場：<b>${esc(now.name)}</b>（${now.islands.length} 座島）<span>・${hms(rotMs - Date.now() % rotMs)} 後換成${esc(nx.name)}</span>`;
+  function renderStageLine() { const now = stageNow(), nx = stageNext(); $('stageLine').innerHTML = `現在的闖關場：<b>${esc(now.name)}</b><span>・${hms(rotMs - Date.now() % rotMs)} 後換成${esc(nx.name)}</span>`;
     $('countdown').textContent = eveLine(); }
   function eveLine() { const d = daysToEve(); return d > 0 ? `距離期末大考還有 ${d} 天（${eveDate()}，那天起每一波都是期末大考、危險度 +${Math.round(C.exam.hazardBonus * 100)}%）` : d === 0 ? '今晚就是期末大考前夜：每一波都是期末大考' : `期末大考週：每一波都是期末大考`; }
   // 給校園用的闖關場現況（現在的場、多久後換場、期末大考倒數）
@@ -103,6 +105,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     renderGrade(); renderStageLine();
     $('onlineList').innerHTML = online > 1 ? `<p><b>${fmt(online)}</b> 人在線・<b>${fmt(playingCount())}</b> 人正在闖關</p><ol class="plist">${sortedPeople().map(p => personRow(p)).join('')}</ol>` : '目前只有你，邀朋友一起來闖關。';
     $('lobbyStats').innerHTML = `<div><b>${fmt(online)}</b><span>人在線</span></div><div><b>${fmt(globals.shifts)}</b><span>關完成</span></div><div><b>${fmt(globals.eggs)}</b><span>顆金蛋入籃</span></div>` + (globals.visitors != null ? `<div class="vis"><b>${fmt(globals.visitors)}</b><span>人來過${globals.visitorsToday ? `・今天新來 ${fmt(globals.visitorsToday)}` : ''}</span></div>` : '');
+    syncHome();
     $('mine').textContent = h.shifts ? `你已經打了 ${h.shifts} 關、搬了 ${fmt(h.eggs)} 顆金蛋${h.clears ? `、${h.clears} 關三波全過` : ''}，錢包還有 ${fmt(S.econ().wallet)} 顆（到逛校園花）。` : '你還沒打過工。';
     $('modeNote').textContent = S.state.mode === 'supabase' ? (S.state.noShiftCols ? '已連線：可以一起闖關；雲端的闖關戰績欄位還沒建好，這段時間闖關不會記金蛋。' : '已連線：可以一起闖關，金蛋和戰績記在雲端。') : S.state.mode === 'remote' ? '這個環境只能單人開始闖關；戰績會計入共享總數。' : '沒有連上雲端：只能單人開始闖關，金蛋和戰績都不會記錄（金蛋只記在雲端）。';
     const multi = room.available(); for (const id of ['btnQuick', 'btnCreate', 'btnJoin']) $(id).disabled = !multi; $('joinCode').disabled = !multi;
@@ -120,7 +123,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
       setDistrict: id => { if (!DISTRICTS.some(d => d.id === id)) return; $('homeDistrict').value = id; districtPicked = true; renderDistricts(); profileChanged(); S.saveHero({ district: id }); }, setCls: id => { if (!C.heroes[id]) return; chosenCls = id; clsPicked = true; profileChanged(); }, setNick: v => { $('nick').value = String(v || '').trim().slice(0, 24); profileChanged(); } },
     onChange: () => { globals = S.totals(); renderStrip(); renderDistricts(); if (room.code) room.setProfile(myProfile()); xui.refit(); } });
   callbacks.mayorExtra = m => { if (G.phase === 'lobby') shop.onSpeech(m, callbacks.say); };
-  const xui = createExploreUI({ explore, S, shop, callbacks: xCallbacks, shared: { esc, fmt, hint, banner, districtName, online: () => online, touch: matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0,
+  const xui = createExploreUI({ explore, S, shop, callbacks: xCallbacks, shared: { esc, fmt, hint, banner, districtName, progress, islName, online: () => online, touch: matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0,
     profile: () => ({ nick: nickVal(), cls: chosenCls, district: myDistrict(), fit: myFit() }), follow, bird, followed: () => renderFollowBtn(), policyPos, policies: () => policies, islandOf, card: (p, isl) => showCard(p, isl),
     enter: async () => { if (room.code) { await room.leave(); dropRoomParam(); } $('lobby').hidden = true; $('resultBox').hidden = true; closeCard(); input.clear(); renderFollowBtn(); },
     goWork: () => goWork(), liveSigns, stageCenter, stageInfo, lookStage: sid => frameStage(sid, false) } });
@@ -257,14 +260,14 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   function renderQuizBtn() { const P = game.me(), b = $('btnQuiz'); if (!P) return; const left = Math.max(0, C.quiz.perShift - (P.quizN || 0)), cd = Math.ceil(Math.max(0, P.quizT || 0)); b.disabled = G.phase !== 'wave' || P.down || !left || cd > 0 || quiz.open; $('quizLeft').textContent = cd > 0 ? `${cd} 秒後` : left ? `剩 ${left} 題` : '用完了'; }
   async function doQuiz() { const P = game.me(); if (!P || P.down || G.phase !== 'wave' || (P.quizT || 0) > 0 || (P.quizN || 0) >= C.quiz.perShift || quiz.open) return; const wasPaused = G.paused; if (G.role === 'solo') G.paused = true; const g = gradeOfDistrict(myDistrict()), isl = DISTRICTS.find(i => i.id === myDistrict());
     const ok = await quiz.ask({ grade: g, topic: pickTopic(g), mode: 'shift', title: `${isl ? isl.name : ''}解題`, reward: `答對：這一波金蛋 +${C.quiz.bonusEggs}、血補滿` }); if (G.role === 'solo') G.paused = wasPaused; renderQuizBtn();
-    if (ok === null) return; if (ok) { const m = game.quizBonus(); if (m) room.sendUp(m); } else { const P2 = game.me(); if (P2) P2.quizT = C.quiz.cooldown; banner(`❌ 答錯了，${C.quiz.cooldown} 秒後可以再試`, 2); } renderQuizBtn(); }
+    if (ok === null) return; if (ok) { const m = game.quizBonus(); if (m) room.sendUp(m); progress.add(G.stage ? G.stage.basket : myDistrict()); renderDistricts(); } else { const P2 = game.me(); if (P2) P2.quizT = C.quiz.cooldown; banner(`❌ 答錯了，${C.quiz.cooldown} 秒後可以再試`, 2); } renderQuizBtn(); }
   $('btnQuiz').addEventListener('click', doQuiz); setInterval(() => { if (G.phase !== 'lobby') renderQuizBtn(); }, 500);
   // ── 解題任務（課程卡）：答對每題 +reward 顆金蛋記進雲端（每個單元每天 dailyCap 題有獎勵，之後只是練習）──
   const solvedToday = id => dailyTally('lesson:' + id).count;
   async function lessonQuiz(pol) { if (quiz.open) return; const t = dailyTally('lesson:' + pol.id), capped = t.count >= C.quiz.dailyCap, g = Number.isFinite(pol.grade) ? pol.grade : gradeOfDistrict(islandOf(pol.id));
     const ok = await quiz.ask({ topic: pol.quiz, grade: g, mode: 'lesson', title: pol.title, eyebrow: `QUIZ・${districtName(islandOf(pol.id)) || '解題任務'}`, reward: capped ? `今天這個單元的獎勵拿完了（${C.quiz.dailyCap} 題），再答只是練習` : `答對 +${C.quiz.reward} 顆金蛋（今天還有 ${C.quiz.dailyCap - t.count} 題有獎勵）` });
     if (ok === null) return; if (!ok) { game.shout(C.mayor.lines.quizNo); return; }
-    const n = t.add(); if (n > C.quiz.dailyCap) banner('🎉 答對了！（今天這個單元的獎勵已拿完，這題算練習）', 2.5);
+    const n = t.add(); const newly = progress.add(islandOf(pol.id)); renderDistricts(); if (n > C.quiz.dailyCap) banner(newly.length ? `🎉 答對了！🔓 解鎖了${newly.map(islName).join('、')}` : '🎉 答對了！（今天這個單元的獎勵已拿完，這題算練習）', 2.5);
     else { const r = await S.recordQuiz(C.quiz.reward, pol.id); banner(r.ok ? `🎉 答對了！金蛋 +${C.quiz.reward}` : r.why === 'offline' ? '🎉 答對了！（沒連上雲端，金蛋沒有記錄）' : r.why === 'nocols' ? '🎉 答對了！（雲端還沒開解題帳本，金蛋沒有記錄）' : '🎉 答對了！（連線不穩，金蛋沒存到）', 3); if (r.ok) game.shout(C.mayor.lines.quizOk.replace('{n}', C.quiz.reward)); }
     if (cardPol && cardPol.id === pol.id && !$('card').hidden) showCard(pol, cardIsl); shop.sync(); }
   $('emotes').innerHTML = C.emotes.map((e, i) => `<button type="button" data-k="${esc(e.k)}" title="${esc(e.say)}（${i + 1}）" aria-label="${esc(e.say)}">${ICONS[e.k] || esc(e.icon)}<span>${esc(e.say)}</span></button>`).join('');

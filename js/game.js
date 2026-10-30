@@ -3,7 +3,7 @@
    畫面特效一律走「事件」：模擬端產生事件時自己先播一次，再放進快照送給房客播，兩邊看到的一樣。事件只帶代碼與數字，文字由各自的 config 組出來。 */
 import * as THREE from 'three';
 import { CONFIG as C } from './config.js';
-import { TOP, R, makeRoute, sampleRoute } from './islands.js';
+import { TOP, R, H, makeRoute, sampleRoute } from './islands.js';
 const SH = C.shift, EG = SH.egg, PL = SH.player, ML = C.melee, CH = C.chant, NP = C.npc, MC = C.mayor, RS = C.residents;
 export const TYPES = Object.keys(C.animals), SPECIALS = ['', 'fog', 'rush'], PHASES = ['lobby', 'intro', 'wave', 'inter', 'result'];
 const Y = TOP + 0.03, r2 = v => Math.round(v * 100), lerp = (a, b, k) => a + (b - a) * k, num = v => typeof v === 'number' && Number.isFinite(v);
@@ -23,14 +23,15 @@ export function createGame(ctx) {
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const tagAdd = (w, name, badge, color, kind) => emit('tag', 'add', w, { name, badge, color, kind }); const tagDel = w => emit('tag', 'remove', w);
   // ── 同學（大廳時在步道散步；開始闖關時闖關場上的同學先離開）──
-  function spawnResidents() { const list = []; for (const isl of islands) { const ring = graph.ringIndex.get(isl.id); for (let k = 0; k < RS.perIsland; k++) { const node = ring[(k * 5 + isl.number) % 12]; const role = RS.roles[(isl.number * 3 + k) % RS.roles.length]; const w = people.makeWalker(role, graph.nodes[node].p); const sp = role === 'cyclist' ? RS.bikeSpeed : RS.speed; Object.assign(w, { home: isl.id, node, wait: Math.random() * 2, route: null, s: 0, speed: sp[0] + Math.random() * (sp[1] - sp[0]) }); list.push(w); } } G.residents = list; return list; }
+  function spawnResidents() { const list = []; for (const isl of islands) { const ring = graph.ringIndex.get(isl.id); for (let k = 0; k < RS.perIsland; k++) { const node = ring[(k * 5 + isl.number) % ring.length]; const role = RS.roles[(isl.number * 3 + k) % RS.roles.length]; const w = people.makeWalker(role, graph.nodes[node].p); const sp = role === 'cyclist' ? RS.bikeSpeed : RS.speed; Object.assign(w, { home: isl.id, node, wait: Math.random() * 2, route: null, s: 0, speed: sp[0] + Math.random() * (sp[1] - sp[0]) }); list.push(w); } } G.residents = list; return list; }
   function walk(w, dt, speed) { if (!w.route) return true; w.s += speed * dt; const done = w.s >= w.route.total; const smp = sampleRoute(w.route, Math.min(w.s, w.route.total)); w.pos.copy(smp.p); if (smp.dir.lengthSq() > 0) w.yaw = Math.atan2(smp.dir.x, smp.dir.z); w.moving = !done; if (done) { w.route = null; w.moving = false; } return done; }
   function routeTo(fromPos, toNode) { const a = graph.nearestNode(fromPos); const ids = graph.shortest(a, toNode); return makeRoute([fromPos.clone(), ...ids.map(n => graph.nodes[n].p.clone())]); }
   function updateResidents(dt) { for (const w of G.residents) { if (w.away) continue; if (w.cheer > 0) { w.cheer -= dt; w.pose = w.cheer > 0 ? 'wave' : null; w.moving = false; continue; }
-    if (w.route) walk(w, dt, w.speed); else { w.wait -= dt; if (w.wait <= 0) { const ring = graph.ringIndex.get(w.home); const next = ring[(ring.indexOf(w.node) + (Math.random() < 0.5 ? 1 : 11)) % 12]; w.route = makeRoute([w.pos.clone(), graph.nodes[next].p.clone()]); w.s = 0; w.node = next; w.wait = 1 + Math.random() * 3; } } } }
+    if (w.route) walk(w, dt, w.speed); else { w.wait -= dt; if (w.wait <= 0) { const ring = graph.ringIndex.get(w.home); const next = ring[(ring.indexOf(w.node) + (Math.random() < 0.5 ? 1 : ring.length - 1)) % ring.length]; w.route = makeRoute([w.pos.clone(), graph.nodes[next].p.clone()]); w.s = 0; w.node = next; w.wait = 1 + Math.random() * 3; } } } }
   // ── 校長 NPC：大廳時巡迴課程建築宣傳；開始闖關時站在金蛋籃旁邊廣播（像闖關的老闆）──
   let stops = [];
-  function setStops(list) { stops = [...list].sort((a, b) => a.order - b.order || a.pos.x - b.pos.x); if (G.mayor && G.mayor.stop >= stops.length) G.mayor.stop = 0; }
+  const GOAL = (islands.find(i => i.goal) || islands[0]).id; // 校長待的場景（校長室）
+  function setStops(list) { const mine = list.filter(s => s.island === GOAL); stops = [...(mine.length ? mine : list)].sort((a, b) => a.order - b.order || a.pos.x - b.pos.x); if (G.mayor && G.mayor.stop >= stops.length) G.mayor.stop = 0; }
   function spawnMayor() { const gc = centers.get((islands.find(i => i.goal) || islands[0]).id); const m = people.makeWalker('mayor', gc.clone().add(new V3(0.6, 0.03, 1.0))); Object.assign(m, { stop: 0, wait: 2, route: null, s: 0, state: 'walk', yaw: 0 });
     tagAdd(m, MC.name, '🎙 校長', '#db6a41', 'mayor'); m.hit = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ visible: false })); scene.add(m.hit); G.mayor = m; return m; }
   const sayCount = new Map();
@@ -56,7 +57,7 @@ export function createGame(ctx) {
   function boostOf(n) { const b = { dmg: 0, quota: 0, specials: 0 }; for (const t of C.econ.donate.tiers.slice(0, Math.max(0, n | 0))) if (t.shift) for (const k of Object.keys(b)) b[k] += t.shift[k] || 0; return b; }
   function startShift(cfg, role) { clearShift(); G.boost = boostOf(cfg.boost);
     G.role = role; G.cfg = cfg; G.stage = C.stages.find(s => s.id === cfg.stage) || C.stages[0]; G.hazard = cfg.hazard; G.waves = cfg.waves || []; G.issues = cfg.issues || [];
-    const bc = centers.get(G.stage.basket); G.basket = { x: bc.x, z: bc.z + C.plaza.basketZ }; G.spawns = computeSpawns(G.stage);
+    const bc = centers.get(G.stage.basket); G.basket = { x: bc.x, z: bc.z + C.plaza.basketZ }; nav.setArena && nav.setArena(G.stage.basket); G.spawns = computeSpawns(G.stage);
     const onStage = new Set(G.stage.islands); for (const w of G.residents) w.away = onStage.has(w.home);
     G.me = num(cfg.mySlot) ? cfg.mySlot : -1;
     G.players = cfg.roster.map((r, i) => makePlayer(r, startPos(i, cfg.roster.length)));
@@ -65,12 +66,11 @@ export function createGame(ctx) {
     Object.assign(G, { phase: 'intro', t: SH.introSeconds, waveNo: 0, waveT: 0, queue: [], fogGold: [], bossSaid: new Set(), golds: [], quotas: [], gold: 0, quota: 0, enemies: [], eggs: [], warns: [], spits: [], out: [], log: [], result: null, special: '', issue: G.issues[0] || null, timeLeft: SH.waveSeconds, clock: 0, paused: false, rushTarget: -1 });
     if (role !== 'client') ev(['say', 'intro']);
     addLog(`開始闖關：${G.stage.name}・危險度 ${Math.round(G.hazard * 100)}%`, 'good'); emit('shift', 'start'); emit('hud'); emit('team'); }
-  function computeSpawns(stage) { const bc = centers.get(stage.basket), all = [...centers.values()], prim = [], side = [];
-    for (const id of stage.islands) { if (id === stage.basket) continue; const c = centers.get(id), base = Math.atan2(c.x - bc.x, c.z - bc.z);
-      for (const da of [0, 1.0, -1.0]) { const a = base + da, dx = Math.sin(a), dz = Math.cos(a), wx = c.x + dx * (R + 1.5), wz = c.z + dz * (R + 1.5);
-        if (nav.walkable(wx, wz) || all.some(o => o !== c && Math.hypot(o.x - wx, o.z - wz) < R + 0.9)) continue;
-        const [ex, ez] = nav.nearestWalkable(c.x + dx * (R - 0.4), c.z + dz * (R - 0.4)); (da === 0 ? prim : side).push({ wx, wz, ex, ez, island: id }); } }
-    const out = prim.length >= 4 ? prim : [...prim, ...side.slice(0, 4 - prim.length + 1)]; return out.length ? out : [{ wx: bc.x, wz: bc.z + R + 1.5, ex: bc.x, ez: bc.z + R - 0.4 }]; }
+  // 進場點：闖關場區塊四邊各三個，從圍欄外面（wx, wz）翻進來，落在圍欄內側（ex, ez）
+  function computeSpawns(stage) { const c = centers.get(stage.basket), out = [];
+    for (const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) for (const t of [-0.55, 0, 0.55]) { const wx = c.x + (dx ? dx * (H + 0.8) : t * (H - 0.8)), wz = c.z + (dz ? dz * (H + 0.8) : t * (H - 0.8));
+      const [ex, ez] = nav.nearestWalkable(c.x + (dx ? dx * (H - 0.6) : t * (H - 0.9)), c.z + (dz ? dz * (H - 0.6) : t * (H - 0.9))); out.push({ wx, wz, ex, ez, island: stage.basket }); }
+    return out; }
   function startPos(i, n) { const a = (i / Math.max(1, n)) * Math.PI * 2 + Math.PI / 4; return nav.nearestWalkable(G.basket.x + Math.sin(a) * 0.75, G.basket.z + 0.4 + Math.cos(a) * 0.6); }
   function makePlayer(r, [x, z]) { const cfg = C.heroes[r.cls] || C.heroes.chief; const w = people.makeWalker('citizen', new V3(x, Y, z), r.cls, r.fit); w.yaw = 0;
     const P = { slot: r.slot, id: String(r.id || ''), nick: String(r.nick || cfg.name).slice(0, 24), cls: C.heroes[r.cls] ? r.cls : 'chief', cfg, npc: !!r.npc, district: r.district || null, grade: r.grade | 0, local: r.slot === G.me, w, pos: w.pos,
@@ -83,7 +83,7 @@ export function createGame(ctx) {
   function setExtraWalkers(list) { extra = list || []; rebuildPeople(); }
   function clearShift() { for (const e of G.enemies) dropEnemyMesh(e); G.enemies = []; enemyById.clear(); enemyHits.length = 0; for (const g of G.eggs) if (g.obj) scene.remove(g.obj); G.eggs = []; for (const f of G.fx) scene.remove(f.obj); G.fx = []; G.warns = []; G.spits = [];
     for (const P of G.players) { tagDel(P.w); for (const o of [P.eggObj, P.buoy, P.ring]) if (o) scene.remove(o); } G.players = []; removeBasket(); }
-  function backToLobby() { clearShift(); G.phase = 'lobby'; G.role = null; G.me = -1; G.special = ''; for (const w of G.residents) w.away = false; if (G.mayor) { G.mayor.state = 'walk'; G.mayor.route = null; G.mayor.wait = 1; G.mayor.pose = null; setBubble(G.mayor, null); } rebuildPeople(); emit('shift', 'lobby'); emit('hud'); emit('team'); }
+  function backToLobby() { clearShift(); nav.setArena && nav.setArena(null); G.phase = 'lobby'; G.role = null; G.me = -1; G.special = ''; for (const w of G.residents) w.away = false; if (G.mayor) { G.mayor.state = 'walk'; G.mayor.route = null; G.mayor.wait = 1; G.mayor.pose = null; setBubble(G.mayor, null); } rebuildPeople(); emit('shift', 'lobby'); emit('hud'); emit('team'); }
   // ═══════════════ 一波 ═══════════════
   const quotaFor = n => Math.max(1, Math.round(SH.qBase[n - 1] + SH.qHazard[n - 1] * G.hazard) + (G.boost ? G.boost.quota : 0));
   function nextWave() { G.waveNo++; const w = G.waves[G.waveNo - 1] || {}; G.special = SPECIALS.includes(w.special) ? w.special : ''; G.issue = G.issues[G.waveNo - 1] || G.issues[0] || null; G.quota = quotaFor(G.waveNo); G.gold = 0; G.waveT = 0; G.timeLeft = SH.waveSeconds; G.phase = 'wave';

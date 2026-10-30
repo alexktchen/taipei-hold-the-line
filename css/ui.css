@@ -574,3 +574,11 @@ body.landed .panel,body.landed .xact{animation:hudIn .5s ease both} @keyframes h
 .quiz-fb{min-height:1.5em;margin:12px 0 0;font-weight:700;font-size:14px} .quiz-fb.ok{color:var(--ok)} .quiz-fb.bad{color:var(--bad)}
 .quiz-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px} .quiz-reward{font-size:12px;color:var(--muted);font-weight:700} .quiz-foot .go2{border-radius:999px;padding:8px 18px;font-weight:900}
 @media (max-width:640px){ .act.quiz{width:64px;height:60px} .act.quiz b{font-size:12px} .act.quiz small{display:none} .quiz-q{font-size:18px} }
+
+/* ═══ 換場景（牧場物語式）：走過橋到隔壁學期時，畫面快速淡出再淡入，中間顯示場景名 ═══ */
+.scene-fade{position:fixed;inset:0;z-index:7;pointer-events:none;background:#211d1d;opacity:0;display:grid;place-items:center;transition:opacity .32s ease}
+.scene-fade b{color:#fff8f4;font-size:28px;font-weight:900;letter-spacing:.1em;opacity:0;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease}
+.scene-fade.on{opacity:.92;transition-duration:.18s} .scene-fade.on b{opacity:1;transform:none;transition-delay:.1s}
+/* 鎖住的場景：橋頭的牌子、排行榜灰掉 */
+.nameplate.gate{background:#211d1d;color:#fcea8b;font-size:12px;padding:5px 12px} .dpanel li.locked{opacity:.55}
+@media (prefers-reduced-motion: reduce){ .scene-fade,.scene-fade b{transition:none} }
