@@ -1,4 +1,4 @@
-/* 台北車流模擬：和萬安政策島同一套畫風——奶油紙色面板、墨色字、珊瑚橘主色、圓角與柔和陰影 */
+/* 台北車流模擬：和小學闖關島同一套畫風——奶油紙色面板、墨色字、珊瑚橘主色、圓角與柔和陰影 */
 :root{ --bg:#fff8f4; --paper:#fff8f4f0; --ink:#211d1d; --muted:#78685e; --line:#211d1d1f; --coral:#db6a41; --soft:#fbe4d8; --gold:#fcea8b; --teal:#58a6a6; --ok:#5f9a4c; --bad:#c23b2a;
   --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; --sa-l:env(safe-area-inset-left,0px); --sa-r:env(safe-area-inset-right,0px); --sa-b:env(safe-area-inset-bottom,0px); color-scheme:light }
 *{box-sizing:border-box} [hidden]{display:none!important}

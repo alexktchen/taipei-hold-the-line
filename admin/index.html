@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>萬安政策島 後台</title>
+<title>小學闖關島 後台</title>
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
@@ -41,8 +41,8 @@ input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9p
 </head>
 <body>
 <div class="wrap">
-  <header><h1>萬安政策島<small>後台管理</small></h1><div id="who" hidden><span id="whoEmail" class="pill"></span> <button id="btnLogout" class="btn ghost sm" type="button">登出</button></div></header>
-  <p class="parody">二創惡搞作品｜非官方。這裡只有管理員能修改遊戲裡的政策與議題。</p>
+  <header><h1>小學闖關島<small>後台管理</small></h1><div id="who" hidden><span id="whoEmail" class="pill"></span> <button id="btnLogout" class="btn ghost sm" type="button">登出</button></div></header>
+  <p class="parody">非官方教學遊戲。這裡只有管理員能修改遊戲裡的課程與挑戰。</p>
 
   <section id="login" class="card login">
     <h2>管理員登入</h2>
@@ -56,50 +56,50 @@ input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9p
 
   <section id="app" hidden>
     <div class="stats" id="stats"></div>
-    <div class="tabs" role="tablist" style="margin-top:16px"><button role="tab" data-tab="policies" aria-selected="true">政策</button><button role="tab" data-tab="issues" aria-selected="false">議題攻擊</button><button role="tab" data-tab="heroes" aria-selected="false">英雄資料</button></div>
+    <div class="tabs" role="tablist" style="margin-top:16px"><button role="tab" data-tab="policies" aria-selected="true">課程單元</button><button role="tab" data-tab="issues" aria-selected="false">單元挑戰</button><button role="tab" data-tab="heroes" aria-selected="false">學生資料</button></div>
 
     <div class="card" data-panel="policies" style="margin-top:12px">
-      <h2>政策建築</h2>
-      <div class="tablewrap"><table><thead><tr><th>標題</th><th>標籤</th><th>行政區</th><th>外型</th><th>來源</th><th></th></tr></thead><tbody id="polRows"></tbody></table></div>
+      <h2>課程單元（建築）</h2>
+      <div class="tablewrap"><table><thead><tr><th>標題</th><th>標籤</th><th>學期</th><th>外型</th><th>來源</th><th></th></tr></thead><tbody id="polRows"></tbody></table></div>
       <form class="form" id="polForm">
-        <label>代號（英數）<input name="id" required pattern="[A-Za-z0-9_-]{1,32}" placeholder="metro-east"></label>
+        <label>代號（英數）<input name="id" required pattern="[A-Za-z0-9_-]{1,32}" placeholder="math-area"></label>
         <label>標題<input name="title" required maxlength="20"></label>
-        <label>標籤<input name="tag" maxlength="16" placeholder="#交通"></label>
+        <label>標籤<input name="tag" maxlength="16" placeholder="#數學"></label>
         <label>建築外型<select name="model" id="polModel"></select></label>
-        <label class="two">行政區<select name="district" id="polDistrict"></select></label>
-        <label class="wide">一句話摘要<input name="summary" maxlength="120"></label>
-        <label class="wide">為什麼（一句話，選填）<input name="why" maxlength="60"></label>
-        <label class="wide">細項（一行一條，最多 8 條）<textarea name="facts"></textarea></label>
-        <label class="two">主責局處（逗號分隔）<input name="agencies" placeholder="都發局, 社會局"></label>
-        <label>相關議題<select name="issue" id="polIssue"></select></label>
-        <div class="row"><button class="btn" type="submit">儲存政策</button><button class="btn ghost" type="reset" id="polReset">清空表單</button><span class="msg" id="polMsg"></span></div>
+        <label class="two">學期<select name="district" id="polDistrict"></select></label>
+        <label class="wide">學什麼（一句話）<input name="summary" maxlength="120"></label>
+        <label class="wide">為什麼要學（一句話，選填）<input name="why" maxlength="60"></label>
+        <label class="wide">學習重點（一行一條，最多 8 條）<textarea name="facts"></textarea></label>
+        <label class="two">關鍵字（逗號分隔）<input name="agencies" placeholder="加法, 減法"></label>
+        <label>相關挑戰<select name="issue" id="polIssue"></select></label>
+        <div class="row"><button class="btn" type="submit">儲存課程</button><button class="btn ghost" type="reset" id="polReset">清空表單</button><span class="msg" id="polMsg"></span></div>
       </form>
     </div>
 
     <div class="card" data-panel="issues" hidden style="margin-top:12px">
-      <h2>議題攻擊</h2>
+      <h2>單元挑戰</h2>
       <div class="tablewrap"><table><thead><tr><th>標題</th><th>標籤</th><th>開放日</th><th>強度</th><th>來源</th><th></th></tr></thead><tbody id="issRows"></tbody></table></div>
       <form class="form" id="issForm">
         <label>代號（英數）<input name="id" required pattern="[A-Za-z0-9_-]{1,32}"></label>
         <label>標題<input name="title" required maxlength="20"></label>
         <label>標籤<input name="tag" maxlength="16"></label>
-        <label>開放日（空白＝只在大選前夜）<input name="startsAt" type="date"></label>
+        <label>開放日（空白＝只在期末考前夜）<input name="startsAt" type="date"></label>
         <label>強度<input name="intensity" type="number" step="0.1" min="0.5" max="4" value="1.2"></label>
-        <label>魔王（打工不使用）<select name="boss" id="issBoss"></select></label>
-        <label class="wide">雜魚組合（動物:權重，逗號分隔；可用 mouse bird frog parrot caterpillar chameleon）<input name="mix" placeholder="bird:2, frog:1"></label>
+        <label>魔王（闖關不使用）<select name="boss" id="issBoss"></select></label>
+        <label class="wide">小怪組合（動物:權重，逗號分隔；可用 mouse bird frog parrot caterpillar chameleon）<input name="mix" placeholder="bird:2, frog:1"></label>
         <fieldset class="wide" id="issRoutes" hidden><legend>登陸方向</legend></fieldset>
-        <label class="wide">口號（一行一句）<textarea name="chants"></textarea></label>
+        <label class="wide">台詞（一行一句）<textarea name="chants"></textarea></label>
         <label class="wide">一句話描述<input name="desc" maxlength="60"></label>
-        <div class="row"><button class="btn" type="submit">儲存議題</button><button class="btn ghost" type="reset">清空表單</button><span class="msg" id="issMsg"></span></div>
+        <div class="row"><button class="btn" type="submit">儲存挑戰</button><button class="btn ghost" type="reset">清空表單</button><span class="msg" id="issMsg"></span></div>
       </form>
     </div>
 
     <div class="card" data-panel="heroes" hidden style="margin-top:12px">
-      <h2>打工仔資料</h2>
-      <p class="msg">刪除打工仔會從打工榜與總戰績移除。測試資料可以在這裡清掉。「＋金蛋」是 GM 發的金蛋（記在 gift）：錢包會多這麼多，但不算打工榜與 12 區對抗；填負數是收回。</p>
+      <h2>小學生資料</h2>
+      <p class="msg">刪除小學生會從闖關榜與總戰績移除。測試資料可以在這裡清掉。「＋金蛋」是 GM 發的金蛋（記在 gift）：錢包會多這麼多，但不算闖關榜與學期對抗；填負數是收回。</p>
       <label style="max-width:320px">用暱稱找<input id="heroSearch" type="search" placeholder="例如：我是GM"></label>
       <p class="msg" id="heroNote"></p>
-      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>職業</th><th>班數</th><th>打工金蛋</th><th>GM 發的</th><th>錢包</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
+      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>角色</th><th>關數</th><th>闖關金蛋</th><th>GM 發的</th><th>錢包</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
     </div>
   </section>
 </div>

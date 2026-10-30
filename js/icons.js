@@ -23,7 +23,7 @@ export const ICONS = {
   yay: svg(`<path d="M4.6 27.6l5.1-13.4 8.3 8.3z" fill="#f2b530" ${S}/><path d="M7.4 21.2l3.5 3.5M9.1 16.8l6.2 6.2" stroke="#db6a41" stroke-width="1.8" stroke-linecap="round"/>
     <path d="M14.5 13.5c.6-3.4 3-5.2 6-4.6M18.5 17.5c3.1-.9 5.6.5 6.3 3.3" fill="none" stroke="#58a6a6" stroke-width="2" stroke-linecap="round"/>
     <rect x="20.5" y="3.5" width="3" height="3" rx=".8" fill="#db6a41" transform="rotate(20 22 5)"/><circle cx="27" cy="11" r="1.7" fill="#6f7fb5"/><circle cx="13" cy="6" r="1.5" fill="#e8553f"/><rect x="25.5" y="16" width="3" height="2.4" rx=".8" fill="#f2b530" transform="rotate(-25 27 17)"/>`),
-  // 台北加油：有表情的愛心
+  // 校園加油：有表情的愛心
   love: svg(`<path d="M16 27.5S5.5 21.2 5.5 13.8a5.6 5.6 0 0 1 10.5-3 5.6 5.6 0 0 1 10.5 3c0 7.4-10.5 13.7-10.5 13.7z" fill="#e8553f" ${S}/>
     <path d="M9.2 12.6a3 3 0 0 1 2.6-2.4" fill="none" stroke="#fff8f4" stroke-width="2" stroke-linecap="round"/>
     <circle cx="12.6" cy="16.2" r="1.3" fill="#211d1d"/><circle cx="19.4" cy="16.2" r="1.3" fill="#211d1d"/><path d="M14 19.4q2 2 4 0" fill="none" stroke="#211d1d" stroke-width="1.6" stroke-linecap="round"/>
@@ -37,16 +37,16 @@ export const ICONS = {
     <rect x="12.2" y="12.6" width="7.4" height="6.6" rx="1" fill="#fff8f4" ${S} stroke-width="1.5"/><path d="M10.8 13.4l5.1-4.6 5.1 4.6z" fill="#db6a41" ${S} stroke-width="1.5"/><rect x="15" y="15.4" width="2" height="3.8" rx=".5" fill="#78685e"/>
     <circle cx="23" cy="13.6" r="2.6" fill="#5f9e4a" ${S} stroke-width="1.4"/><path d="M23 16.2v1.8" stroke="#211d1d" stroke-width="1.5" stroke-linecap="round"/>`),
 };
-// 台北人站出來：兩隻舉高的手＋光芒（左右鏡像的揮手掌）
+// 同學站出來：兩隻舉高的手＋光芒（左右鏡像的揮手掌）
 const HAND = 'M10.6 20.2c-1.7-2.4-4.2-5.2-2.9-6.5 1.3-1.2 3 .3 4.2 1.8l.2-7.6c0-1.7 3-1.7 3 0l.2 6.2.4-7.7c.1-1.7 3.1-1.7 3.1 0l.1 7.8.9-6.1c.3-1.6 3.1-1.3 2.9.4l-.6 7 1.4-3.9c.6-1.5 3.1-.9 2.7.8l-1.5 6.9c-.9 4.1-3.6 7.2-8 7.2-3.2 0-5.2-1.7-6.9-4.3z';
 ICONS.cheer = svg(`<path d="M16 1.8v3M9.6 3.4l1.3 2.4M22.4 3.4l-1.3 2.4" stroke="#db6a41" stroke-width="2.2" stroke-linecap="round"/>
   <g transform="translate(-1.2 7.4) scale(.66) rotate(-12 16 16)"><path d="${HAND}" fill="#f8d2ae" stroke="#211d1d" stroke-width="2.6" stroke-linejoin="round"/></g>
   <g transform="translate(33.2 7.4) scale(-.66 .66) rotate(-12 16 16)"><path d="${HAND}" fill="#f8d2ae" stroke="#211d1d" stroke-width="2.6" stroke-linejoin="round"/></g>`);
-ICONS.five = ICONS.hi; ICONS.here = ICONS.hi; // 打工的「這邊！」沿用揮手
+ICONS.five = ICONS.hi; ICONS.here = ICONS.hi; // 闖關的「這邊！」沿用揮手
 // 怎麼玩：黃色對話框＋問號
 ICONS.howto = svg(`<path d="M16 3.5c7 0 12.5 4.6 12.5 10.6S23 24.7 16 24.7c-1.5 0-2.9-.2-4.2-.6L6 27.5l1.4-5.6C5 20 3.5 17.2 3.5 14.1 3.5 8.1 9 3.5 16 3.5z" fill="#fcea8b" ${S}/>
   <path d="M12.6 11.4a3.5 3.5 0 0 1 6.8 1.1c0 2.4-3.4 2.8-3.4 5" fill="none" stroke="#211d1d" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="21" r="1.5" fill="#211d1d"/>`);
-// 政策卡的分類圖示：依標籤（去掉 #）挑，沒有對應的用 fallback
+// 課程卡的分類圖示：依標籤（去掉 #）挑，沒有對應的用 fallback
 export const POLICY_ICONS = {
   // 居住：珊瑚屋頂小屋＋黃門＋藍窗
   居住: svg(`<path d="M7 14.5V27h18V14.5" fill="#fff8f4" ${S}/><path d="M3.8 15.6L16 5.2l12.2 10.4z" fill="#db6a41" ${S}/>
@@ -103,4 +103,8 @@ export const POLICY_ICONS = {
   // 其他：珊瑚圓底＋黃星
   fallback: svg(`<circle cx="16" cy="16" r="11.5" fill="#db6a41" ${S}/><path d="M16 8.6l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#fcea8b" ${S} stroke-width="1.5"/>`),
 };
+// 科目圖示：沿用既有的卡通圖示，數學與英語用字母磚
+POLICY_ICONS.國語 = POLICY_ICONS.教育; POLICY_ICONS.自然 = POLICY_ICONS.環境; POLICY_ICONS.社會 = POLICY_ICONS.社子島; POLICY_ICONS.生活 = POLICY_ICONS.智慧; POLICY_ICONS.期末考 = POLICY_ICONS.安全;
+POLICY_ICONS.數學 = svg(`<rect x="4" y="4" width="24" height="24" rx="5" fill="#fcea8b" ${S}/><path d="M9 11h6M12 8v6M17 11h6M9 21h6M17 19h6M17 23h6" stroke="#211d1d" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="21" r="1.4" fill="#db6a41"/>`);
+POLICY_ICONS.英語 = svg(`<rect x="4" y="4" width="24" height="24" rx="5" fill="#58a6a6" ${S}/><text x="16" y="21.5" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="13" fill="#fff8f4" stroke="#211d1d" stroke-width=".8">ABC</text>`);
 export const policyIcon = tag => POLICY_ICONS[String(tag || '').replace(/^#/, '')] || POLICY_ICONS.fallback;

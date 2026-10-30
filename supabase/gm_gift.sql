@@ -1,6 +1,6 @@
 -- GM 發金蛋（在 Supabase 後台 SQL Editor 執行；要先跑過 economy.sql）。
 -- 也可以不寫 SQL：用管理員帳號登入 admin/，到「英雄資料」找到那個人按「＋金蛋」。
--- 發的金蛋記在 gift 欄位：錢包會多這麼多，但不算打工榜、全體戰績與 12 區對抗。
+-- 發的金蛋記在 gift 欄位：錢包會多這麼多，但不算闖關榜、全體戰績與 學期對抗。
 
 -- 1) 先看看有誰叫這個名字（同名可能不只一位，依最後上線排）
 select id, nick, district, eggs, gift, donated + built + spent as used, eggs + gift - donated - built - spent as wallet, last_at

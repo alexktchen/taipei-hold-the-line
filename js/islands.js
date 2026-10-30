@@ -1,4 +1,4 @@
-/* 六邊形政策島：島面材質、步道環、路緣、島側、淺灘與浪花、橋、行人路網。做法參考原站 world.js，重新實作。 */
+/* 六邊形闖關島：島面材質、步道環、路緣、島側、淺灘與浪花、橋、行人路網。做法參考原站 world.js，重新實作。 */
 import * as THREE from 'three';
 import { WATER_Y, mulberry } from './env.js';
 import { CONFIG } from './config.js';
@@ -98,7 +98,7 @@ function buildLink(kit, pa, pb, colors) { const len = pa.distanceTo(pb), dir = p
       if (k % 4 === 2) kit.bulb(q.x, q.y + 0.05, q.z, 0.05, 0xfff0c2); prev = q; } }
   for (let k = 1; k < 4; k++) { const q = pa.clone().lerp(pb, k / 4); kit.cyl(q.x, (TOP - 0.02 + WATER_Y - 0.4) / 2, q.z, 0.16, TOP - 0.02 - (WATER_Y - 0.4), 0xd9cbb4); kit.cyl(q.x, WATER_Y + 0.02, q.z, 0.3, 0.04, 0xf6fbfa); }
   for (const end of [pa, pb]) { kit.cyl(end.x + side.x * 0.3, TOP + 0.3, end.z + side.z * 0.3, 0.05, 0.6, colors.accent); kit.cyl(end.x - side.x * 0.3, TOP + 0.3, end.z - side.z * 0.3, 0.05, 0.6, colors.accent); } }
-// 新蓋的島（蓋城市的填海造島）：島本身＋一座陸橋接到指定的島
+// 新蓋的島（蓋校園的填海造島）：島本身＋一座陸橋接到指定的島
 export function buildExtraIsland(scene, isl, c, linkC, kit, colors) { const v = buildIsland(scene, isl, c, kit); const { pa, pb } = nearestRingPair(c, linkC); buildLink(kit, pa, pb, colors); return { ...v, pa, pb }; }
 export function buildIslands(scene, islands, kit, colors) {
   const centers = new Map(), axialMap = new Map(), views = new Map(), tops = [];

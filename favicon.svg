@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <title>萬安政策島</title>
-  <!-- 原創圖示：遊戲的六角形政策島＋101 剪影＋太陽 -->
+  <title>小學闖關島</title>
+  <!-- 原創圖示：遊戲的六角形闖關島＋101 剪影＋太陽 -->
   <polygon points="32,10 54.5,23 54.5,49 32,62 9.5,49 9.5,23" fill="#b9552f"/>
   <polygon points="32,4 54.5,17 54.5,43 32,56 9.5,43 9.5,17" fill="#db6a41" stroke="#211d1d" stroke-width="2.5" stroke-linejoin="round"/>
   <polygon points="32,10 49,20 49,40 32,50 15,40 15,20" fill="#fff3e6"/>

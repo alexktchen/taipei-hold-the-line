@@ -1,14 +1,14 @@
-/* Q 版行人（居民與英雄）。零件按幾何種類實例化，每幀合成矩陣做走路擺動。比例與做法參考原站 people.js，重新實作。 */
+/* Q 版行人（同學與角色）。零件按幾何種類實例化，每幀合成矩陣做走路擺動。比例與做法參考原站 people.js，重新實作。 */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mulberry } from './env.js';
-export const ROLE_LABEL = { mayor: '市長', citizen: '市民', elder: '長者', child: '學童', parent: '家長', cyclist: '通勤族', officeworker: '上班族', youth: '年輕人', servant: '公務員', researcher: '研究員', farmer: '農夫', traveler: '旅客', worker: '工地人員', hiker: '登山客', hero: '英雄' };
+export const ROLE_LABEL = { mayor: '校長', citizen: '同學', elder: '長者', child: '學童', parent: '家長', cyclist: '通勤族', officeworker: '上班族', youth: '年輕人', servant: '老師', researcher: '研究員', farmer: '農夫', traveler: '旅客', worker: '工地人員', hiker: '登山客', hero: '同學' };
 const SKIN = [0xf3cfae, 0xe6b48f, 0xcf9670, 0xf0c4a0], HAIR = [0x2e2522, 0x4a3426, 0x1f1d22, 0x6b4a33], CASUAL = [0x6f7fb5, 0x58a6a6, 0xe8c547, 0xf2a1a1, 0x8fb37a, 0xb58fd0];
 export function createPeople(scene, colors, heroCfgs, outfits = null) {
   // 金蛋買的衣服：fit = 「帽子.背心.配件」字串（id 見 config.econ.outfits），不認得的 id 當沒穿
   const fitOf = fit => { const a = typeof fit === 'string' ? fit.split('.') : [], ok = (c, id) => outfits && outfits[c] && Object.hasOwn(outfits[c].items, id);
     return { hat: ok('hat', a[0]) ? a[0] : '', color: ok('color', a[1]) ? outfits.color.items[a[1]].c : null, acc: ok('acc', a[2]) ? a[2] : '', suit: ok('suit', a[3]) ? a[3] : '' }; };
-  // 萬聖節套裝：膚色、髮色、背心顏色（套裝蓋過帽子、背心、配件）
+  // 變裝派對套裝：膚色、髮色、背心顏色（套裝蓋過帽子、背心、配件）
   const SUIT = { pumpkin: { vest: 0x3b5a2a }, zombie: { skin: 0x9cc27a, vest: 0x9aa0a8, hair: 0x3b3326 }, vampire: { vest: 0x211d1d, hair: 0x111111, skin: 0xf3e6dc }, ghost: { vest: 0xf7f7f2 }, witch: { vest: 0x6a4c93 },
     mummy: { skin: 0xefe6d2, vest: 0xefe6d2, hair: 0xefe6d2 }, boba: { vest: 0xd9b48a }, cone: { vest: 0xf28b2e }, truck: { vest: 0xe8c547 }, bat: { vest: 0x2b2b30, hair: 0x1d1a22 },
     bag: { vest: 0xdb6a41 }, cutlet: { vest: 0xfbfbf7 }, poncho: { vest: 0x8fd3e8 }, delivery: { vest: 0xf28b2e }, card: { vest: 0x2f6f9f }, firework: { vest: 0x26365c }, bear: { vest: 0x1d1a1a, hair: 0x1d1a1a, pants: 0x1d1a1a }, leopard: { vest: 0xc9955a, hair: 0xc9955a },
@@ -60,12 +60,12 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
       case 'worker': add('cap', [0, 0.395, 0], [0.21, 0.13, 0.2], 0xf1c232, 'head'); add('cyl', [0, 0.39, 0.02], [0.22, 0.01, 0.22], 0xf1c232, 'head'); break;
       case 'officeworker': add('cyl', [0.1, 0.16, 0.03], [0.03, 0.05, 0.03], 0xf6efe3, 'armR'); break;
       case 'youth': add('box', [0, 0.21, -0.07], [0.1, 0.1, 0.05], 0x2f3a46); break;
-      case 'servant': add('box', [0, 0.205, 0.004], [0.14, 0.112, 0.112], 0x3e7c8c); add('box', [0.032, 0.222, 0.062], [0.026, 0.036, 0.004], 0xfbfbf7); add('box', [0.032, 0.25, 0.061], [0.004, 0.028, 0.004], 0xdb6a41); break; // 公務員：背心＋識別證
+      case 'servant': add('box', [0, 0.205, 0.004], [0.14, 0.112, 0.112], 0x3e7c8c); add('box', [0.032, 0.222, 0.062], [0.026, 0.036, 0.004], 0xfbfbf7); add('box', [0.032, 0.25, 0.061], [0.004, 0.028, 0.004], 0xdb6a41); break; // 老師：背心＋識別證
       case 'researcher': add('box', [0, 0.165, 0.002], [0.146, 0.17, 0.124], 0xfbfbf7); add('box', [0, 0.24, 0.064], [0.03, 0.05, 0.004], 0xa8c4c2); for (const dx of [-0.038, 0.038]) add('torus', [dx, 0.35, 0.09], [0.05, 0.044, 0.05], 0x3b3a42, 'head'); break; // 研究員：白袍＋眼鏡
       case 'farmer': add('cone', [0, 0.43, 0], [0.36, 0.11, 0.36], 0xd9b56a, 'head'); add('cyl', [0, 0.385, 0], [0.22, 0.014, 0.22], 0xc49a4e, 'head'); add('box', [0, 0.2, 0], [0.13, 0.1, 0.11], 0x8fb37a); break; // 農夫：斗笠
       case 'traveler': add('rbox', [0.1, 0.085, -0.13], [0.07, 0.13, 0.11], [0x6f7fb5, 0xdb6a41, 0x58a6a6][Math.floor(rnd() * 3)]); add('box', [0.1, 0.19, -0.1], [0.008, 0.11, 0.008], 0x3b3a42, null, [0.45, 0, 0]); for (const dz of [-0.17, -0.09]) add('eye', [0.1, 0.015, dz], [0.018, 0.018, 0.018], 0x211d1d); break; // 旅客：拖著行李箱
     }
-    if (MAYOR) { // 市長：西裝頭（左側分線、頂部往後梳出蓬度、兩側修短）、濃眉；深藍西裝外套蓋到臀部、寬翻領、白襯衫開領不打領帶、胸袋巾；左手麥克風，演講時右手握拳
+    if (MAYOR) { // 校長：西裝頭（左側分線、頂部往後梳出蓬度、兩側修短）、濃眉；深藍西裝外套蓋到臀部、寬翻領、白襯衫開領不打領帶、胸袋巾；左手麥克風，演講時右手握拳
       const hp = P.find(q => q.g === 'head'); hp.s = [0.18, 0.19, 0.17];
       // 圓潤的頭髮體積：前額往右上梳起的蓬度、頭頂往後順、左側分線處略低
       add('eye', [0.02, 0.424, 0.05], [0.16, 0.07, 0.11], hair, 'head', [-0.35, 0, -0.18]);
@@ -88,7 +88,7 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
       if (heroCls === 'fireman' && !F.hat && !F.suit) { add('cap', [0, 0.385, 0], [0.22, 0.15, 0.21], c, 'head'); add('cyl', [0, 0.36, 0.02], [0.25, 0.012, 0.24], c, 'head'); add('box', [0, 0.41, 0], [0.03, 0.06, 0.16], 0xe8c547, 'head'); add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); }
       if (heroCls === 'volunteer') { add('box', [0, 0.17, 0.05], [0.11, 0.15, 0.03], 0xf2b5c6); add('box', [0, 0.17, 0.11], [0.1, 0.07, 0.08], 0xb48560, 'carry'); add('torus', [0, 0.23, 0.11], [0.08, 0.08, 0.08], 0x7a5a3a, 'carry', [0, Math.PI / 2, 0]); add('eye', [0.02, 0.22, 0.12], [0.05, 0.04, 0.05], 0x8fb37a, 'carry'); }
       if (heroCls === 'engineer') { for (const dx of [-0.038, 0.038]) add('torus', [dx, 0.35, 0.09], [0.05, 0.044, 0.05], 0x211d1d, 'head'); add('box', [0, 0.352, 0.091], [0.026, 0.006, 0.006], 0x211d1d, 'head'); add('box', [0, 0.19, 0.1], [0.1, 0.012, 0.07], 0x211d1d, 'carry'); add('box', [0, 0.23, 0.065], [0.1, 0.07, 0.008], 0x211d1d, 'carry', [-0.3, 0, 0]); add('box', [0, 0.23, 0.07], [0.085, 0.055, 0.004], 0x86a8a6, 'carry', [-0.3, 0, 0]); } }
-    if (H && (F.hat || F.suit)) { // 換了帽子或套裝：職業的手持道具照樣拿著
+    if (H && (F.hat || F.suit)) { // 換了帽子或套裝：角色的手持道具照樣拿著
       if (heroCls === 'chief') add('cone', [0.1, 0.2, 0.1], [0.07, 0.1, 0.07], 0xfbfbf7, 'armR', [1.4, 0, 0]);
       if (heroCls === 'driver') { add('box', [0.04, 0.24, 0.056], [0.03, 0.02, 0.004], 0xe8c547); }
       if (heroCls === 'fireman') { add('cyl', [0, 0.19, 0.11], [0.03, 0.2, 0.03], 0x3b3a42, 'carry', [Math.PI / 2, 0, 0]); add('cyl', [0, 0.19, 0.22], [0.045, 0.04, 0.045], 0xbfbfc4, 'carry', [Math.PI / 2, 0, 0]); } }
@@ -107,7 +107,7 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
       case 'sash': add('box', [0, 0.205, 0.06], [0.026, 0.17, 0.006], 0xf2c14e, null, [0, 0, 0.72]); add('box', [0, 0.205, -0.056], [0.026, 0.17, 0.006], 0xf2c14e, null, [0, 0, -0.72]); break;
       case 'cape': add('box', [0, 0.19, -0.072], [0.15, 0.17, 0.012], 0xc23b2a, null, [0.14, 0, 0]); add('box', [0, 0.27, -0.06], [0.15, 0.02, 0.03], 0xa3301f); break;
     }
-    // 萬聖節套裝（惡搞）
+    // 變裝派對套裝（遊戲）
     const D = 0x211d1d;
     switch (F.suit) {
       case 'pumpkin': add('eye', [0, 0.35, 0], [0.25, 0.22, 0.24], 0xe8781e, 'head'); for (const sx of [-1, 1]) add('eye', [sx * 0.075, 0.35, 0.01], [0.14, 0.2, 0.2], 0xd8681a, 'head');
@@ -141,7 +141,7 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
         for (const [x, y] of [[0.08, 0.5], [-0.07, 0.53]]) { add('eye', [x, y, 0], [0.04, 0.03, 0.03], D, 'head'); add('box', [x + 0.016, y + 0.04, 0], [0.008, 0.07, 0.008], D, 'head'); } break; // 頭上飄著音符
       case 'bat': for (const sx of [-1, 1]) { add('box', [sx * 0.15, 0.25, -0.06], [0.18, 0.13, 0.012], 0x2b2238, null, [0, sx * 0.4, sx * 0.35]); add('cone', [sx * 0.06, 0.47, 0], [0.05, 0.09, 0.03], 0x2b2238, 'head', [0, 0, sx * -0.2]); add('box', [sx * 0.012, 0.309, 0.087], [0.008, 0.014, 0.004], 0xffffff, 'head'); }
         add('cyl', [0.09, 0.2, 0.08], [0.01, 0.14, 0.01], 0xc49a4e, 'armR'); for (const y of [0.24, 0.27]) add('eye', [0.09, y, 0.08], [0.03, 0.03, 0.03], 0xb5652a, 'armR'); break; // 手上一串夜市烤肉
-      // ── 以下是要花金蛋的萬聖節套裝 ──
+      // ── 以下是要花金蛋的變裝派對套裝 ──
       case 'bag': add('box', [0, 0.36, 0], [0.25, 0.27, 0.24], 0xc9a46a, 'head'); add('box', [0, 0.495, 0], [0.26, 0.02, 0.25], 0xb8935a, 'head'); for (const sx of [-1, 1]) add('box', [sx * 0.045, 0.38, 0.121], [0.035, 0.025, 0.01], D, 'head');
         for (const [x, y] of [[0.06, 0.31], [-0.07, 0.44], [0.08, 0.45]]) add('eye', [x, y, 0.121], [0.04, 0.03, 0.006], 0xa9844a, 'head'); add('cyl', [0.09, 0.2, 0.08], [0.008, 0.14, 0.008], 0xc49a4e, 'armR'); break;
       case 'cutlet': add('box', [0, 0.2, 0.075], [0.26, 0.3, 0.03], 0xc9852e, null, [0.1, 0, 0.15]); for (const [x, y] of [[-0.07, 0.27], [0.05, 0.14], [0.08, 0.28], [-0.04, 0.12]]) add('eye', [x, y, 0.095], [0.05, 0.04, 0.02], 0xb5752a, null); break;
@@ -194,7 +194,7 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
     for (const [pi, w] of people.entries()) {
       const p = w.pos; const moving = w.moving && !w.down ? 1 : 0; const ph = (time * 9 + w.phase * 20) * (moving || (w.pose === 'fight' ? 1 : 0)); const bob = moving ? Math.abs(Math.sin(ph)) * 0.012 : 0; const sc = w.plan.scale * 0.8 * zoom;
       const lift = w.onBox ? 0.07 * sc : 0;
-      dummy.rotation.order = 'YXZ'; if (w.down) { dummy.position.set(p.x, p.y + 0.05 * sc, p.z); dummy.rotation.set(-1.45, w.yaw, 0); } else { dummy.position.set(p.x, p.y + bob + lift, p.z); dummy.rotation.set(0, w.yaw, 0); } // 打工倒下：整個人躺平
+      dummy.rotation.order = 'YXZ'; if (w.down) { dummy.position.set(p.x, p.y + 0.05 * sc, p.z); dummy.rotation.set(-1.45, w.yaw, 0); } else { dummy.position.set(p.x, p.y + bob + lift, p.z); dummy.rotation.set(0, w.yaw, 0); } // 闖關倒下：整個人躺平
       dummy.scale.setScalar(sc); dummy.updateMatrix(); base.copy(dummy.matrix);
       for (const pt of w.plan.parts) { let ang = 0, axis = 'x';
         if (moving) { if (pt.ch === 'legL') ang = Math.sin(ph) * 0.55; if (pt.ch === 'legR') ang = -Math.sin(ph) * 0.55; if (pt.ch === 'armL') ang = -Math.sin(ph) * 0.45; if (pt.ch === 'armR') ang = Math.sin(ph) * 0.45; }

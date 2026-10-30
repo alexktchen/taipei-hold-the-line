@@ -1,7 +1,7 @@
-/* 逛城市：自己的角色（穿著金蛋買的衣服）在政策島上散步——鍵盤／搖桿／點地板，跨島自動找橋。走到服飾店、工地、市長旁邊會出現「進去」的按鈕（near 事件）。
+/* 逛校園：自己的角色（穿著金蛋買的衣服）在闖關島上散步——鍵盤／搖桿／點地板，跨島自動找橋。走到服飾店、工地、校長旁邊會出現「進去」的按鈕（near 事件）。
    其他正在逛的玩家（多人同框）：位置由 play 頻道送來，這裡平滑靠過去，穿著照他們買的衣服畫。
-   居民與市長照樣由 game.js 帶著走（逛城市時打工那邊仍是大廳狀態）。全城加成「城市嘉年華」解鎖後，晚上放煙火。
-   打工現場：別人正在打工的場，海上浮著那幾班現在的魔王（setLive；裝飾用、不能打）。 */
+   同學與校長照樣由 game.js 帶著走（逛校園時闖關那邊仍是大廳狀態）。全校加成「校慶嘉年華」解鎖後，晚上放煙火。
+   闖關現場：別人正在闖關的場，海上浮著那幾關現在的魔王（setLive；裝飾用、不能打）。 */
 import * as THREE from 'three';
 import { CONFIG as C } from './config.js';
 import { TOP } from './islands.js';
@@ -16,15 +16,15 @@ export function createExplore(ctx) {
   function rebuild() { ctx.rebuild([G.me, ...G.remotes.values()].filter(Boolean)); }
   // ── 自己 ──
   function tagMe() { const H = C.heroes[G.me.cls] || C.heroes.chief; tagDel(G.me); tagAdd(G.me, G.me.nick || H.name, `${H.icon} 你`, hex(H.color), 'me'); }
-  // 出生點：自己選的行政區那座島的正前方（沒選就在信義區）
+  // 出生點：自己選的學期那座島的正前方（沒選就在信義區）
   const homeOf = p => { const home = (p.district && centers.get(p.district)) || centers.get('xinyi'); return nav.nearestWalkable(home.x + 0.3, home.z + 1.5, X.radius); };
   function start(p) { stop(true); const [x, z] = homeOf(p);
     const w = people.makeWalker('citizen', new THREE.Vector3(x, Y, z), p.cls, p.fit); Object.assign(w, { nick: p.nick, cls: p.cls, yaw: 0 }); G.me = w; tagMe();
     Object.assign(G, { on: true, goal: null, path: null, chase: null, near: null }); G.move.x = G.move.z = 0; rebuild(); emit('near', null); }
   function stop(quiet) { if (G.me) tagDel(G.me); G.me = null; G.on = false; G.near = null; clearRemotes(true); setLive(new Map()); if (goalMark) goalMark.visible = false; if (!quiet) rebuild(); }
-  // 回自己的區：瞬間回到出生點
+  // 回自己的學期：瞬間回到出生點
   function respawn(p) { if (!G.me) return; const [x, z] = homeOf(p); G.me.pos.x = x; G.me.pos.z = z; Object.assign(G, { goal: null, path: null, chase: null }); ripple(x, z); }
-  // 換了衣服或職業：原地換一個新的角色
+  // 換了衣服或角色：原地換一個新的角色
   function refit(p) { const old = G.me; if (!old) return; const w = people.makeWalker('citizen', old.pos, p.cls, p.fit); Object.assign(w, { nick: p.nick, cls: p.cls, yaw: old.yaw }); tagDel(old); G.me = w; tagMe(); rebuild(); }
   // ── 走路：搖桿／鍵盤優先，沒有就走向目的地（格子導航圖 A*，跨島也找得到橋）──
   function setMove(x, z) { G.move.x = x; G.move.z = z; if (x || z) { G.goal = null; G.chase = null; } }
@@ -32,7 +32,7 @@ export function createExplore(ctx) {
   function spots() { const out = []; for (const b of ctx.boutiques()) out.push({ kind: 'boutique', x: b.x, z: b.z, r: X.near.boutique, island: b.island });
     const s = ctx.site(); if (s) out.push({ kind: 'site', x: s.x, z: s.z, r: X.near.site, name: s.name, id: s.id });
     const m = ctx.mayor(); if (m) out.push({ kind: 'mayor', x: m.pos.x, z: m.pos.z, r: X.near.mayor }); return out; }
-  // 帶我去：最近的服飾店／工地／市長（市長會走動，邊走邊重新對準）
+  // 帶我去：最近的服飾店／工地／校長（校長會走動，邊走邊重新對準）
   function goTo(kind) { if (!G.me) return false; const p = G.me.pos; let best = null, bd = Infinity; for (const s of spots()) { if (s.kind !== kind) continue; const d = Math.hypot(s.x - p.x, s.z - p.z); if (d < bd) { bd = d; best = s; } }
     if (!best) return false; moveTo(best.x, best.z); G.chase = kind === 'mayor' ? { kind, t: 0 } : null; return true; }
   function walk(dt) { const me = G.me, p = me.pos; let vx = G.move.x, vz = G.move.z;
@@ -44,7 +44,7 @@ export function createExplore(ctx) {
     if (vx || vz) { const L = Math.hypot(vx, vz), sp = X.speed * dt * Math.min(1, L); nav.move(p, vx / L * sp, vz / L * sp, X.radius); me.yaw = Math.atan2(vx, vz); me.moving = true;
       if (G.goal) { if (!G.sw) G.sw = { x: p.x, z: p.z, t: 0 }; G.sw.t += dt; if (G.sw.t > 0.7) { if (Math.hypot(p.x - G.sw.x, p.z - G.sw.z) < X.speed * G.sw.t * 0.25) G.pathT = 0; G.sw = { x: p.x, z: p.z, t: 0 }; } } }
     else { nav.push(p, X.radius); me.moving = false; } }
-  // 旁邊有什麼可以進去：服飾店、工地、市長（距離÷範圍最小的那個）
+  // 旁邊有什麼可以進去：服飾店、工地、校長（距離÷範圍最小的那個）
   function updateNear() { const p = G.me.pos; let best = null, bk = 1; for (const s of spots()) { const k = Math.hypot(s.x - p.x, s.z - p.z) / s.r; if (k < bk) { bk = k; best = s; } }
     const sig = best ? best.kind + (best.id || best.island || '') : ''; if (sig !== (G.near ? G.near.sig : '')) { G.near = best ? { ...best, sig } : null; emit('near', G.near); if (best && G.chase && G.chase.kind === best.kind) { G.chase = null; G.goal = null; } } }
   // ── 主迴圈：時鐘、自己、其他人 ──
@@ -67,7 +67,7 @@ export function createExplore(ctx) {
     for (const w of [G.me, ...G.remotes.values()]) if (w && w.bubbleT > 0) { w.bubbleT -= dt; if (w.bubbleT <= 0) emit('say', w, null); } }
   function remoteEmote(id, em) { const w = G.remotes.get(id); if (!w) return null; bubble(w, em.say, MP.bubbleSeconds, em.k); return w.nick; }
   function myEmote(em) { if (!G.me) return false; bubble(G.me, em.say, MP.bubbleSeconds, em.k); return true; }
-  // ── 打工現場：每個有人在打工的場，岸外浮著那幾班現在場上的魔王（每場最多 ghostMax 隻），頭上寫在作亂 ──
+  // ── 闖關現場：每個有人在闖關的場，岸外浮著那幾關現在場上的魔王（每場最多 ghostMax 隻），頭上寫在作亂 ──
   const ghosts = new Map();
   function setLive(stages) { const want = new Map();
     for (const [sid, info] of stages) { const spots = ctx.stageSpots(sid); if (!spots.length) continue; info.bosses.slice(0, X.live.ghostMax).forEach((type, i) => { if (!C.animals[type]) return; const sp = spots[i % spots.length], k = Math.floor(i / spots.length); want.set(sid + ':' + type, { type, x: sp.x + sp.dx * k * 0.9, z: sp.z + sp.dz * k * 0.9, fx: sp.fx, fz: sp.fz }); }); }

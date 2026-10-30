@@ -1,5 +1,5 @@
 /* 後台：Supabase email／密碼登入；權限由資料庫 is_admin()（admins 名單）把關，前端不存任何密碼。
-   政策與議題 = config 預設 + 資料庫覆寫；預設項目不能真的刪，改成 hidden:true 隱藏。 */
+   課程與挑戰 = config 預設 + 資料庫覆寫；預設項目不能真的刪，改成 hidden:true 隱藏。 */
 import { CONFIG as C } from './config.js';
 const B = window.PI_BACKEND || {}; const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
@@ -44,17 +44,17 @@ const merged = (defaults, dbRows) => { const map = new Map(defaults.map(d => [d.
 const srcPill = x => x.hidden ? '<span class="pill hid">已隱藏</span>' : x._src === 'config' ? '<span class="pill">預設</span>' : x._src === 'override' ? '<span class="pill db">預設＋後台修改</span>' : '<span class="pill db">後台新增</span>';
 function render() {
   const pols = merged(C.policies, rows.policies), iss = merged(C.issues, rows.issues), H = rows.heroes;
-  $('stats').innerHTML = [[pols.filter(x => !x.hidden).length, '政策'], [iss.filter(x => !x.hidden).length, '議題'], [H.length, '位打工仔'], [H.reduce((a, h) => a + (h.shifts || 0), 0), '班打工'], [H.reduce((a, h) => a + (h.eggs || 0), 0), '顆金蛋']].map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
+  $('stats').innerHTML = [[pols.filter(x => !x.hidden).length, '課程'], [iss.filter(x => !x.hidden).length, '挑戰'], [H.length, '位小學生'], [H.reduce((a, h) => a + (h.shifts || 0), 0), '關'], [H.reduce((a, h) => a + (h.eggs || 0), 0), '顆金蛋']].map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
   $('polRows').innerHTML = pols.map(x => `<tr><td><b>${esc(x.title)}</b><br><small>${esc(x.id)}</small></td><td class="tag">${esc(x.tag || '')}</td><td>${esc(DISTRICT[x.district] || '隨機')}</td><td>${esc(x.model || '')}</td><td>${srcPill(x)}</td><td class="act"><button class="btn ghost sm" data-edit-pol="${esc(x.id)}">編輯</button> ${x.hidden ? `<button class="btn ghost sm" data-show-pol="${esc(x.id)}">恢復</button>` : x._src === 'db' ? `<button class="btn danger sm" data-del-pol="${esc(x.id)}">刪除</button>` : `<button class="btn danger sm" data-hide-pol="${esc(x.id)}">隱藏</button>`}</td></tr>`).join('');
-  $('issRows').innerHTML = iss.map(x => `<tr><td><b>${esc(x.title)}</b><br><small>${esc(x.id)}</small></td><td class="tag">${esc(x.tag || '')}</td><td>${x.startsAt ? esc(x.startsAt) : x.id === C.election.finalIssueId ? '大選前夜' : '—'}</td><td class="num">${x.intensity || 1}</td><td>${srcPill(x)}</td><td class="act"><button class="btn ghost sm" data-edit-iss="${esc(x.id)}">編輯</button> ${x.hidden ? `<button class="btn ghost sm" data-show-iss="${esc(x.id)}">恢復</button>` : x._src === 'db' ? `<button class="btn danger sm" data-del-iss="${esc(x.id)}">刪除</button>` : `<button class="btn danger sm" data-hide-iss="${esc(x.id)}">隱藏</button>`}</td></tr>`).join('');
+  $('issRows').innerHTML = iss.map(x => `<tr><td><b>${esc(x.title)}</b><br><small>${esc(x.id)}</small></td><td class="tag">${esc(x.tag || '')}</td><td>${x.startsAt ? esc(x.startsAt) : x.id === C.exam.finalIssueId ? '期末考前夜' : '—'}</td><td class="num">${x.intensity || 1}</td><td>${srcPill(x)}</td><td class="act"><button class="btn ghost sm" data-edit-iss="${esc(x.id)}">編輯</button> ${x.hidden ? `<button class="btn ghost sm" data-show-iss="${esc(x.id)}">恢復</button>` : x._src === 'db' ? `<button class="btn danger sm" data-del-iss="${esc(x.id)}">刪除</button>` : `<button class="btn danger sm" data-hide-iss="${esc(x.id)}">隱藏</button>`}</td></tr>`).join('');
   renderHeroes();
   window.__merged = { pols, iss }; fillIssueOptions(iss);
 }
-// 英雄資料：可以用暱稱搜尋；GM 發金蛋記在 gift（錢包＝金蛋＋GM 發的−花掉的），不算打工榜與 12 區對抗
+// 學生資料：可以用暱稱搜尋；GM 發金蛋記在 gift（錢包＝金蛋＋GM 發的−花掉的），不算闖關榜與 學期對抗
 const walletOf = h => h.gift == null ? null : (h.eggs || 0) + (h.gift || 0) - (h.donated || 0) - (h.built || 0) - (h.spent || 0);
 function renderHeroes() { const q = $('heroSearch').value.trim().toLowerCase(), H = rows.heroes.filter(h => !q || String(h.nick || '').toLowerCase().includes(q)), gm = rows.heroes.some(h => h.gift != null);
-  $('heroRows').innerHTML = H.length ? H.map(h => `<tr><td>${esc(h.nick || '（未取名）')}<br><small>${esc(h.id.slice(0, 8))}</small></td><td>${esc((C.heroes[h.cls] || {}).name || h.cls)}</td><td class="num">${h.shifts ?? '—'}</td><td class="num">${h.eggs ?? '—'}</td><td class="num">${h.gift ?? '—'}</td><td class="num">${walletOf(h) ?? '—'}</td><td><small>${esc(new Date(h.last_at).toLocaleString('zh-TW', { timeZone: C.election.tz }))}</small></td>
-    <td class="act">${gm ? `<input class="gift-n" type="number" step="100" value="10000" aria-label="發幾顆" data-gift-n="${esc(h.id)}"> <button class="btn sm" data-gift="${esc(h.id)}" data-nick="${esc(h.nick || '')}">＋金蛋</button> ` : ''}<button class="btn danger sm" data-del-hero="${esc(h.id)}" data-nick="${esc(h.nick || '')}">刪除</button></td></tr>`).join('') : `<tr><td colspan="8">${q ? '找不到這個暱稱。' : '還沒有打工仔資料。'}</td></tr>`;
+  $('heroRows').innerHTML = H.length ? H.map(h => `<tr><td>${esc(h.nick || '（未取名）')}<br><small>${esc(h.id.slice(0, 8))}</small></td><td>${esc((C.heroes[h.cls] || {}).name || h.cls)}</td><td class="num">${h.shifts ?? '—'}</td><td class="num">${h.eggs ?? '—'}</td><td class="num">${h.gift ?? '—'}</td><td class="num">${walletOf(h) ?? '—'}</td><td><small>${esc(new Date(h.last_at).toLocaleString('zh-TW', { timeZone: C.exam.tz }))}</small></td>
+    <td class="act">${gm ? `<input class="gift-n" type="number" step="100" value="10000" aria-label="發幾顆" data-gift-n="${esc(h.id)}"> <button class="btn sm" data-gift="${esc(h.id)}" data-nick="${esc(h.nick || '')}">＋金蛋</button> ` : ''}<button class="btn danger sm" data-del-hero="${esc(h.id)}" data-nick="${esc(h.nick || '')}">刪除</button></td></tr>`).join('') : `<tr><td colspan="8">${q ? '找不到這個暱稱。' : '還沒有小學生資料。'}</td></tr>`;
   $('heroNote').textContent = gm ? '' : '要發金蛋請先在 SQL Editor 執行新版 supabase/economy.sql（加 gift 欄位與 admin_gift）。'; }
 $('heroSearch').addEventListener('input', renderHeroes);
 async function save(table, id, data, msgEl) { const el = $(msgEl); el.className = 'msg'; el.textContent = '儲存中…'; const { error } = await sb.from(table).upsert({ id, data, updated_at: new Date().toISOString() });
@@ -78,7 +78,7 @@ $('polForm').addEventListener('submit', async ev => { ev.preventDefault(); const
   const data = { title: f.title.value.trim(), tag: f.tag.value.trim(), model: f.model.value, district: f.district.value || null, summary: f.summary.value.trim(), why: f.why.value.trim(), facts: f.facts.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8), agencies: f.agencies.value.split(/[,，、]/).map(s => s.trim()).filter(Boolean).slice(0, 4), issue: f.issue.value || null, hidden: false };
   if (await save('policies', id, data, 'polMsg')) f.reset(); });
 $('issForm').addEventListener('submit', async ev => { ev.preventDefault(); const f = ev.target; const id = f.id.value.trim(); const mix = {}; for (const part of f.mix.value.split(',')) { const [k, v] = part.split(':').map(s => s.trim()); if (C.lesserTypes.includes(k)) mix[k] = Number(v) || 1; }
-  const routes = [...f.querySelectorAll('input[name=routes]:checked')].map(i => i.value); // 打工不使用登陸方向與魔王欄位，保留給舊資料
+  const routes = [...f.querySelectorAll('input[name=routes]:checked')].map(i => i.value); // 闖關不使用登陸方向與魔王欄位，保留給舊資料
   const data = { title: f.title.value.trim(), tag: f.tag.value.trim(), startsAt: f.startsAt.value || null, intensity: Number(f.intensity.value) || 1, routes, boss: f.boss.value || null, mix: Object.keys(mix).length ? mix : { bird: 1 }, chants: f.chants.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 12), desc: f.desc.value.trim(), hidden: false };
   if (await save('issues', id, data, 'issMsg')) f.reset(); });
 boot().catch(e => { $('loginMsg').className = 'msg bad'; $('loginMsg').textContent = '後台載入失敗：' + (e.message || e); });

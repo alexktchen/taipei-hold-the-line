@@ -59,7 +59,7 @@ async function boot() {
     sig.build(); sig.choose(sim.t); diag.checkRules(); story.render(); marks && marks.reset(); lamps.dispose(); lamps = createLamps(scene, net, sig); sim.rebuildSpawn(); masked = landMask(meta, water, green); renderStats(); }).catch(e => console.warn('巷弄資料', e));
   requestAnimationFrame(frame); }
 function showEmpty() { $('loading').classList.add('done'); const el = $('empty'); el.hidden = false;
-  el.innerHTML = `<h2>資料還在準備</h2><p>道路與號誌資料由 GitHub Actions「台北車流資料」整理後放進 <code>traffic/data/</code>，跑完重新整理就會出現。</p><p><a href="https://github.com/alexktchen/taipei-hold-the-line/actions/workflows/traffic-data.yml" target="_blank" rel="noopener">看資料整理進度</a>・<a href="../">回萬安政策島</a></p>`; }
+  el.innerHTML = `<h2>資料還在準備</h2><p>道路與號誌資料由 GitHub Actions「台北車流資料」整理後放進 <code>traffic/data/</code>，跑完重新整理就會出現。</p><p><a href="https://github.com/alexktchen/taipei-hold-the-line/actions/workflows/traffic-data.yml" target="_blank" rel="noopener">看資料整理進度</a>・<a href="../">回小學闖關島</a></p>`; }
 
 // ── 畫面上的字：行政區（拉遠）、主要道路路名（中距離）、台北 101 ──
 const labelEl = $('labels'); let labels = [];

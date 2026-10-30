@@ -1,4 +1,4 @@
-/* 打工的走路規則：能走的地方 = 島面（六角形，往內縮一點）＋橋；建築是圓形障礙物（撞到會沿邊滑開）。
+/* 闖關的走路規則：能走的地方 = 島面（六角形，往內縮一點）＋橋；建築是圓形障礙物（撞到會沿邊滑開）。
    跨島找路：步道路網（每島 12 個環節點＋橋）先算好全部節點兩兩之間的「下一跳」，走的時候挑看得到的最遠節點直接走過去。 */
 import { R, insideHex } from './islands.js';
 export function createNav({ islands, centers, bridges, links, graph }) {
@@ -6,7 +6,7 @@ export function createNav({ islands, centers, bridges, links, graph }) {
   const isl = islands.map(i => ({ id: i.id, c: centers.get(i.id) }));
   const segOf = ([a, b, w]) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return { ax: a.x, az: a.z, dx, dz, L2: L * L, L, ux: dx / L, uz: dz / L, w }; };
   const segs = [...bridges.map(b => [b.pa, b.pb, 0.3]), ...links.map(l => [l.pa, l.pb, 0.36])].map(segOf); // 橋的可走寬度比橋面寬一點，不用對得很準
-  // 蓋城市新蓋好的島：加進能走的範圍（島面＋陸橋）與障礙物
+  // 蓋校園新蓋好的島：加進能走的範圍（島面＋陸橋）與障礙物
   function addIsland(id, c, pa, pb, obstacles = []) { isl.push({ id, c }); segs.push(segOf([pa, pb, 0.36])); statics = [...statics, ...obstacles]; obst = [...statics, ...dyn]; gridDirty = true; }
   let statics = [], dyn = [], obst = [];
   const setObstacles = (s, d) => { if (s) statics = s; if (d) dyn = d; obst = [...statics, ...dyn]; gridDirty = true; };

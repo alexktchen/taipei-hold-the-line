@@ -1,21 +1,21 @@
 /* 共享狀態轉接器（三種模式：claude.ai artifact／Supabase／本機）。
    - 在 claude.ai artifact 裡：用 db / user 能力，heroes/<uid> 每人一份（只有本人能寫），issues/<id>、policies/<id> 由編輯者新增；room 的 presence 算線上人數。
-   - Supabase（靜態站）：匿名登入取得 uid；heroes 每人一列；online 頻道（presence）算線上人數並列出開著的打工房；房間本身在 js/room.js。
-   - 其他地方（沒連上）：可以單人打工，但金蛋、戰績、花費都不記（金蛋只記在雲端）。
-   這台裝置只存暱稱、職業、行政區（pi.hero.v1，回訪判斷用）；金蛋、打工戰績、花費、穿著一律以雲端那一列為準。
-   打工戰績欄位：shifts（打了幾班）、eggs（搬了幾顆金蛋）、clears（三波全過幾次）、grade／grade_pts（打工職級）。要先跑 supabase/shifts.sql 加欄位。
-   舊塔防的 rounds／kills／finals 欄位保留（歷史資料），這裡不讀也不寫。
-   金蛋經濟欄位：donated（政治獻金）、built（蓋城市投入）、spent（衣服花掉）、outfit（穿著，帽子.背心.配件.套裝）、owned（買過的衣服）、gift（GM 發的，玩家改不了）；要先跑 supabase/economy.sql，沒跑的話不能花。
-   錢包 = eggs + gift − donated − built − spent；打完一班用 hero_shift、花金蛋用 hero_spend（資料庫裡直接加減，錢包不夠就失敗，多台裝置同時玩也不會互相蓋掉）。
-   逛城市的多人同框走全站 play 頻道（broadcast），只有在逛城市時才加入（playOn），打工房間不用它。
-   打工現場走全站 live 頻道：正在打工的房主／單人送這班的摘要，逛城市的人收（liveOn 依用途計數，兩邊都不用了才離開）。
+   - Supabase（靜態站）：匿名登入取得 uid；heroes 每人一列；online 頻道（presence）算線上人數並列出開著的闖關房；房間本身在 js/room.js。
+   - 其他地方（沒連上）：可以單人闖關，但金蛋、戰績、花費都不記（金蛋只記在雲端）。
+   這台裝置只存暱稱、角色、學期（pi.hero.v1，回訪判斷用）；金蛋、闖關戰績、花費、穿著一律以雲端那一列為準。
+   闖關戰績欄位：shifts（打了幾關）、eggs（搬了幾顆金蛋）、clears（三波全過幾次）、grade／grade_pts（闖關等級）。要先跑 supabase/shifts.sql 加欄位。
+   舊舊版的 rounds／kills／finals 欄位保留（歷史資料），這裡不讀也不寫。
+   金蛋經濟欄位：donated（捐書）、built（蓋校園投入）、spent（衣服花掉）、outfit（穿著，帽子.背心.配件.套裝）、owned（買過的衣服）、gift（GM 發的，玩家改不了）；要先跑 supabase/economy.sql，沒跑的話不能花。
+   錢包 = eggs + gift − donated − built − spent；打完一關用 hero_shift、花金蛋用 hero_spend（資料庫裡直接加減，錢包不夠就失敗，多台裝置同時玩也不會互相蓋掉）。
+   逛校園的多人同框走全站 play 頻道（broadcast），只有在逛校園時才加入（playOn），闖關房間不用它。
+   闖關現場走全站 live 頻道：正在闖關的房主／單人送這關的摘要，逛校園的人收（liveOn 依用途計數，兩邊都不用了才離開）。
    介面：init(), onGlobal(fn), onLeaderboard(fn), hero(), saveHero(patch), recordShift(mine, clear, grade), econ(), buy(), unequip(), give(), listIssues(), addIssue(issue), listPolicies(), addPolicy(p), districtBoard(), setPresence(patch), playOn(on), send(msg), onNet(fn) */
 window.PIStore = (function () {
   const LS_HERO = 'pi.hero.v1';
   const state = { db: null, user: null, uid: null, canWrite: null, canEdit: false, me: { name: '', avatarUrl: '', color: '' },
     hero: null, heroes: [], issuesRemote: [], policiesRemote: [], subs: { global: [], leaderboard: [], issues: [], policies: [], online: [], net: [], live: [] }, playCh: null, playSub: null, liveCh: null, liveSub: null, liveUsers: new Set(), onlineIds: null, mode: 'local', room: null, online: 1, onlineNames: [], onlinePeople: [], visitors: null, visitorsToday: null, sb: null, presenceCh: null, presence: {}, noShiftCols: false, noDistrict: false, noEconCols: false, noGift: false };
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
-  // 本機只存身分（暱稱、職業、行政區）；舊版存在本機的金蛋與戰績只在第一次連上雲端時搬上去一次（migrateLegacy）
+  // 本機只存身分（暱稱、角色、學期）；舊版存在本機的金蛋與戰績只在第一次連上雲端時搬上去一次（migrateLegacy）
   const PROFILE = ['nick', 'cls', 'district'], pick = (h, keys) => h ? Object.fromEntries(keys.filter(k => h[k] != null).map(k => [k, h[k]])) : null;
   const loadLocalHero = () => safe(() => JSON.parse(localStorage.getItem(LS_HERO) || 'null'), null);
   const saveLocalHero = (h) => safe(() => localStorage.setItem(LS_HERO, JSON.stringify(pick(h, PROFILE))), null);
@@ -34,10 +34,10 @@ window.PIStore = (function () {
     let list = state.heroes.map(h => me && h.id === me.id ? { ...h, ...me } : h); if (me && !list.some(h => h.id === me.id)) list = [...list, me]; return list; }
   function totals() { return roster().reduce((a, h) => ({ ...a, shifts: a.shifts + n0(h.shifts), eggs: a.eggs + n0(h.eggs), clears: a.clears + n0(h.clears), workers: a.workers + (n0(h.shifts) > 0 ? 1 : 0) }), { shifts: 0, eggs: 0, clears: 0, workers: 0, visitors: state.visitors, visitorsToday: state.visitorsToday, local: state.mode === 'local' || state.noShiftCols }); }
   function leaderboard() { return roster().filter(h => n0(h.shifts) > 0).sort((a, b) => n0(b.eggs) - n0(a.eggs) || n0(b.clears) - n0(a.clears)).slice(0, PI_CONFIG.ui.leaderboardMax); }
-  // 12 區對抗：每位打工仔選一個行政區，該區分數 = 選這區的人搬進籃子的金蛋總數
+  // 學期對抗：每位小學生選一個學期，該區分數 = 選這區的人搬進籃子的金蛋總數
   function districtBoard() {
     const rows = new Map(PI_CONFIG.islands.filter(i => !i.detached).map(i => [i.id, { id: i.id, name: i.name, eggs: 0, shifts: 0, workers: 0 }]));
-    for (const h of roster()) { const r = rows.get(h.district); if (r && n0(h.shifts) > 0) { r.eggs += n0(h.eggs) + Math.min(n0(h.built), n0(h.eggs)); r.shifts += n0(h.shifts); r.workers += 1; } } // 蓋城市投入的金蛋再算一次
+    for (const h of roster()) { const r = rows.get(h.district); if (r && n0(h.shifts) > 0) { r.eggs += n0(h.eggs) + Math.min(n0(h.built), n0(h.eggs)); r.shifts += n0(h.shifts); r.workers += 1; } } // 蓋校園投入的金蛋再算一次
     return [...rows.values()].sort((a, b) => b.eggs - a.eggs || b.workers - a.workers || PI_CONFIG.islands.findIndex(i => i.id === a.id) - PI_CONFIG.islands.findIndex(i => i.id === b.id));
   }
   function listIssues() { const byId = new Map(PI_CONFIG.issues.map(i => [i.id, i])); for (const i of state.issuesRemote) byId.set(i.id, { ...byId.get(i.id), ...i }); return [...byId.values()].filter(i => !i.hidden); }
@@ -63,7 +63,7 @@ window.PIStore = (function () {
     return finishInit();
   }
   // 在線名單的一筆：presence 是其他訪客送的，只取固定欄位並檢查型別；同一人開多個分頁算一個（key 是匿名 uid）
-  // 房主還會帶 room（房號）、rh=1、rn（幾人）、rs（wait 等人／shift 打工中）、pub（快速配對找得到）
+  // 房主還會帶 room（房號）、rh=1、rn（幾人）、rs（wait 等人／shift 闖關中）、pub（快速配對找得到）
   const str = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, n) : '';
   const peer = (id, p) => { p = p || {}; const room = /^[A-Z0-9]{3,8}$/.test(p.room || '') ? p.room : null; return { id, nick: str(p.nick, 24), cls: typeof p.cls === 'string' && Object.hasOwn(PI_CONFIG.heroes, p.cls) ? p.cls : null,
     phase: p.phase === 'shift' ? 'shift' : p.phase === 'explore' ? 'explore' : p.phase === 'room' ? 'room' : 'lobby', away: p.away === true, room, host: !!room && p.rh === 1, rn: Math.max(1, Math.min(4, p.rn | 0)), rs: p.rs === 'shift' ? 'shift' : 'wait', pub: p.pub === 1 }; };
@@ -72,7 +72,7 @@ window.PIStore = (function () {
   const missingCol = (err, re) => err && re.test(err.message || '');
   async function refreshHeroes() { const B = window.PI_BACKEND; const base = 'id,nick,cls', cols = () => base + (state.noDistrict ? '' : ',district') + (state.noShiftCols ? '' : ',shifts,eggs,clears,grade,grade_pts') + (state.noShiftCols || state.noEconCols ? '' : ',donated,built,spent,outfit,owned') + (state.noShiftCols || state.noEconCols || state.noGift ? '' : ',gift');
     const seq = writeSeq; let { data, error } = await state.sb.from('heroes').select(cols()).limit(B.heroesLimit || 1000);
-    for (let k = 0; k < 3 && error; k++) { if (missingCol(error, /district/)) { state.noDistrict = true; console.warn('[store] heroes 沒有 district 欄位，請執行 supabase/districts.sql'); } else if (missingCol(error, /gift/)) { state.noGift = true; console.warn('[store] heroes 沒有 gift 欄位，請重跑 supabase/economy.sql'); } else if (missingCol(error, /donated|built|spent|outfit|owned/)) { state.noEconCols = true; console.warn('[store] heroes 沒有金蛋經濟欄位，請執行 supabase/economy.sql'); } else if (missingCol(error, /shifts|eggs|clears|grade/)) { state.noShiftCols = true; console.warn('[store] heroes 沒有打工欄位，請執行 supabase/shifts.sql'); } else break; ({ data, error } = await state.sb.from('heroes').select(cols()).limit(B.heroesLimit || 1000)); }
+    for (let k = 0; k < 3 && error; k++) { if (missingCol(error, /district/)) { state.noDistrict = true; console.warn('[store] heroes 沒有 district 欄位，請執行 supabase/districts.sql'); } else if (missingCol(error, /gift/)) { state.noGift = true; console.warn('[store] heroes 沒有 gift 欄位，請重跑 supabase/economy.sql'); } else if (missingCol(error, /donated|built|spent|outfit|owned/)) { state.noEconCols = true; console.warn('[store] heroes 沒有金蛋經濟欄位，請執行 supabase/economy.sql'); } else if (missingCol(error, /shifts|eggs|clears|grade/)) { state.noShiftCols = true; console.warn('[store] heroes 沒有闖關欄位，請執行 supabase/shifts.sql'); } else break; ({ data, error } = await state.sb.from('heroes').select(cols()).limit(B.heroesLimit || 1000)); }
     if (error) { console.warn('[store] heroes', error.message); return; }
     state.heroes = data || []; const mine = state.heroes.find(h => h.id === state.uid);
     if (mine) { const loc = state.hero || {}; // 金蛋與戰績以雲端為準；讀的途中自己剛寫過就不蓋（下一輪再讀）
@@ -101,7 +101,7 @@ window.PIStore = (function () {
   function finishInit() { emit('global'); emit('leaderboard'); emit('issues'); emit('policies'); emit('online'); return state; }
   function setPresence(patch) { state.presence = { ...state.presence, ...patch }; for (const k of Object.keys(state.presence)) if (state.presence[k] == null) delete state.presence[k]; if (state.room) state.room.presence(patch).catch(e => console.warn('[store] presence', e && e.code)); if (state.presenceCh) state.presenceCh.track(state.presence).catch(() => {}); }
   function hero() { return state.hero; }
-  // 改身分（暱稱、職業、行政區）：只寫這幾欄，金蛋與戰績的欄位不碰
+  // 改身分（暱稱、角色、學期）：只寫這幾欄，金蛋與戰績的欄位不碰
   async function saveHero(patch) { state.hero = { ...(state.hero || {}), ...pick(patch, PROFILE) }; saveLocalHero(state.hero); await pushHero(); emit('global'); emit('leaderboard'); }
   // econ=true：連金蛋、戰績、花費一起寫（只有資料庫還沒有 hero_shift／hero_spend 時的退路與第一次搬舊資料用）
   async function pushHero(econ) { const h = state.hero; if (!h) return false;
@@ -117,7 +117,7 @@ window.PIStore = (function () {
     if (!(state.db && state.uid)) return false;
     const body = { nick: String(h.nick || '').slice(0, 24), cls: h.cls || 'chief', district: h.district || null, shifts: n0(h.shifts), eggs: n0(h.eggs), clears: n0(h.clears), grade: n0(h.grade), grade_pts: n0(h.grade_pts), donated: n0(h.donated), built: n0(h.built), spent: n0(h.spent), outfit: fitStr(h.outfit), owned: ownedList(h.owned).join(','), lastAt: new Date().toISOString(), lastStage: h.lastStage || null };
     try { await state.db.doc('heroes/' + state.uid).set(body); return true; } catch (e) { console.warn('[store] write refused', e && e.code); state.canWrite = false; return false; } }
-  // 打完一班（mine＝結算裡自己那一格，grade＝打完後的職級 { lv, pts }）：在資料庫裡直接加（hero_shift）；沒連上雲端就不記。回傳 { ok, why }：offline 沒連上、net 連線失敗
+  // 打完一關（mine＝結算裡自己那一格，grade＝打完後的等級 { lv, pts }）：在資料庫裡直接加（hero_shift）；沒連上雲端就不記。回傳 { ok, why }：offline 沒連上、net 連線失敗
   const cloud = () => !!(state.uid && (state.sb || state.db));
   async function rpcRow(fn, args) { writing++; writeSeq++; try { const { data, error } = await state.sb.rpc(fn, args); if (!error) return { ok: true, row: Array.isArray(data) ? data[0] : data };
       return { ok: false, msg: error.message || '', missing: error.code === 'PGRST202' || error.code === '42883' || /Could not find the function|does not exist/i.test(error.message || '') }; }
@@ -128,6 +128,10 @@ window.PIStore = (function () {
       if (r.ok && r.row) { applyMine(r.row); emit('global'); emit('leaderboard'); return { ok: true }; } if (!r.missing) { console.warn('[store] hero_shift', r.msg); return { ok: false, why: 'net' }; } }
     const h = state.hero || {}; state.hero = { ...h, shifts: n0(h.shifts) + 1, eggs: n0(h.eggs) + gold, clears: n0(h.clears) + (clear ? 1 : 0), grade: grade.lv, grade_pts: grade.pts, lastStage: stage || null }; // 資料庫還沒有 hero_shift：整列寫回
     const ok = await pushHero(true); if (!ok) state.hero = h; emit('global'); emit('leaderboard'); return ok ? { ok: true } : { ok: false, why: 'net' }; }
+  // 解題任務答對：金蛋在資料庫裡直接加（hero_quiz，要先跑 supabase/quiz.sql）；沒連上雲端就不記。回傳 { ok, why }：offline 沒連上、nocols 資料庫還沒有 hero_quiz、net 連線失敗
+  async function recordQuiz(n, topic) { n = Math.max(0, Math.round(n0(n))); if (!cloud()) return { ok: false, why: 'offline' }; if (!state.sb || state.noShiftCols) return { ok: false, why: 'nocols' };
+    const r = await rpcRow('hero_quiz', { p_eggs: n, p_topic: String(topic || '').slice(0, 40) }); if (r.ok && r.row) { applyMine(r.row); emit('global'); emit('leaderboard'); return { ok: true }; }
+    if (r.missing) { console.warn('[store] 資料庫沒有 hero_quiz，請執行 supabase/quiz.sql'); return { ok: false, why: 'nocols' }; } console.warn('[store] hero_quiz', r.msg); return { ok: false, why: 'net' }; }
   // ── 金蛋經濟 ──
   const EC = () => PI_CONFIG.econ, CATS = ['hat', 'color', 'acc', 'suit'];
   const itemOf = (cat, id) => { const c = EC().outfits[cat]; return c && typeof id === 'string' && Object.hasOwn(c.items, id) ? c.items[id] : null; };
@@ -135,9 +139,9 @@ window.PIStore = (function () {
   function fitObj(v) { const a = typeof v === 'string' ? v.split('.') : []; const o = {}; CATS.forEach((c, i) => { o[c] = itemOf(c, a[i]) ? a[i] : ''; }); return o; }
   function fitStr(v) { const o = typeof v === 'object' && v ? v : fitObj(v); return CATS.map(c => itemOf(c, o[c]) ? o[c] : '-').join('.'); }
   function ownedList(v) { return [...new Set((typeof v === 'string' ? v.split(',') : []).filter(k => { const [c, id] = k.split(':'); return itemOf(c, id); }))].slice(0, 40); }
-  // 全站加總用所有人的（自己那列換成最新的）；別人的數字一律不超過他自己的金蛋（打工的＋GM 發的）
+  // 全站加總用所有人的（自己那列換成最新的）；別人的數字一律不超過他自己的金蛋（闖關的＋GM 發的）
   function econRoster() { if (state.noShiftCols || state.noEconCols) return []; return roster(); }
-  const capped = (h, k) => Math.min(n0(h[k]), n0(h.eggs) + n0(h.gift)); // GM 發的也能拿來蓋城市、捐獻金（12 區對抗仍只算打工的）
+  const capped = (h, k) => Math.min(n0(h[k]), n0(h.eggs) + n0(h.gift)); // GM 發的也能拿來蓋校園、捐書（學期對抗仍只算闖關的）
   function wallet() { const h = state.hero || {}; return Math.max(0, n0(h.eggs) + n0(h.gift) - n0(h.donated) - n0(h.built) - n0(h.spent)); }
   // 金蛋能不能花：offline＝沒連上雲端；nocols＝雲端還沒跑 economy.sql
   const canSpend = () => !cloud() ? 'offline' : state.sb && (state.noShiftCols || state.noEconCols) ? 'nocols' : '';
@@ -152,11 +156,11 @@ window.PIStore = (function () {
   // 換穿著：沒連上雲端時只換這次的畫面（不存）
   async function wear(fit) { const outfit = fitStr(fit); if (canSpend()) { state.hero = { ...(state.hero || {}), outfit }; return { ok: true, equip: true }; } const r = await spend('spent', 0, { outfit }); return r.ok ? { ok: true, equip: true } : r; }
   async function buy(cat, id) { const it = itemOf(cat, id); if (!it) return { ok: false, why: 'item' }; const h = state.hero || {}, own = ownedList(h.owned), key = cat + ':' + id, fit = fitObj(h.outfit); fit[cat] = id;
-    if (own.includes(key) || it.price === 0) return wear(fit); // 買過的、免費的（萬聖節免費套裝）直接換上
+    if (own.includes(key) || it.price === 0) return wear(fit); // 買過的、免費的（變裝派對免費套裝）直接換上
     return spend('spent', it.price, { owned: [...own, key].join(','), outfit: fitStr(fit) }); }
   async function unequip(cat) { const fit = fitObj((state.hero || {}).outfit); fit[cat] = ''; return wear(fit); }
   async function give(kind, n) { n = Math.floor(n0(n)); if (!(kind === 'built' || kind === 'donated') || n <= 0) return { ok: false, why: 'amount' }; const r = await spend(kind, n, {}); return r.ok ? { ok: true, n } : r; }
-  // ── 逛城市多人同框：play 頻道只在逛城市時加入；收到的訊息交給 exploreui 驗證 ──
+  // ── 逛校園多人同框：play 頻道只在逛校園時加入；收到的訊息交給 exploreui 驗證 ──
   function playOn(on) { const sb = state.sb; if (!sb || !state.uid) return false;
     if (on) { if (state.playSub) return true; const ch = sb.channel('play', { config: { broadcast: { self: false } } }); state.playSub = ch;
       ch.on('broadcast', { event: 'm' }, ({ payload }) => { if (payload && typeof payload === 'object') for (const fn of state.subs.net) fn(payload); });
@@ -169,11 +173,11 @@ window.PIStore = (function () {
     else if (!state.liveUsers.size && state.liveSub) { sb.removeChannel(state.liveSub); state.liveSub = null; state.liveCh = null; } return true; }
   function liveSend(msg) { if (!state.liveCh || !state.uid) return false; state.liveCh.send({ type: 'broadcast', event: 'm', payload: { ...msg, id: state.uid } }).catch(() => {}); return true; }
   function send(msg) { if (!state.playCh || !state.uid) return false; state.playCh.send({ type: 'broadcast', event: 'm', payload: { ...msg, id: state.uid } }).catch(() => {}); return true; }
-  async function addPolicy(policy) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增政策'); await state.db.doc('policies/' + policy.id).set(policy); }
-  async function addIssue(issue) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增議題'); await state.db.doc('issues/' + issue.id).set(issue); }
+  async function addPolicy(policy) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增課程'); await state.db.doc('policies/' + policy.id).set(policy); }
+  async function addIssue(issue) { if (!(state.db && state.canEdit)) throw new Error('只有編輯者可以新增挑戰'); await state.db.doc('issues/' + issue.id).set(issue); }
   // 重新讀雲端（例如打開商店時看 GM 剛發的金蛋）；10 秒內讀過就不讀
   let lastRefresh = 0; function refresh(force) { if (!state.sb || (!force && performance.now() - lastRefresh < 10000)) return Promise.resolve(); lastRefresh = performance.now(); return refreshHeroes(); }
-  return { init, hero, saveHero, recordShift, econ, wallet, buy, unequip, give, fitStr, refresh, playOn, send, onNet: fn => { state.subs.net.push(fn); }, liveOn, liveSend, onLive: fn => { state.subs.live.push(fn); }, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
+  return { init, hero, saveHero, recordShift, recordQuiz, econ, wallet, buy, unequip, give, fitStr, refresh, playOn, send, onNet: fn => { state.subs.net.push(fn); }, liveOn, liveSend, onLive: fn => { state.subs.live.push(fn); }, listIssues, addIssue, listPolicies, addPolicy, totals, leaderboard, districtBoard,
     onPolicies: fn => { state.subs.policies.push(fn); fn(listPolicies()); },
     onOnline: fn => { state.subs.online.push(fn); fn(state.online, state.onlineNames, state.onlinePeople); }, setPresence,
     onGlobal: fn => { state.subs.global.push(fn); fn(totals()); },

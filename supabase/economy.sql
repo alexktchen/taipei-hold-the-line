@@ -1,13 +1,13 @@
--- 金蛋經濟：heroes 加買衣服、蓋城市、政治獻金、GM 發金蛋的欄位與函式（在 Supabase 後台 SQL Editor 整段貼上執行一次；重複執行也沒關係）
+-- 金蛋經濟：heroes 加買衣服、蓋校園、捐書、GM 發金蛋的欄位與函式（在 Supabase 後台 SQL Editor 整段貼上執行一次；重複執行也沒關係）
 -- 要先跑過 shifts.sql（eggs 欄位）；GM 發金蛋的後台按鈕要先跑過 admin.sql（is_admin）。
--- 金蛋只記在雲端：還沒執行前可以打工，但商店不能花。
--- 錢包 = eggs + gift − donated − built − spent（eggs 只有打工會增加；gift 是 GM 發的，玩家自己改不了；這裡記花掉的）。
-alter table public.heroes add column if not exists donated integer not null default 0;   -- 政治獻金（遊戲裡的惡搞）累計
-alter table public.heroes add column if not exists built   integer not null default 0;   -- 蓋城市投入累計（全站加總依序蓋）
+-- 金蛋只記在雲端：還沒執行前可以闖關，但商店不能花。
+-- 錢包 = eggs + gift − donated − built − spent（eggs 只有闖關會增加；gift 是 GM 發的，玩家自己改不了；這裡記花掉的）。
+alter table public.heroes add column if not exists donated integer not null default 0;   -- 捐書（遊戲裡的遊戲）累計
+alter table public.heroes add column if not exists built   integer not null default 0;   -- 蓋校園投入累計（全站加總依序蓋）
 alter table public.heroes add column if not exists spent   integer not null default 0;   -- 買衣服花掉的
 alter table public.heroes add column if not exists outfit  text    not null default '-.-.-'; -- 穿著：帽子.背心.配件.套裝（id 見 js/config.js 的 econ.outfits）
 alter table public.heroes add column if not exists owned   text    not null default '';   -- 買過的衣服：cat:id,cat:id
-alter table public.heroes add column if not exists gift    integer not null default 0;   -- GM 發的金蛋（不算打工榜與 12 區對抗）
+alter table public.heroes add column if not exists gift    integer not null default 0;   -- GM 發的金蛋（不算闖關榜與 學期對抗）
 alter table public.heroes drop constraint if exists heroes_econ_check;
 alter table public.heroes add constraint heroes_econ_check check (
   donated >= 0 and built >= 0 and spent >= 0 and gift >= 0
@@ -27,7 +27,7 @@ end $$;
 drop trigger if exists heroes_keep_gift on public.heroes;
 create trigger heroes_keep_gift before insert or update on public.heroes for each row execute function public.heroes_keep_gift();
 
--- 打完一班：班數、金蛋、過關數在資料庫裡直接加（多台裝置同時玩也不會互相蓋掉）；一班最多記 300 顆
+-- 打完一關：班數、金蛋、過關數在資料庫裡直接加（多台裝置同時玩也不會互相蓋掉）；一關最多記 300 顆
 create or replace function public.hero_shift(p_eggs integer, p_clear boolean, p_grade integer, p_pts integer, p_stage text)
 returns public.heroes language plpgsql security invoker set search_path = public as $$
 declare r public.heroes;
@@ -46,7 +46,7 @@ begin
   return r;
 end $$;
 
--- 花金蛋：spent 買衣服、built 蓋城市、donated 政治獻金（p_n = 0 只換穿著）；錢包不夠就失敗（錯誤訊息 poor），不會扣成負的
+-- 花金蛋：spent 買衣服、built 蓋校園、donated 捐書（p_n = 0 只換穿著）；錢包不夠就失敗（錯誤訊息 poor），不會扣成負的
 create or replace function public.hero_spend(p_kind text, p_n integer, p_owned text default null, p_outfit text default null)
 returns public.heroes language plpgsql security invoker set search_path = public as $$
 declare r public.heroes;
@@ -70,7 +70,7 @@ revoke all on function public.hero_spend(text, integer, text, text) from public;
 grant execute on function public.hero_shift(integer, boolean, integer, integer, text) to anon, authenticated;
 grant execute on function public.hero_spend(text, integer, text, text) to anon, authenticated;
 
--- GM 發金蛋（後台 admin/ 的「英雄資料 → ＋金蛋」用）：只有 admins 名單裡的管理員能用；p_n 可以是負的（收回，最低到 0）
+-- GM 發金蛋（後台 admin/ 的「學生資料 → ＋金蛋」用）：只有 admins 名單裡的管理員能用；p_n 可以是負的（收回，最低到 0）
 create or replace function public.admin_gift(p_hero uuid, p_n integer) returns integer
 language plpgsql security definer set search_path = public as $$
 declare g integer;

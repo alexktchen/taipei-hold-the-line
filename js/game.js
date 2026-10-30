@@ -1,5 +1,5 @@
-/* 打工：一班 3 波、每波 100 秒。打倒魔王會掉金蛋，搬進金蛋籃湊滿這一波的配額才過關；全員倒下、或時間到配額不夠就收工。
-   角色：solo（單人＋NPC 同事）與 host（房主）在這台跑模擬；client（房客）只收快照畫畫面、自己走路，把位置與指令送給房主。
+/* 闖關：一關 3 波、每波 100 秒。打倒魔王會掉金蛋，搬進金蛋籃湊滿這一波的配額才過關；全員倒下、或時間到配額不夠就下課。
+   角色：solo（單人＋NPC 同學）與 host（房主）在這台跑模擬；client（房客）只收快照畫畫面、自己走路，把位置與指令送給房主。
    畫面特效一律走「事件」：模擬端產生事件時自己先播一次，再放進快照送給房客播，兩邊看到的一樣。事件只帶代碼與數字，文字由各自的 config 組出來。 */
 import * as THREE from 'three';
 import { CONFIG as C } from './config.js';
@@ -22,17 +22,17 @@ export function createGame(ctx) {
   function addLog(txt, cls = '') { const s = G.phase === 'wave' ? Math.floor(G.timeLeft) : 0; G.log.unshift({ t: G.phase === 'wave' ? `${G.waveNo}-${String(s).padStart(3, '0')}` : '---', txt, cls }); G.log.length = Math.min(G.log.length, C.ui.logMax); emit('log', G.log); }
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const tagAdd = (w, name, badge, color, kind) => emit('tag', 'add', w, { name, badge, color, kind }); const tagDel = w => emit('tag', 'remove', w);
-  // ── 居民（大廳時在步道散步；開工時打工場上的居民先離開）──
+  // ── 同學（大廳時在步道散步；開始闖關時闖關場上的同學先離開）──
   function spawnResidents() { const list = []; for (const isl of islands) { const ring = graph.ringIndex.get(isl.id); for (let k = 0; k < RS.perIsland; k++) { const node = ring[(k * 5 + isl.number) % 12]; const role = RS.roles[(isl.number * 3 + k) % RS.roles.length]; const w = people.makeWalker(role, graph.nodes[node].p); const sp = role === 'cyclist' ? RS.bikeSpeed : RS.speed; Object.assign(w, { home: isl.id, node, wait: Math.random() * 2, route: null, s: 0, speed: sp[0] + Math.random() * (sp[1] - sp[0]) }); list.push(w); } } G.residents = list; return list; }
   function walk(w, dt, speed) { if (!w.route) return true; w.s += speed * dt; const done = w.s >= w.route.total; const smp = sampleRoute(w.route, Math.min(w.s, w.route.total)); w.pos.copy(smp.p); if (smp.dir.lengthSq() > 0) w.yaw = Math.atan2(smp.dir.x, smp.dir.z); w.moving = !done; if (done) { w.route = null; w.moving = false; } return done; }
   function routeTo(fromPos, toNode) { const a = graph.nearestNode(fromPos); const ids = graph.shortest(a, toNode); return makeRoute([fromPos.clone(), ...ids.map(n => graph.nodes[n].p.clone())]); }
   function updateResidents(dt) { for (const w of G.residents) { if (w.away) continue; if (w.cheer > 0) { w.cheer -= dt; w.pose = w.cheer > 0 ? 'wave' : null; w.moving = false; continue; }
     if (w.route) walk(w, dt, w.speed); else { w.wait -= dt; if (w.wait <= 0) { const ring = graph.ringIndex.get(w.home); const next = ring[(ring.indexOf(w.node) + (Math.random() < 0.5 ? 1 : 11)) % 12]; w.route = makeRoute([w.pos.clone(), graph.nodes[next].p.clone()]); w.s = 0; w.node = next; w.wait = 1 + Math.random() * 3; } } } }
-  // ── 市長 NPC：大廳時巡迴政策建築宣傳；開工時站在金蛋籃旁邊廣播（像打工的老闆）──
+  // ── 校長 NPC：大廳時巡迴課程建築宣傳；開始闖關時站在金蛋籃旁邊廣播（像闖關的老闆）──
   let stops = [];
   function setStops(list) { stops = [...list].sort((a, b) => a.order - b.order || a.pos.x - b.pos.x); if (G.mayor && G.mayor.stop >= stops.length) G.mayor.stop = 0; }
   function spawnMayor() { const gc = centers.get((islands.find(i => i.goal) || islands[0]).id); const m = people.makeWalker('mayor', gc.clone().add(new V3(0.6, 0.03, 1.0))); Object.assign(m, { stop: 0, wait: 2, route: null, s: 0, state: 'walk', yaw: 0 });
-    tagAdd(m, MC.name.replace(/市長$/, ''), '🎙 市長', '#db6a41', 'mayor'); m.hit = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ visible: false })); scene.add(m.hit); G.mayor = m; return m; }
+    tagAdd(m, MC.name, '🎙 校長', '#db6a41', 'mayor'); m.hit = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ visible: false })); scene.add(m.hit); G.mayor = m; return m; }
   const sayCount = new Map();
   function slogan(pol) { const lines = [String(pol.summary || '').split(/[，。、；]/)[0], ...(pol.facts || []).slice(0, MC.sayFacts)].filter(Boolean); const n = sayCount.get(pol.id) || 0; sayCount.set(pol.id, n + 1); const line = lines.length ? lines[n % lines.length] : '';
     let t = `${pol.title}！${line}`; if (t.length > MC.sloganMax) t = line; return t.length > MC.sloganMax ? t.slice(0, MC.sloganMax) + '…' : t; }
@@ -46,13 +46,13 @@ export function createGame(ctx) {
         for (const w of G.residents) if (!w.away && d2v(w.pos, m.pos) < MC.cheerRadius) { w.cheer = MC.speechSeconds; w.yaw = Math.atan2(m.pos.x - w.pos.x, m.pos.z - w.pos.z); } } }
     else if (m.state === 'speech') { m.speechT -= dt; if (m.speechT <= 0) { m.state = 'walk'; m.onBox = false; m.pose = null; m.stop = (m.stop + 1) % stops.length; m.wait = MC.pauseSeconds; setBubble(m, null); } } }
   const d2v = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-  // 大廳時市長臨時講一句（金蛋商店：獻金回應、建設落成）
+  // 大廳時校長臨時講一句（金蛋商店：捐書回應、建設落成）
   function shout(txt, secs = 5) { const m = G.mayor; if (!m || !txt) return; setBubble(m, txt); m.shoutT = secs; }
   function mayorSay(key, ...args) { const t = MC.lines[key]; if (!t || !G.mayor) return ''; const txt = fmt(t, ...args); G.mayor.bubbleT = 3.2; G.mayor.pose = 'wave'; setBubble(G.mayor, txt); return txt; }
 
-  // ═══════════════ 開工 ═══════════════
-  // cfg = { stage, hazard, waves: [{ special, issue }], issues: [議題物件], roster: [{ slot, id, nick, cls, district, npc, grade }], mySlot }
-  // 政治獻金的全城加成（房主開工時決定、寫在開工設定 boost＝解鎖了幾階）
+  // ═══════════════ 開始闖關 ═══════════════
+  // cfg = { stage, hazard, waves: [{ special, issue }], issues: [挑戰物件], roster: [{ slot, id, nick, cls, district, npc, grade }], mySlot }
+  // 捐書的全校加成（房主開始闖關時決定、寫在開始闖關設定 boost＝解鎖了幾階）
   function boostOf(n) { const b = { dmg: 0, quota: 0, specials: 0 }; for (const t of C.econ.donate.tiers.slice(0, Math.max(0, n | 0))) if (t.shift) for (const k of Object.keys(b)) b[k] += t.shift[k] || 0; return b; }
   function startShift(cfg, role) { clearShift(); G.boost = boostOf(cfg.boost);
     G.role = role; G.cfg = cfg; G.stage = C.stages.find(s => s.id === cfg.stage) || C.stages[0]; G.hazard = cfg.hazard; G.waves = cfg.waves || []; G.issues = cfg.issues || [];
@@ -64,7 +64,7 @@ export function createGame(ctx) {
     buildBasket(); rebuildPeople();
     Object.assign(G, { phase: 'intro', t: SH.introSeconds, waveNo: 0, waveT: 0, queue: [], fogGold: [], bossSaid: new Set(), golds: [], quotas: [], gold: 0, quota: 0, enemies: [], eggs: [], warns: [], spits: [], out: [], log: [], result: null, special: '', issue: G.issues[0] || null, timeLeft: SH.waveSeconds, clock: 0, paused: false, rushTarget: -1 });
     if (role !== 'client') ev(['say', 'intro']);
-    addLog(`開工：${G.stage.name}・危險度 ${Math.round(G.hazard * 100)}%`, 'good'); emit('shift', 'start'); emit('hud'); emit('team'); }
+    addLog(`開始闖關：${G.stage.name}・危險度 ${Math.round(G.hazard * 100)}%`, 'good'); emit('shift', 'start'); emit('hud'); emit('team'); }
   function computeSpawns(stage) { const bc = centers.get(stage.basket), all = [...centers.values()], prim = [], side = [];
     for (const id of stage.islands) { if (id === stage.basket) continue; const c = centers.get(id), base = Math.atan2(c.x - bc.x, c.z - bc.z);
       for (const da of [0, 1.0, -1.0]) { const a = base + da, dx = Math.sin(a), dz = Math.cos(a), wx = c.x + dx * (R + 1.5), wz = c.z + dz * (R + 1.5);
@@ -77,7 +77,7 @@ export function createGame(ctx) {
       hp: PL.hp, down: false, carry: false, inv: 0, hitT: 99, revive: 0, sp: SH.specials + (G.boost ? G.boost.specials : 0), spT: 0, dash: null, gold: 0, power: 0, rescues: 0, downs: 0, cd: Math.random() * 0.3, focus: 0, move: { x: 0, z: 0 }, goal: null, think: Math.random() * 0.3, net: null, firing: false, flash: 0, emoteT: 0 };
     w.P = P; retag(P); return P; }
   function retag(P) { tagDel(P.w); const kind = P.local ? 'me' : P.npc ? 'npc' : 'player'; tagAdd(P.w, P.nick, `${P.cfg.icon} ${P.local ? '你' : P.npc ? 'NPC' : P.cfg.name}`, hex(P.cfg.color), kind); P.tagSig = ''; }
-  // 逛城市（explore.js）的自己與其他玩家也一起畫
+  // 逛校園（explore.js）的自己與其他玩家也一起畫
   let extra = [];
   function rebuildPeople() { people.build([...G.residents.filter(w => !w.away), G.mayor, ...G.players.map(P => P.w), ...extra].filter(Boolean)); }
   function setExtraWalkers(list) { extra = list || []; rebuildPeople(); }
@@ -98,7 +98,7 @@ export function createGame(ctx) {
     if (why === 'wipe') ev(['say', 'fail']); G.phase = 'result'; G.t = SH.resultLinger; G.result = makeResult(clear, why); ev(['end', clear ? 1 : 0]); emit('end', G.result); }
   function makeResult(clear, why) { return { clear: !!clear, why, stage: G.stage.id, hazard: G.hazard, waves: SH.waves, waveNo: G.waveNo, cleared: clear ? SH.waves : Math.max(0, G.waveNo - 1), golds: [...G.golds], quotas: [...G.quotas],
     players: G.players.map(P => ({ slot: P.slot, id: P.id, nick: P.nick, cls: P.cls, npc: P.npc, district: P.district, gold: P.gold, power: P.power, rescues: P.rescues, downs: P.downs })) }; }
-  // 房主離線、或自己按收工：直接結束（不算過關）
+  // 房主離線、或自己按下課：直接結束（不算過關）
   function abort(why) { if (G.phase === 'lobby' || G.phase === 'result') return; if (G.role === 'client') { G.phase = 'result'; G.result = makeResult(false, why); emit('end', G.result); return; } finish(false, why); }
 
   // ═══════════════ 模擬主迴圈（solo／host）═══════════════
@@ -112,7 +112,7 @@ export function createGame(ctx) {
       purge(); if (G.phase === 'wave' && G.waveT >= SH.waveSeconds) endWave(); }
     if (G.phase === 'wave' || G.phase === 'inter') { eggsStep(dt); revives(dt); warnsStep(dt); }
     G.eggs = G.eggs.filter(g => { if (g.gone && g.obj) scene.remove(g.obj); return !g.gone; }); }
-  function tickPlayer(P, dt) { P.inv -= dt; P.hitT += dt; P.emoteT -= dt; if (P.spT > 0) P.spT -= dt; if (!P.down && P.hitT > PL.regenDelay) P.hp = Math.min(PL.hp, P.hp + PL.regen * dt); }
+  function tickPlayer(P, dt) { P.inv -= dt; P.hitT += dt; P.emoteT -= dt; if (P.spT > 0) P.spT -= dt; if (P.quizT > 0) P.quizT -= dt; if (!P.down && P.hitT > PL.regenDelay) P.hp = Math.min(PL.hp, P.hp + PL.regen * dt); }
   const speedOf = P => P.cfg.speed * (P.carry ? EG.carrySpeed : 1);
   // 自己（或 NPC）走路：搖桿／鍵盤優先，沒有就走向點的位置（跨島自動找橋）
   function moveLocal(P, dt) { const w = P.w; if (P.down || G.phase === 'result') { w.moving = false; P.goal = null; return; }
@@ -208,13 +208,13 @@ export function createGame(ctx) {
   function spit(e, P) { const dx = P.pos.x - e.x, dz = P.pos.z - e.z, L = Math.hypot(dx, dz) || 1, RG = e.A.ranged; G.spits.push({ x: e.x, z: e.z, vx: dx / L * RG.speed, vz: dz / L * RG.speed, t: (RG.range + 0.6) / RG.speed, dmg: e.A.dmg }); ev(['spit', r2(e.x), r2(e.z), r2(dx / L), r2(dz / L), r2(RG.speed), r2((RG.range + 0.6) / RG.speed)]); }
   function spitsStep(dt) { for (const s of G.spits) { s.x += s.vx * dt; s.z += s.vz * dt; s.t -= dt; for (const P of G.players) if (!P.down && Math.hypot(P.pos.x - s.x, P.pos.z - s.z) < 0.26) { hurt(P, s.dmg); s.t = 0; break; } } G.spits = G.spits.filter(s => s.t > 0); }
   function dangerAt(x, z) { for (const w of G.warns) { if (w.c && Math.hypot(x - w.x, z - w.z) < w.r + 0.25) return w; if (!w.c && segDist(x, z, w.x, w.z, w.x2, w.z2) < w.w / 2 + 0.3) return w; } return null; }
-  // ── 打工仔受傷、倒下、救起 ──
+  // ── 小學生受傷、倒下、救起 ──
   function hurt(P, dmg) { if (P.down || P.inv > 0 || P.dash || G.phase !== 'wave') return; dmg *= (SH.dmgK0 + SH.dmgK1 * G.hazard) * (1 - (G.boost ? G.boost.dmg : 0)); P.hp -= dmg; P.hitT = 0; P.inv = PL.invAfterHit; ev(['hurt', P.slot, Math.round(dmg)]); if (P.hp <= 0) knockDown(P); }
   function knockDown(P) { P.hp = 0; P.down = true; P.downs++; P.revive = 0; P.goal = null; P.dash = null; P.spT = 0; if (P.carry) { P.carry = false; dropEgg(P.pos.x, P.pos.z, 0.1); } ev(['down', P.slot]); if (G.players.every(q => q.down)) finish(false, 'wipe'); }
   function revives(dt) { for (const P of G.players) { if (!P.down) continue; let mate = null; for (const Q of G.players) if (Q !== P && !Q.down && Math.hypot(Q.pos.x - P.pos.x, Q.pos.z - P.pos.z) <= PL.reviveR) { mate = Q; break; }
     if (mate) { P.revive += dt * (mate.cfg.reviveMul || 1); if (P.revive >= PL.reviveTime) revive(P, mate); } else P.revive = Math.max(0, P.revive - dt * PL.reviveDecay); } }
   function revive(P, by) { P.down = false; P.hp = PL.hp; P.revive = 0; P.inv = PL.invAfterRevive; P.hitT = 99; if (by) by.rescues++; ev(['rev', P.slot, by ? by.slot : -1]); }
-  // ── 打工仔攻擊：自動瞄準（鎖定的 > 貼身的 > 魔王 > 最近的）──
+  // ── 小學生攻擊：自動瞄準（鎖定的 > 貼身的 > 魔王 > 最近的）──
   function weapon(P) { const c = P.cfg, s = P.spT > 0 && c.special.id === 'hose' ? c.special : null; return { dmg: c.dmg * (s ? s.dmgMul : 1), rate: c.rate / (s ? s.rateMul : 1), range: c.range + (s ? s.rangeAdd : 0) }; }
   function pickTarget(P, range) { const f = P.focus && enemyById.get(P.focus); if (f && !f.dead && f.state !== 'land' && dist(f, P.pos) <= range) return f; let best = null, bs = Infinity;
     for (const e of G.enemies) { if (e.dead || (e.state === 'land' && e.landT < SH.landSeconds * 0.5)) continue; const d = dist(e, P.pos); if (d > range) continue; const s = d - (d < SH.threatR ? 10 : 0) - (e.A.boss || e.A.gold ? 1.5 : 0); if (s < bs) { bs = s; best = e; } } return best; }
@@ -237,10 +237,13 @@ export function createGame(ctx) {
       for (const P of G.players) { if (P.down || P.carry || P.dash) continue; if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) <= EG.pickR) { P.carry = true; g.gone = true; ev(['pick', P.slot]); break; } } }
     for (const P of G.players) if (P.carry && !P.down && Math.hypot(P.pos.x - G.basket.x, P.pos.z - G.basket.z) <= EG.basketR) { P.carry = false; deliver(P); } }
   function deliver(P) { if (G.phase !== 'wave') return; G.gold++; if (P) P.gold++; ev(['egg', P ? P.slot : -1]); if (G.gold === G.quota) ev(['say', 'quota']); }
+  // ── 解題獎勵：答對一題，這一波金蛋 +bonusEggs（算進配額與自己的金蛋）、血補滿；每人每關最多 perShift 題、間隔 cooldown 秒（房客答對後送 qz 指令給房主）──
+  function quizBonusHost(P) { if (!P || P.down || G.phase !== 'wave' || (P.quizT || 0) > 0 || (P.quizN || 0) >= C.quiz.perShift) return false; P.quizT = C.quiz.cooldown; P.quizN = (P.quizN || 0) + 1; const n = C.quiz.bonusEggs; G.gold += n; P.gold += n; P.hp = PL.hp; ev(['qz', P.slot, n]); if (G.gold >= G.quota && G.gold - n < G.quota) ev(['say', 'quota']); return true; }
+  function quizBonus() { const P = meP(); if (!P || P.down || G.phase !== 'wave') return null; if (G.role !== 'client') { quizBonusHost(P); return null; } P.quizT = C.quiz.cooldown; P.quizN = (P.quizN || 0) + 1; return { t: 'i', k: 'qz' }; }
   function throwEggHost(P, dx, dz) { if (!P || !P.carry || P.down) return false; let tx, tz; const db = Math.hypot(P.pos.x - G.basket.x, P.pos.z - G.basket.z);
     if (db <= EG.throwAim) { tx = G.basket.x; tz = G.basket.z; } else { let L = Math.hypot(num(dx) ? dx : 0, num(dz) ? dz : 0); if (L < 0.01) { dx = Math.sin(P.w.yaw); dz = Math.cos(P.w.yaw); L = 1; } tx = P.pos.x + dx / L * EG.throwDist; tz = P.pos.z + dz / L * EG.throwDist; }
     P.carry = false; G.eggs.push({ id: ++eggId, x: P.pos.x, z: P.pos.z, y: 0.45, air: EG.throwTime, fx: P.pos.x, fz: P.pos.z, tx, tz, by: P.slot }); ev(['throw', P.slot]); return true; }
-  // ── 特殊技（一班 2 次）──
+  // ── 特殊技（一關 2 次）──
   function useSpecialHost(P, dx, dz) { if (!P || P.down || P.sp <= 0 || P.spT > 0 || P.dash || G.phase !== 'wave') return false; const S = P.cfg.special; P.sp--; let L = Math.hypot(num(dx) ? dx : 0, num(dz) ? dz : 0); if (L < 0.01) { dx = Math.sin(P.w.yaw); dz = Math.cos(P.w.yaw); L = 1; } dx /= L; dz /= L;
     ev(['sp', P.slot, r2(P.pos.x), r2(P.pos.z), r2(dx), r2(dz)]);
     if (S.id === 'broadcast') for (const e of [...G.enemies]) { if (e.dead || dist(e, P.pos) > S.r) continue; damage(e, S.dmg, P); if (!e.dead) { e.stun = Math.max(e.stun, S.stun); if (e.state === 'charge') e.state = 'go'; } }
@@ -250,7 +253,7 @@ export function createGame(ctx) {
     if (S.id === 'chain') { const list = G.enemies.filter(e => !e.dead && dist(e, P.pos) <= S.r).sort((a, b) => dist(a, P.pos) - dist(b, P.pos)).slice(0, S.n); if (list.length) ev(['zap', P.slot, ...list.map(e => e.id)]); for (const e of list) damage(e, S.dmg, P); }
     return true; }
   function dashes(dt) { for (const P of G.players) { const D = P.dash; if (!D) continue; for (const e of G.enemies) if (!e.dead && !D.hit.has(e.id) && dist(e, P.pos) < P.cfg.special.w) { D.hit.add(e.id); damage(e, P.cfg.special.dmg, P); } D.t -= dt; if (D.t <= 0) P.dash = null; } }
-  // ── NPC 同事：躲招 > 救人 > 搬蛋 > 撿蛋 > 打魔王 > 回籃子附近 ──
+  // ── NPC 同學：躲招 > 救人 > 搬蛋 > 撿蛋 > 打魔王 > 回籃子附近 ──
   function npcThink(P, dt) { P.think -= dt; if (P.think > 0 || P.down) return; P.think = NP.think * (0.8 + Math.random() * 0.4); const g0 = P.goal; npcDecide(P); if (P.goal && (!g0 || Math.hypot(P.goal[0] - g0[0], P.goal[1] - g0[1]) > 0.25)) P.wpT = 0; } // 目標換了就馬上重算路線
   function npcDecide(P) { P.focus = 0; P.goal = null;
     const dz = dangerAt(P.pos.x, P.pos.z); if (dz) { let ax, az; if (dz.c) { ax = P.pos.x - dz.x; az = P.pos.z - dz.z; const L = Math.hypot(ax, az) || 1; P.goal = nav.nearestWalkable(dz.x + ax / L * (dz.r + 0.5), dz.z + az / L * (dz.r + 0.5)); } else { const lx = dz.x2 - dz.x, lz = dz.z2 - dz.z, L = Math.hypot(lx, lz) || 1, side = ((P.pos.x - dz.x) * -lz + (P.pos.z - dz.z) * lx) >= 0 ? 1 : -1; P.goal = nav.nearestWalkable(P.pos.x - lz / L * side * (dz.w + 0.6), P.pos.z + lx / L * side * (dz.w + 0.6)); } return; }
@@ -311,7 +314,7 @@ export function createGame(ctx) {
   // 房主收到房客的輸入：位置（要走得到）、鎖定、特殊技、丟蛋、快速訊號
   function remoteInput(slot, m) { const P = G.players[slot]; if (!P || P.npc || P.local || !m || typeof m !== 'object') return;
     if (m.t === 'p') { if (!num(m.x) || !num(m.z) || !nav.walkable(m.x, m.z)) return; P.net = [m.x, m.z]; P.netYaw = num(m.y) ? m.y : null; P.focus = num(m.f) ? m.f : 0; }
-    else if (m.t === 'i') { if (m.k === 'sp') useSpecialHost(P, m.dx, m.dz); else if (m.k === 'th') throwEggHost(P, m.dx, m.dz); else if (m.k === 'em' && EMOTES.has(m.e) && P.emoteT <= 0) { P.emoteT = C.emoteCooldown; ev(['em', slot, m.e]); } } }
+    else if (m.t === 'i') { if (m.k === 'sp') useSpecialHost(P, m.dx, m.dz); else if (m.k === 'th') throwEggHost(P, m.dx, m.dz); else if (m.k === 'qz') quizBonusHost(P); else if (m.k === 'em' && EMOTES.has(m.e) && P.emoteT <= 0) { P.emoteT = C.emoteCooldown; ev(['em', slot, m.e]); } } }
   // 房客斷線：那一格改由 NPC 代打
   function toNpc(slot) { const P = G.players[slot]; if (!P || P.npc || P.local) return; P.npc = true; P.net = null; P.nick0 = P.nick; P.nick = (P.nick + '').slice(0, 16) + '（NPC 代打）'; retag(P); addLog(`${P.nick}`, 'bad'); emit('team'); }
   // 斷線的房客回來了：把那一格還給他
@@ -354,8 +357,9 @@ export function createGame(ctx) {
       case 'say': { const key = String(v[1]); if (!Object.hasOwn(MC.lines, key)) break; let a = v.slice(2, 4).map(x => num(x) ? x : ''); if (key === 'boss') a = [(C.animals[TYPES[v[2]]] || {}).name || '']; const txt = mayorSay(key, ...a); if (txt) { emit('banner', `📣 ${txt}`, 2.6); addLog(txt, key === 'fail' || key === 'timeup' ? 'bad' : 'good'); } break; }
       case 'boss': { const A = C.animals[TYPES[v[1]]]; if (!A || !A.boss) break; mayorSay('boss', A.name); emit('hint', `${A.name}：${A.desc}`); addLog(`${A.name}登場`, 'raid'); break; }
       case 'chant': { const e = enemyById.get(v[1]); if (!e || !e.obj) break; if (v[2] === -1) { animals.setChant(e.obj, null); break; } const t = chantText(e, v[2], v[3] | 0); if (!t) break; lastLine = t; animals.setChant(e.obj, t); break; }
-      case 'rush': { const P = Pn(v[1]); if (P) { emit('banner', P.local ? '你被肉搜了！快跑，把暴走鼠帶到隊友那邊！' : `${P.nick} 被肉搜了！掩護他！`, 2.5); } break; }
-      case 'wave': { const [, n, q, sp, iid] = v; if (G.role === 'client') { const iss = (ctx.issueById && ctx.issueById(String(iid))) || G.issues[0]; if (iss) G.issue = iss; G.special = SPECIALS[sp] || ''; } addLog(`第 ${n} 波・配額 ${q}${G.special ? '・' + (G.special === 'fog' ? '起大霧' : '暴走夜') : ''}${G.issue ? '・' + G.issue.tag : ''}`, 'good'); emit('wave', n); break; }
+      case 'rush': { const P = Pn(v[1]); if (P) { emit('banner', P.local ? '你被盯上了！快跑，把搗蛋鼠帶到隊友那邊！' : `${P.nick} 被盯上了！掩護他！`, 2.5); } break; }
+      case 'qz': { const P = Pn(v[1]); if (!P) break; const n = v[2] | 0; addLog(`${P.nick} 答對了，金蛋 +${n}`, 'good'); if (P.local) emit('banner', `✏️ 答對！這一波金蛋 +${n}，血補滿`, 2.2); floatText(`+${n} 🥚`, P.pos.x, Y + 1.0, P.pos.z, { bg: '#f2c14e' }); mayorSay('quizOk', n); emit('hud'); emit('team'); break; }
+      case 'wave': { const [, n, q, sp, iid] = v; if (G.role === 'client') { const iss = (ctx.issueById && ctx.issueById(String(iid))) || G.issues[0]; if (iss) G.issue = iss; G.special = SPECIALS[sp] || ''; } addLog(`第 ${n} 波・配額 ${q}${G.special ? '・' + (G.special === 'fog' ? '起大霧' : '搗蛋夜') : ''}${G.issue ? '・' + G.issue.tag : ''}`, 'good'); emit('wave', n); break; }
       case 'inter': for (const f of G.fx) if (f.warn) f.ttl = 0; emit('hud'); break;
       case 'end': emit('hud'); break;
     } }
@@ -438,6 +442,6 @@ export function createGame(ctx) {
     G.fx = G.fx.filter(f => f.ttl > 0); }
   const onPick = hit => { if (G.phase === 'lobby' || G.phase === 'result') return false; if (hit.enemy && !hit.enemy.dead) { focus(hit.enemy); return true; } if (hit.point) { moveTo(hit.point.x, hit.point.z); return true; } return false; };
   return { G, spawnResidents, spawnMayor, setStops, mayorStops: () => stops, startShift, backToLobby, abort, toNpc, fromNpc, step, view, makeSnapshot, applySnapshot, applyResult, remoteInput, myInput,
-    setMove, moveTo, focus, useSpecial, throwEgg, emote, onPick, enemyHits, enemyById, rebuildPeople, setExtraWalkers, shout, me: meP, quotaFor,
+    setMove, moveTo, focus, useSpecial, throwEgg, emote, quizBonus, onPick, enemyHits, enemyById, rebuildPeople, setExtraWalkers, shout, me: meP, quotaFor,
     debugSpawn: type => G.phase === 'wave' && C.animals[type] && G.role !== 'client' ? spawnEnemy(type, randomSpawn()) : null }; // 除錯／測試用
 }

@@ -1,4 +1,4 @@
-/* 全版：3D 舞台鋪滿視窗，面板浮在四角。暖紙色面板、台北藍主色、青色給攻擊方。 */
+/* 全版：3D 舞台鋪滿視窗，面板浮在四角。暖紙色面板、校園藍主色、青色給攻擊方。 */
 :root{ /* 單一淺色系：奶油底、墨色字、珊瑚橘主色、淡黃點綴（不提供深色模式） */
   --bg:#fff8f4; --paper:#fff8f4f2; --ink:#211d1d; --muted:#78685e; --line:#211d1d1f; --navy:#db6a41; --navy-soft:#fbe4d8; --gold:#fcea8b; --coral:#db6a41; --teal:#58a6a6; --teal-dark:#db6a41; --ok:#7fa35e; --bad:#c23b2a;
   --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; --sa-l:env(safe-area-inset-left,0px); --sa-r:env(safe-area-inset-right,0px); color-scheme:light; }
@@ -65,7 +65,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
   }
 @media (prefers-reduced-motion: reduce){ .banner,.card{transition:none} }
 
-/* 政策卡（版型比照政策島的底部卡片）：白底大圓角、漸層圖示磚、等寬字距編號、大標題、珊瑚引線段落、白底小圓點標籤、編號圓章細項 */
+/* 課程卡（版型比照闖關島的底部卡片）：白底大圓角、漸層圖示磚、等寬字距編號、大標題、珊瑚引線段落、白底小圓點標籤、編號圓章細項 */
 .card{left:max(14px,var(--sa-l));top:150px;width:360px;max-width:calc(100vw - 28px);padding:22px 22px 16px;max-height:calc(100vh - 260px);overflow:auto;overscroll-behavior:contain;background:#fffdfb;border-radius:26px;box-shadow:0 12px 40px #78685e33}
 .card .close{position:absolute;right:14px;top:12px;width:32px;height:32px;border:0;background:transparent;font-size:26px;font-weight:300;line-height:1;color:var(--ink)} .card .grip{display:none}
 .card .c-head{display:flex;gap:16px;align-items:center;margin:0 0 14px;padding-right:30px} .card .c-ic{flex:none;width:62px;height:62px;border-radius:18px;background:linear-gradient(150deg,#fff 0%,#fdeee6 55%,#fbe1d4 100%);display:grid;place-items:center;font-size:38px;box-shadow:0 8px 20px #db6a4124,inset 0 0 0 1px #ffffffcc}
@@ -78,7 +78,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 .card ol.facts{list-style:none;margin:0 0 12px;padding:0;counter-reset:f;font-size:14px;line-height:1.55} .card ol.facts li{counter-increment:f;display:flex;gap:10px;align-items:flex-start;margin:0 0 8px}
 .card ol.facts li::before{content:counter(f);flex:none;width:22px;height:22px;border-radius:50%;background:var(--coral);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 6px #db6a414d;margin-top:-1px}
 .card ul.c-game{list-style:none;margin:0 0 12px;padding:0;font-size:13px;line-height:1.55} .card ul.c-game li{display:flex;gap:8px;align-items:baseline;margin:0 0 7px} .card ul.c-game .k{flex:none;font-size:11px;font-weight:800;color:#c2532f;background:#fff8f4;border:1px solid #f3d3c4;border-radius:999px;padding:1px 8px;white-space:nowrap}
-.card .note{color:#9a8b82} .card .c-btns{display:flex;gap:8px;margin-top:8px} .card .c-btns button{flex:1;border:1px solid #e4d9d2;background:#fff;border-radius:999px;padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px #78685e14} .card .c-btns #btnCardFly{background:var(--ink);border-color:var(--ink);color:#fff8f4}
+.card .note{color:#9a8b82} .card .c-btns{display:flex;gap:8px;margin-top:8px} .card .c-btns button{flex:1;border:1px solid #e4d9d2;background:#fff;border-radius:999px;padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px #78685e14} .card .c-btns #btnCardFly{background:var(--ink);border-color:var(--ink);color:#fff8f4} .card .c-btns .primary{background:var(--coral);border-color:var(--coral);color:#fff8f4}
 .issue-form .wide2{grid-column:span 2} .issue-form select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--bg);color:var(--ink)} .admin h3{margin:12px 0 4px;font-size:12px;letter-spacing:.1em;color:var(--muted)}
 
 .gstrip .online{gap:6px} .gstrip .online .dot{width:8px;height:8px;border-radius:50%;background:#7fa35e;box-shadow:0 0 0 3px #7fa35e33;display:inline-block;animation:pulse 2s infinite}
@@ -87,14 +87,14 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 .overlay .next{margin:8px 0 0;font-size:13px;color:var(--coral)} .lobby-stats{grid-template-columns:repeat(3,1fr)}
 @media (max-width:900px){ .gstrip>div.online{display:flex!important} .gstrip>div:nth-child(2){display:flex!important} .gstrip>div:nth-child(3),.gstrip>div:nth-child(4){display:none} }
 
-/* 手機：政策卡改成底部抽屜，左右各留 10px，一定在畫面內（放在桌機 .card 規則之後才不會被覆蓋） */
+/* 手機：課程卡改成底部抽屜，左右各留 10px，一定在畫面內（放在桌機 .card 規則之後才不會被覆蓋） */
 @media (max-width:900px){
   .card{top:auto;left:max(10px,var(--sa-l));right:max(10px,var(--sa-r));bottom:calc(64px + env(safe-area-inset-bottom,0px));width:auto;max-width:none;transform:none;max-height:56vh;padding:28px 20px 14px;border-radius:28px;overflow:auto;-webkit-overflow-scrolling:touch;z-index:5;transition:max-height .25s}
   .card.full{max-height:calc(100vh - 180px)} .card .grip{display:block;position:absolute;left:50%;top:0;transform:translateX(-50%);width:80px;height:24px;border:0;background:transparent;padding:0;touch-action:none} .card .grip::before{content:"";display:block;width:44px;height:5px;margin:10px auto 0;border-radius:3px;background:#d8cfc9}
   .card .c-head{gap:14px;padding-right:34px;margin-bottom:12px} .card .c-ic{width:54px;height:54px;font-size:32px;border-radius:16px} .card h2{font-size:23px} .card .eyebrow{font-size:11px;letter-spacing:.2em} .card .lead{font-size:14px} .card .why{font-size:13px} .card ol.facts{font-size:13px} .card .chip{font-size:12px;padding:5px 12px}
   .card .close{right:10px;top:10px;width:40px;height:40px;font-size:28px}
 }
-/* 手機大廳：介紹收成三行、英雄兩欄、出戰按鈕黏在底部 */
+/* 手機大廳：介紹收成三行、角色兩欄、出戰按鈕黏在底部 */
 @media (max-width:900px){
   .overlay{padding:10px} .overlay .box.lobby{padding:16px 14px 0}
   .overlay .box.lobby .lead{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px}
@@ -111,7 +111,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 .banner{top:110px}
 @media (max-width:900px){ .followbar{top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));border-radius:18px;padding:8px 10px} #followText{font-size:12px;width:100%;text-align:center} .fb-btns button{padding:6px 10px} .banner{top:76px} }
 
-/* 二創惡搞警語：大廳頂部醒目框、底部免責框、地圖上常駐徽章 */
+/* 教學版警語：大廳頂部醒目框、底部免責框、地圖上常駐徽章 */
 .parody{display:flex;flex-direction:column;gap:2px;background:#fcea8b;border:2px solid #211d1d;border-radius:14px;padding:10px 14px;margin:-4px 0 12px}
 .lobby-tribute{text-align:center;font-size:15px;font-weight:900;letter-spacing:.12em;color:var(--navy);margin:-4px 0 10px}
 .parody b{font-size:15px;font-weight:900;color:#211d1d;letter-spacing:.06em} .parody span{font-size:13px;color:#211d1d;line-height:1.5}
@@ -123,7 +123,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
   .parody{padding:8px 12px} .parody b{font-size:14px} .parody span{font-size:12px}
   .fb-btns{flex-wrap:nowrap;width:100%} .fb-btns button{flex:1;padding:6px 4px;font-size:11px} }
 
-/* 1999 市民熱線卡（右側）與城市快訊跑馬燈（底部） */
+/* 校園信箱卡（右側）與校園快訊跑馬燈（底部） */
 .hotline{right:max(14px,var(--sa-r));top:200px;width:300px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px);overflow:hidden}
 .hl-head{display:flex;align-items:center;gap:6px;font-size:13px} .hl-head b{font-weight:900;color:var(--coral)} .hl-count{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .hl-body{position:relative;overflow:hidden;transition:height var(--hl-ms,.7s) cubic-bezier(.22,.8,.25,1)} .hl-track{transition:transform var(--hl-ms,.7s) cubic-bezier(.22,.8,.25,1);will-change:transform} .hl-item{position:relative;padding-bottom:8px;margin-bottom:8px;border-bottom:1px dashed var(--line);transition:opacity .55s ease} .hl-item.out{opacity:0} .hl-item.enter{opacity:0}
@@ -142,14 +142,14 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 @media (max-width:900px){ .hotline{display:none} .ticker{height:28px;font-size:12px} .tk-label{padding:0 8px;font-size:11px}
   .gstrip{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .hero{bottom:calc(40px + env(safe-area-inset-bottom,0px))} .followbar{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .card{bottom:calc(92px + env(safe-area-inset-bottom,0px))} }
 
-/* 手機修正：浮動「二創惡搞」徽章同時被 top 與 bottom 撐成整條直條，改成收進左上品牌框；右側按鈕不換行、等寬 */
+/* 手機修正：浮動「教學版」徽章同時被 top 與 bottom 撐成整條直條，改成收進左上品牌框；右側按鈕不換行、等寬 */
 @media (max-width:900px){
   .parody-badge{display:none}
   .brand .tag{display:inline-block;margin-top:4px;font-size:10px;padding:1px 8px;border-radius:999px;letter-spacing:.06em}
   .hud .btns{width:max-content;align-items:stretch} .hud .btns button{white-space:nowrap;font-size:12px;padding:8px 10px}
 }
 
-/* 城市快訊與 1999 市民熱線整合：輪到熱線時標籤換成黃底「📞 1999 熱線」，市民要求與市長解法分色（手機上熱線卡收起，只靠這條） */
+/* 校園快訊與 校園信箱整合：輪到信箱時標籤換成黃底「📮 校園信箱」，同學要求與校長解法分色（手機上信箱卡收起，只靠這條） */
 .tk-label{transition:background .3s,color .3s} .ticker.hot .tk-label{background:#fcea8b;color:#211d1d}
 .tk-text .tk-dist{background:#fff8f42e;border-radius:999px;padding:1px 7px;margin-right:6px;font-size:.88em;font-weight:700}
 .tk-text .tk-ask{font-weight:700;color:#fff8f4} .tk-text .tk-arrow{margin:0 8px;color:#fff8f480}
@@ -171,12 +171,12 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
   #btnFull::before{content:"⤢"} :root:fullscreen #btnFull::before{content:"⤡"}
 }
 
-/* 多人同框：英雄面板裡的表情列 */
+/* 多人同框：角色面板裡的表情列 */
 .emotes{display:flex;gap:4px;margin:6px 0} .emotes button{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:4px 0;font-size:18px;line-height:1.2} .emotes button:active{transform:scale(.92)}
 @media (max-width:900px){ .hero{display:flex;flex-direction:column;align-items:stretch} .emotes{margin:0 0 6px;gap:3px} .emotes button{font-size:16px;padding:3px 0;border-radius:9px} }
 .hotline{max-height:calc(100vh - 200px - 44px - var(--hero-h,0px) - 14px)} .hl-body{flex:1 1 auto;min-height:0}
 
-/* 人物名牌：跟市長同款（黑框圓角＋下方黑色小三角＋左側徽章）。市長黃底、徽章「🎙 市長」只有市長有；玩家徽章是英雄職業 */
+/* 人物名牌：跟校長同款（黑框圓角＋下方黑色小三角＋左側徽章）。校長黃底、徽章「🎙 校長」只有校長有；玩家徽章是角色角色 */
 .nameplate.person{display:flex;align-items:center;gap:6px;padding:2px 10px 2px 3px;border:2px solid #211d1d;font-size:13px;box-shadow:0 3px 8px #211d1d33}
 .nameplate.person .badge{color:#fff8f4;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:900;line-height:1.5}
 .nameplate.person::after{content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#211d1d;border-bottom:0}
@@ -211,16 +211,16 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 @media (max-width:900px){ .auto{margin:0 0 6px;padding:5px 8px;font-size:12px} .auto .sw{width:34px;height:20px} .auto .sw i{width:14px;height:14px} .auto[aria-checked="true"] .sw i{transform:translateX(14px)} }
 
 .field select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--bg);color:var(--ink);font-size:14px} .lobby-grid .col .field+.field{margin-top:8px}
-/* 12 區對抗排名：名次、區名、擋下數、人數，底下一條長條 */
+/* 學期對抗排名：名次、區名、擋下數、人數，底下一條長條 */
 .dboard{list-style:none;margin:0;padding:0;font-size:12px} .dboard li{position:relative;display:grid;grid-template-columns:22px 1fr auto auto;gap:6px;align-items:baseline;padding:3px 4px 5px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:6px}
 .dboard li:hover{background:#fff} .dboard .rank{font-family:var(--mono);color:var(--muted)} .dboard b{font-variant-numeric:tabular-nums} .dboard small{color:var(--muted)} .dboard i{position:absolute;left:4px;bottom:1px;height:2px;border-radius:1px;background:var(--coral);opacity:.55;max-width:calc(100% - 8px)}
 .dboard li.mine{background:var(--navy-soft)} .dboard li.mine .who{color:var(--coral);font-weight:900} .dboard em{font-style:normal;font-size:10px;background:var(--coral);color:#fff8f4;border-radius:999px;padding:0 6px;margin-left:2px}
 .overlay .district{margin:6px 0;padding:8px 12px;border-radius:8px;background:#fffbea;border:1px solid #efe2a6;font-size:14px;font-weight:700}
-/* 地圖上的區名：12 區對抗名次、自己的區 */
+/* 地圖上的區名：學期對抗名次、自己的學期 */
 .nameplate.district .rk{margin-left:5px;padding:0 6px;border-radius:999px;background:#fff8f4;color:#78685e;font-size:10px;letter-spacing:0;text-shadow:none;box-shadow:0 1px 4px #78685e33} .nameplate.district .rk.top{background:var(--gold);color:#211d1d}
 .nameplate.district.mine{color:var(--coral);opacity:1;font-weight:900}
 .stale{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:20;display:flex;gap:10px;align-items:center;white-space:nowrap;background:var(--ink);color:#fff8f4;border-radius:999px;padding:8px 8px 8px 16px;font-size:13px;font-weight:700;box-shadow:0 8px 24px #0004} .stale button{border:0;background:var(--gold);color:#211d1d;border-radius:999px;padding:6px 12px;font-weight:900}
-/* 大廳：最上面快速出戰（暱稱、區、出戰鈕一排，下面五個英雄），資訊在中間，怎麼玩在最下面 */
+/* 大廳：最上面快速出戰（暱稱、區、出戰鈕一排，下面五個角色），資訊在中間，怎麼玩在最下面 */
 .quick{display:grid;grid-template-columns:1fr 1fr 300px;gap:10px 14px;align-items:end;margin:12px 0 4px;padding:14px;background:#fff;border:1px solid #ece3dd;border-radius:16px;box-shadow:0 2px 8px #78685e14}
 .quick .go{margin:0;font-size:18px;padding:12px 20px;box-shadow:0 8px 20px #db6a4150} .quick .classes{grid-column:1/-1;grid-template-columns:repeat(5,minmax(0,1fr));margin:0} .quick .q-note{grid-column:1/-1;margin:0}
 .howto{margin:16px 0 4px;padding-top:12px;border-top:1px solid var(--line)} .howto h3{margin:0 0 6px} .howto .lead{margin:0 0 10px;font-size:13px;color:#4a403b}
@@ -237,7 +237,7 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 @media (max-width:1100px){ .howto ol,.howto-list{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:900px){ .quick{grid-template-columns:1fr;padding:12px;gap:8px} .quick .classes{grid-template-columns:1fr 1fr} .howto ol,.howto-list{grid-template-columns:1fr} .howto .lead{display:block;-webkit-line-clamp:unset}
   .wave-toast{top:124px;left:10px;right:64px;transform:none;width:auto;max-width:none;padding:8px 12px} .wave-toast b{font-size:15px} .wave-toast span{font-size:12px} }
-/* 左上：12 區對抗即時排名（對齊品牌框，寬度一樣） */
+/* 左上：學期對抗即時排名（對齊品牌框，寬度一樣） */
 .dpanel{left:max(14px,var(--sa-l));top:134px;width:260px;padding:8px 12px 8px} .dp-head{display:flex;justify-content:space-between;align-items:baseline;width:100%;border:0;background:transparent;padding:0 0 4px;cursor:pointer}
 .dp-head b::after{content:" ▾";letter-spacing:0} .dpanel.open .dp-head b::after{content:" ▴"} .dp-head em{font-style:normal} .dpanel.open .dp-head em{display:none} .dpanel:not(.open) li:not(:first-child){display:none}
 .dp-head b{font-size:11px;letter-spacing:.16em;color:var(--coral);font-weight:900} .dp-head span{font-size:11px;font-weight:700;color:var(--coral)}
@@ -245,9 +245,9 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 .dpanel .r{font-family:var(--mono);color:var(--muted);font-size:11px} .dpanel b{font-variant-numeric:tabular-nums;font-size:12px} .dpanel i{position:absolute;left:24px;bottom:0;height:2px;border-radius:1px;background:var(--coral);opacity:.4;max-width:calc(100% - 24px)}
 .dpanel li.mine{color:var(--coral);font-weight:900} .dpanel li.mine i{opacity:.9} .dpanel li:first-child .r{color:#211d1d;background:var(--gold);border-radius:999px;text-align:center}
 @media (max-width:900px){ .dpanel{left:max(10px,var(--sa-l));top:88px;width:190px;padding:6px 10px;border-radius:14px} .dpanel li{font-size:11px;padding:1px 0 2px} .wave-toast{top:150px} }
-/* 手機：英雄面板不可以比螢幕寬（內容再多也不會往左邊超出畫面） */
+/* 手機：角色面板不可以比螢幕寬（內容再多也不會往左邊超出畫面） */
 @media (max-width:900px){ .hero{max-width:calc(100vw - 20px - var(--sa-l) - var(--sa-r))} }
-/* 在線的人：上方「人在線」可點，打開名單（守城中＝綠點、在大廳＝藍點、暫離＝灰點） */
+/* 在線的人：上方「人在線」可點，打開名單（闖關中＝綠點、在大廳＝藍點、暫離＝灰點） */
 .gstrip button.online{display:flex;align-items:baseline;gap:5px;border:0;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer} .gstrip button.online:hover span{text-decoration:underline} .gstrip button.online[aria-expanded="true"] span{color:var(--coral)} .gstrip #gPlaying{color:var(--ok);font-weight:700}
 .players{left:50%;top:62px;transform:translateX(-50%);width:300px;max-height:min(60vh,520px);overflow:auto;padding:10px 12px 8px;z-index:5;overscroll-behavior:contain}
 .players .pl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px} .players .pl-head b{font-size:13px;font-weight:900;color:var(--coral)} .players .close{border:0;background:transparent;font-size:22px;line-height:1;color:var(--ink);width:30px;height:30px} .players .note{margin:6px 0 0;line-height:1.4}
@@ -261,11 +261,11 @@ body.warping #labels{opacity:0;transition-duration:.15s} /* 換世界：名牌�
 .lobby-stats .vis{grid-column:1/-1}
 @media (max-width:900px){ .gstrip .vis{display:none!important} }
 
-/* ═══════════════ 打工模式 ═══════════════ */
+/* ═══════════════ 闖關模式 ═══════════════ */
 /* 右上：只剩鏡頭與設定鈕 */
 .hud{width:auto;max-width:330px;padding:8px 10px} .hud .btns{margin:0;justify-content:flex-end}
 #btnQuit{border-color:var(--coral)!important;color:var(--coral)}
-/* 開工時：上方戰績列、12 區、熱線、日誌讓位給這一波的資訊 */
+/* 開始闖關時：上方戰績列、12 區、信箱、日誌讓位給這一波的資訊 */
 body.in-shift .gstrip,body.in-shift .dpanel,body.in-shift .hotline,body.in-shift .parody-badge{display:none}
 body.in-shift .nameplate.policy{display:none!important}
 /* 上方中央：第幾波、倒數、金蛋／配額 */
@@ -278,7 +278,7 @@ body.in-shift .nameplate.policy{display:none!important}
 .sh-egg.done{background:#eaf5df;border-color:#a9d48f} .sh-egg.done .bar i{background:#7fa35e} .sh-egg.done #shGold{color:#4f8a3f}
 .sh-sp{font-weight:900;font-size:13px;background:#211d1d;color:#fff8f4;border-radius:999px;padding:3px 10px}
 .egg{display:inline-block;width:16px;height:20px;border-radius:50% 50% 50% 50%/58% 58% 42% 42%;background:radial-gradient(circle at 35% 30%,#fff5c8 0 18%,#f2c14e 45%,#c8941f 100%);box-shadow:0 1px 0 #8a6400;flex:none}
-/* 左邊：這一班的同事 */
+/* 左邊：這一關的同學 */
 .team{left:max(14px,var(--sa-l));top:134px;width:260px;padding:8px 10px}
 .team ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .team li{display:grid;grid-template-columns:28px 1fr auto;grid-template-areas:"b n g" "b h s";column-gap:7px;row-gap:3px;align-items:center;padding:5px 7px;border-radius:12px;background:#fff;border:1px solid #ece3dd}
@@ -300,8 +300,9 @@ body.in-shift .nameplate.policy{display:none!important}
 .act .kbd{position:absolute;top:-9px;right:-9px;background:#211d1d;color:#fff8f4;border-radius:7px;font-size:10px;padding:1px 5px;font-family:var(--mono)}
 .act.throw{width:84px;height:72px;background:#fff8f4} .act.throw b{font-size:14px} .act.throw .egg{width:20px;height:25px} .act.throw.ready{background:#fcea8b;animation:nudge 1.2s infinite}
 @keyframes nudge{0%,100%{transform:none}50%{transform:translateY(-3px)}}
+.act.quiz{width:84px;height:72px;background:#fff8f4} .act.quiz b{font-size:14px} .act.quiz small{font-size:10px;color:var(--muted);font-weight:700}
 .act.special{width:132px;height:88px;background:var(--coral);color:#fff8f4} .act.special b{font-size:17px;letter-spacing:.04em} .act.special .dots{font-size:15px;letter-spacing:3px;color:#fcea8b}
-/* 手機搖桿（只在觸控裝置、開工時出現） */
+/* 手機搖桿（只在觸控裝置、開始闖關時出現） */
 .joy{position:absolute;z-index:3;left:calc(22px + var(--sa-l));bottom:calc(52px + env(safe-area-inset-bottom,0px));width:124px;height:124px;border-radius:50%;background:#fff8f466;border:3px solid #211d1d55;touch-action:none;display:grid;place-items:center;backdrop-filter:blur(2px)}
 .joy i{width:54px;height:54px;border-radius:50%;background:#fff8f4;border:3px solid #211d1d;box-shadow:0 4px 12px #0003;pointer-events:none} .joy.on{background:#fff8f499;border-color:#211d1d99}
 /* 被打到：畫面邊緣紅一下 */
@@ -314,7 +315,7 @@ body.in-shift .nameplate.policy{display:none!important}
 @keyframes plateHit{50%{background:#ffb3a3}}
 .nameplate.person.carry::before{content:"";width:12px;height:15px;margin-left:2px;border-radius:50%/58% 58% 42% 42%;background:#f2c14e;border:1.5px solid #8a6400;flex:none;order:2}
 .nameplate.npc{opacity:.92} .nameplate.player{background:#fff8f4}
-/* 大廳：打工場、職級、職業、開工鈕、房間 */
+/* 大廳：闖關場、等級、角色、開始闖關鈕、房間 */
 .stage-line{margin:4px 0 0;font-size:14px} .stage-line b{color:var(--coral);font-size:16px} .stage-line span{color:var(--muted);font-size:12px}
 .quick{grid-template-columns:1fr 1fr 1fr} .quick .grade{align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:4px;background:#fffbea;border:1px solid #efe2a6;border-radius:12px;padding:8px 12px}
 .grade .gl{display:flex;align-items:baseline;gap:8px} .grade .k{font-size:11px;color:var(--muted);letter-spacing:.08em} .grade b{font-size:18px;color:#a87b00} .grade .pts{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;font-size:12px}
@@ -350,9 +351,9 @@ body.in-shift .nameplate.policy{display:none!important}
   .hud{background:none;box-shadow:none;padding:0;backdrop-filter:none;max-width:none} .hud .btns{position:static;flex-direction:column;width:44px;gap:8px} #btnQuit::before{content:"🏁"} #btnQuit,#btnPause{font-size:0}
   .quick{grid-template-columns:1fr} .q-actions{grid-template-columns:1fr 1fr} .overlay .box.lobby .go{position:static;box-shadow:0 8px 20px #db6a4150;padding:12px} .overlay .box.lobby{padding-bottom:16px}
   .room-list{grid-template-columns:1fr 1fr} .room-head b{font-size:24px}
-  /* 開工中的手機版面：左上這一波＋同事，右下大按鈕，左下搖桿 */
+  /* 開始闖關中的手機版面：左上這一波＋同學，右下大按鈕，左下搖桿 */
   body.in-shift .brand,body.in-shift .logp{display:none}
-  .shud{left:max(10px,var(--sa-l));top:10px;transform:none;flex-wrap:wrap;gap:4px 10px;padding:6px 10px;border-radius:16px;max-width:calc(100vw - 80px)} .shud::after{content:"二創惡搞";font-size:9px;font-weight:900;border:1.5px solid #211d1d;background:#fcea8b;border-radius:999px;padding:0 6px}
+  .shud{left:max(10px,var(--sa-l));top:10px;transform:none;flex-wrap:wrap;gap:4px 10px;padding:6px 10px;border-radius:16px;max-width:calc(100vw - 80px)} .shud::after{content:"教學版";font-size:9px;font-weight:900;border:1.5px solid #211d1d;background:#fcea8b;border-radius:999px;padding:0 6px}
   .sh-time b{font-size:22px} .sh-wave b{font-size:16px} .sh-egg b{font-size:17px} .sh-egg .bar{width:44px}
   .team{left:max(10px,var(--sa-l));top:auto;bottom:auto;top:96px;width:150px;padding:5px;border-radius:14px} .team ol{gap:4px} .team li{grid-template-columns:20px 1fr auto;padding:3px 5px;column-gap:5px;row-gap:2px} .team .badge{width:20px;height:20px;font-size:11px;border-width:1.5px} .team .nm{font-size:11px} .team .g{font-size:12px} .team .st{display:none}
   .actions{right:max(10px,var(--sa-r));bottom:calc(40px + env(safe-area-inset-bottom,0px))} .actions .emotes button{font-size:20px;padding:2px 4px} .actions .emotes button span{display:none}
@@ -362,11 +363,11 @@ body.in-shift .nameplate.policy{display:none!important}
 /* 大廳在窄螢幕不要被輸入框撐破：格子裡的東西都可以縮 */
 .quick>*,.q-actions>*{min-width:0} .field input,.field select{width:100%;min-width:0} .join input{width:100%}
 @media (max-width:900px){ .q-actions .join{grid-column:1/-1} .classes .cls{align-items:center} .q-actions .go2{padding:10px 8px} }
-/* .ic 是 SVG 圖示的共用 class（line-height:0），職業卡與房間名單裡放的是 emoji，要把行高還回來；.go 的底色不能被一般按鈕樣式蓋掉 */
+/* .ic 是 SVG 圖示的共用 class（line-height:0），角色卡與房間名單裡放的是 emoji，要把行高還回來；.go 的底色不能被一般按鈕樣式蓋掉 */
 .classes .cls .ic,.room-list li .ic{line-height:1.2;display:block;vertical-align:baseline}
 .room-btns .go,.res-btns .go{background:var(--coral);color:#fff8f4;border:0}
 
-/* ═══════════════ 逛政策島（參考「政策島」互動規格）═══════════════ */
+/* ═══════════════ 逛闖關島（參考「闖關島」互動規格）═══════════════ */
 /* 載入畫面 */
 .loading{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#fffdf9,#edddcf);transition:opacity .4s}
 .loading.done{opacity:0;pointer-events:none} .ld-box{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:0 24px}
@@ -380,7 +381,7 @@ body.in-shift .nameplate.policy{display:none!important}
 .xb:focus-visible,.xl-tabs button:focus-visible,.is-list button:focus-visible,.xl-body .it:focus-visible,#xlSearch:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
 .card .chip,.iscard .chip{box-shadow:0 2px 8px #4a2a1414}
 .xlist .eyebrow,.iscard .eyebrow{font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:2px}
-/* 大廳的「逛政策島」 */
+/* 大廳的「逛闖關島」 */
 .lh-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap} .lh-row h2{margin:0}
 .explore{display:flex;flex-direction:column;align-items:center;border-radius:14px;padding:8px 16px;font-weight:900;min-height:44px} .explore small{font-size:11px;font-weight:500}
 /* 底部 HUD 工具列：時段四鈕＋開關（圖示在上、字在下） */
@@ -391,7 +392,7 @@ body.in-shift .nameplate.policy{display:none!important}
 .xb.clock{display:none}
 body.exploring .hint{bottom:118px}
 body.exploring .parody-badge{bottom:118px}
-/* 右側政策清單 */
+/* 右側課程清單 */
 .xlist{right:max(14px,var(--sa-r));top:120px;bottom:118px;width:318px;padding:12px;display:flex;flex-direction:column;gap:8px;background:#fff8f4d9;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:4;border-radius:22px}
 .xlist .grip{display:none} .xl-head{display:flex;justify-content:space-between;align-items:flex-start} .xl-head b{font-size:18px;font-weight:900} .xl-head .close{border:0;background:transparent;font-size:24px;width:40px;height:40px;line-height:1}
 #xlSearch{border:1px solid #ece3dd;border-radius:9px;padding:10px 12px;background:#fff;font-size:14px;min-height:44px}
@@ -403,11 +404,11 @@ body.exploring .parody-badge{bottom:118px}
 .xl-body .it .no{flex:none;width:22px;height:22px;border-radius:50%;background:var(--coral);color:#fff;font-size:11px;display:grid;place-items:center} .xl-body .it small{margin-left:auto;color:var(--muted);font-weight:500;font-size:11px;white-space:nowrap}
 .xl-body .empty{color:var(--muted);font-size:13px;padding:8px}
 body.exploring.list-open .hotline{display:none}
-/* 島卡（和政策卡同一套外觀） */
+/* 島卡（和課程卡同一套外觀） */
 .iscard .c-ic.num{font-family:Georgia,serif;font-style:italic;font-weight:700;color:var(--coral);font-size:30px}
 .is-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px} .is-list button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:6px 12px}
 .is-list .no{flex:none;width:24px;height:24px;border-radius:50%;background:var(--coral);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center} .is-list small{display:block;font-weight:500;color:var(--muted);font-size:11px}
-/* 政策卡：從細項抓出的大數字磚（Georgia 斜體） */
+/* 課程卡：從細項抓出的大數字磚（Georgia 斜體） */
 .bignums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px} .bignums:empty{display:none}
 .bignums div{background:#fff8f4;border:1px solid #f3d3c4;border-radius:14px;padding:8px 10px;min-width:0} .bignums b{display:block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:24px;line-height:1.1;color:var(--coral);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .bignums b small{font-family:var(--font);font-style:normal;font-size:12px;margin-left:2px;color:var(--ink)} .bignums span{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:2px}
 /* 島名標籤：前側崖邊的膠囊「01 北投區」；選到的島 ink 底、其他變淡；擠的時候只留號碼 */
@@ -437,7 +438,7 @@ body.in-shift .nameplate.district{opacity:.75;pointer-events:none}
   .bignums b{font-size:20px}
 }
 @media (prefers-reduced-motion: reduce){ .ld-bar::after{animation:none} .loading{transition:none} .xlist{transition:none} }
-/* 手機開工時左上縮小：這一波、倒數、金蛋擠成一行；同事改成一排小圓章（職業圖示＋血條＋右上角金蛋數），不遮畫面 */
+/* 手機開始闖關時左上縮小：這一波、倒數、金蛋擠成一行；同學改成一排小圓章（角色圖示＋血條＋右上角金蛋數），不遮畫面 */
 @media (max-width:900px){
   .shud{flex-wrap:nowrap;gap:8px;padding:4px 10px;border-radius:999px;max-width:calc(100vw - 76px)}
   .shud .k{font-size:10px} .sh-wave b{font-size:14px} .sh-time b{font-size:17px;min-width:2.7em} .sh-egg{padding:1px 8px 1px 5px;border-width:1.5px;gap:2px} .sh-egg b{font-size:14px} .sh-egg .egg{width:11px;height:14px} .sh-egg .bar{display:none} .sh-sp{font-size:10px;padding:1px 6px}
@@ -447,7 +448,7 @@ body.in-shift .nameplate.district{opacity:.75;pointer-events:none}
   .team .nm,.team .st,.team .spd{display:none} .team .badge{width:22px;height:22px;font-size:12px;border-width:1.5px} .team .hp{width:26px;height:4px}
   .team .g{position:absolute;top:-5px;right:-5px;font-size:10px;line-height:1.4;background:#fffbea;border-radius:999px;padding:0 4px;border:1px solid #efe2a6;gap:2px} .team .g::before{width:6px;height:8px}
 }
-/* 電腦版也一樣：同事名單縮成一排小圓章（名字放在滑鼠提示），只留職業、血條、金蛋數；自己那格有珊瑚框，倒下變紅、搬蛋時頭上有蛋 */
+/* 電腦版也一樣：同學名單縮成一排小圓章（名字放在滑鼠提示），只留角色、血條、金蛋數；自己那格有珊瑚框，倒下變紅、搬蛋時頭上有蛋 */
 .team{width:auto;padding:6px 8px;border-radius:16px} .team ol{display:flex;gap:6px}
 .team li{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 5px;border-radius:12px;min-width:46px;position:relative}
 .team .nm,.team .st,.team .spd{display:none} .team .badge{width:28px;height:28px;font-size:15px} .team .hp{width:34px;height:5px}
@@ -455,7 +456,7 @@ body.in-shift .nameplate.district{opacity:.75;pointer-events:none}
 .team li.carry::after{content:"";position:absolute;top:-8px;left:-4px;width:11px;height:14px;border-radius:50%/58% 58% 42% 42%;background:#f2c14e;border:1.5px solid #8a6400}
 @media (max-width:900px){ .team li{min-width:36px;padding:4px 5px} .team .badge{width:22px;height:22px;font-size:12px} .team .hp{width:26px;height:4px} .team .g{top:-5px;right:-5px;font-size:10px} }
 
-/* ═══ 金蛋商店（大廳）：錢包、買衣服、蓋城市、政治獻金 ═══ */
+/* ═══ 金蛋商店（大廳）：錢包、買衣服、蓋校園、捐書 ═══ */
 .wallet{display:flex;align-items:center;gap:10px} .wallet .egg{width:30px;height:38px} .wallet .k{display:block;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.08em} .wallet b{font-size:28px;font-weight:900;color:#a87b00;font-variant-numeric:tabular-nums;margin-right:6px} .wallet small{font-size:11px;color:var(--muted)}
 .shop-tabs{display:flex;gap:6px} .shop-tabs button{border:2px solid #211d1d;background:#fff;border-radius:999px;padding:6px 14px;font-weight:900;font-size:14px;cursor:pointer} .shop-tabs button[aria-selected="true"]{background:#f2c14e;box-shadow:0 3px 0 #211d1d}
 .shop-lead{margin:0 0 8px;font-size:12px;color:var(--muted);line-height:1.5} .shop-panel h4{margin:10px 0 4px;font-size:12px;letter-spacing:.08em;color:var(--muted)}
@@ -479,20 +480,20 @@ body.in-shift .nameplate.district{opacity:.75;pointer-events:none}
 @media (max-width:900px){ .shop-tabs button{padding:6px 6px;font-size:13px} .city-list,.tiers{grid-template-columns:1fr} .fit-items .it{min-width:0;flex:1 1 calc(50% - 6px)} .fit-row{grid-template-columns:1fr} .fit-row .k{padding-top:0} }
 @media (max-width:900px){ .give .go2{flex:1 1 40%} }
 
-/* ═══ 逛城市：模式分頁、大廳的逛城市區塊、右下動作、商店面板、工具列 ═══ */
+/* ═══ 逛校園：模式分頁、大廳的逛校園區塊、右下動作、商店面板、工具列 ═══ */
 .city-list.compact{grid-template-columns:1fr} .city-list.compact li{padding:2px 4px} .city-list.compact li.now{grid-column:auto}
-/* 右下：走到地點旁出現的「進去」鈕、打招呼、衣櫃／蓋城市／獻金 */
+/* 右下：走到地點旁出現的「進去」鈕、打招呼、衣櫃／蓋校園／捐書 */
 body.exploring .xact{bottom:112px} body.exploring.list-open .xact{right:calc(max(14px,var(--sa-r)) + 332px)}
 .xact .emotes button{padding:3px 10px 3px 4px} .xact .emotes .em{font-size:20px;line-height:1}
 .act.xbtn{width:74px;height:66px;background:#fff8f4;gap:0} .act.xbtn .pi{font-size:24px;line-height:1.1} .act.xbtn b{font-size:12px} .act.xbtn[aria-pressed="true"]{background:#fcea8b}
 .x-prompt .act{width:auto;height:auto;flex-direction:row;gap:8px;padding:10px 18px;animation:nudge 1.2s infinite} .x-prompt .act .pi{font-size:22px} .x-prompt .act b{font-size:16px}
-/* 商店面板：和政策清單同一個位置（電腦右側、手機底部抽屜） */
+/* 商店面板：和課程清單同一個位置（電腦右側、手機底部抽屜） */
 .shop-panel .xl-head{align-items:center} .shop-panel .wallet .egg{width:24px;height:30px} .shop-panel .wallet b{font-size:24px}
 .shop-panel .shop-tabs{display:grid;grid-template-columns:repeat(3,1fr)} .shop-panel .shop-tabs button{padding:6px 4px;font-size:13px}
 .shop-panel .shop-body{display:block} .shop-panel .city-list,.shop-panel .tiers{grid-template-columns:1fr} .shop-panel .fit-row{grid-template-columns:1fr} .shop-panel .fit-row .k{padding-top:0} .shop-panel .fit-items .it{min-width:0;flex:1 1 calc(50% - 6px)}
 .where{margin:0 0 10px;font-size:12px;line-height:1.5;background:#fff;border:1.5px dashed #e0cfc3;border-radius:12px;padding:8px 10px} .where.ok{border-style:solid;border-color:#a9d48f;background:#eaf5df;font-weight:700}
 .where .go-there{display:flex;margin-top:6px;border-radius:999px;padding:6px 14px;font-weight:900;font-size:13px}
-/* 地圖上的服飾店招牌只在逛城市時出現；名牌開關 */
+/* 地圖上的服飾店招牌只在逛校園時出現；名牌開關 */
 .nameplate.policy.shopsign{pointer-events:none;cursor:default;background:#58a6a6;color:#fff8f4} .nameplate.policy.shopsign::after{border-top-color:#58a6a6}
 body:not(.exploring) .nameplate.shopsign{display:none!important}
 body.no-plates .nameplate.policy:not(.shopsign):not(.city),body.no-plates .nameplate.district,body.no-plates .nameplate.river{display:none!important}
@@ -515,11 +516,11 @@ body.exploring .gstrip,body.exploring .dpanel,body.exploring .hotline{display:no
 .cloudwipe.fly .cw-text{opacity:1;transform:translate(-50%,0);transition-delay:.55s,.55s} .cloudwipe.fly.done .cw-text{opacity:0;transform:translate(-50%,8px);transition-delay:0s,0s}
 .cloudwipe.in .cw-text{opacity:1;color:var(--coral);text-shadow:0 2px 0 #fff}
 @media (prefers-reduced-motion: reduce){ .cloudwipe .cw-fog,.cw-text{transition:opacity .2s linear!important;transform:translate(-50%,0)!important} }
-/* 打工場大廳的「回城市」 */
+/* 闖關場大廳的「回校園」 */
 .go2.tocity{display:flex;flex-direction:column;align-items:center;gap:1px;border-radius:16px;padding:8px 18px;font-weight:900;background:#eef6fb;border-color:#58a6a6;color:#2f6f7f;position:relative}
 .go2.tocity small{font-size:11px;font-weight:500;color:var(--muted)} .go2.tocity .cl{position:absolute;left:-10px;top:-12px;font-size:22px} .go2.tocity:hover{background:#dff0f6}
 #btnResCity{background:#eef6fb;border-color:#58a6a6;color:#2f6f7f}
-/* 逛城市：打工現場 */
+/* 逛校園：闖關現場 */
 .xb.live{position:relative} .xb.live em{position:absolute;top:2px;right:4px;font-style:normal;font-size:10px;font-weight:900;background:var(--bad);color:#fff;border-radius:999px;padding:0 5px;line-height:1.5} .xb.live em:empty{display:none}
 .live-card{background:#fff;border:1px solid #ece3dd;border-radius:14px;padding:10px 12px;display:grid;gap:5px}
 .lc-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px} .lc-head b{font-size:15px} .lc-head .ph{font-size:12px;font-weight:900;color:var(--coral);font-variant-numeric:tabular-nums} .lc-head .ph.inter{color:#4f8a3f} .lc-head .ph.intro{color:var(--muted)}
@@ -531,15 +532,15 @@ body.exploring .gstrip,body.exploring .dpanel,body.exploring .hotline{display:no
 .live-panel .xl-body{gap:8px} .live-panel .empty{margin:0 0 8px}
 .nameplate.policy.live{pointer-events:none;cursor:default;background:var(--bad);color:#fff} .nameplate.policy.live::after{border-top-color:var(--bad)} .nameplate.policy.live em{background:none}
 body:not(.exploring) .nameplate.live{display:none!important}
-/* 衣櫃最上面的角色列：暱稱、職業 */
+/* 衣櫃最上面的角色列：暱稱、角色 */
 .fit-row.who .nick{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted);width:100%} .fit-row.who .nick input{border:1.5px solid var(--line);border-radius:10px;padding:6px 10px;font-size:14px;font-weight:700;background:#fff;color:var(--ink)}
 .fit-row.who .home-row{display:flex;gap:6px} .fit-row.who .home-row select{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;font-size:14px;font-weight:700;background:#fff;color:var(--ink)} .fit-row.who .home-row .go2{border-radius:999px;padding:4px 12px;font-weight:900;font-size:13px;white-space:nowrap}
-/* 衣櫃：萬聖節套裝（免費 10 套在前、金蛋套裝在後），每套有一句惡搞說明 */
+/* 衣櫃：變裝派對套裝（免費 10 套在前、金蛋套裝在後），每套有一句遊戲說明 */
 .fit-row.halloween{background:linear-gradient(135deg,#fff3e0,#f3e8ff);border:1.5px solid #f0c9a0;border-radius:14px;padding:8px} .fit-row.halloween .k{color:#a24a00}
 .hw-note{margin:0 0 6px;font-size:11px;color:#7a4a2a} .fit-items.paid{margin-top:8px;padding-top:8px;border-top:1px dashed #e0c2a0}
 .fit-items .it.suit{grid-template-rows:auto auto auto;align-items:start} .fit-items .it.suit em{grid-column:1/-1;font-style:normal;font-size:10.5px;color:var(--muted);line-height:1.35;margin-top:2px}
 .first-note{margin:6px 0 0;font-size:14px;font-weight:700;background:#eef6fb;border:1.5px solid #9fc8d6;border-radius:12px;padding:8px 12px;color:#2f5f6f}
-/* 城市左上的打工場小卡（點了開打工現場面板）＋面板裡的現在打工場、魔王圖鑑 */
+/* 校園左上的闖關場小卡（點了開闖關現場面板）＋面板裡的現在闖關場、魔王圖鑑 */
 .xstage{left:max(14px,var(--sa-l));top:calc(22px + var(--brand-h,92px));max-width:260px;padding:8px 14px 9px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .xstage[hidden]{display:none} .xstage:hover{background:#fff3ea} .xstage:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
 .xstage .xs-k{font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--muted)} .xstage .xs-k em{font-style:normal;color:var(--bad);margin-left:4px}
@@ -553,13 +554,23 @@ body:not(.exploring) .nameplate.live{display:none!important}
 .lv-h{margin:6px 0 0;font-size:13px;font-weight:900;display:flex;align-items:center;gap:6px} .lv-h span{font-size:11px;background:var(--bad);color:#fff;border-radius:999px;padding:0 7px}
 .live-panel .bosses li.on{border-color:#f0b5a5;background:#fff3ef} .live-panel .bosses b em{font-style:normal;font-size:10px;color:var(--bad);margin-left:6px}
 .nameplate.policy.live.idle{background:#f2c14e;color:#211d1d} .nameplate.policy.live.idle::after{border-top-color:#f2c14e}
-/* 降落在打工場之後大廳才滑上來；單人打完的「幾秒後飛回城市」 */
+/* 降落在闖關場之後大廳才滑上來；單人打完的「幾秒後飛回校園」 */
 #lobby.enter .box{animation:lobbyUp .55s cubic-bezier(.2,.8,.2,1) both} @keyframes lobbyUp{from{opacity:0;transform:translateY(36px)}to{opacity:1;transform:none}}
 .res-auto{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:8px 12px;border-radius:14px;background:#eef5f9;color:#3b5a7a;font-size:13px;font-weight:700}
 .res-auto[hidden]{display:none} .res-auto b{font-variant-numeric:tabular-nums} .res-auto .bar{flex:1;height:6px;border-radius:3px;background:#d4e4ee;overflow:hidden} .res-auto .bar i{display:block;height:100%;width:0;background:#7fb0cf}
 .res-auto button{border:1px solid #c3d6e3;background:#fff;color:#3b5a7a;border-radius:999px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
 @media (prefers-reduced-motion: reduce){ #lobby.enter .box{animation:none} }
-/* 換世界飛行時 HUD 淡出（二創惡搞的徽章留著），降落後淡入 */
+/* 換世界飛行時 HUD 淡出（教學版的徽章留著），降落後淡入 */
 body.warping .panel,body.warping .xact,body.warping .joy,body.warping #resultBox{opacity:0;pointer-events:none;transition:opacity .35s ease}
 body.landed .panel,body.landed .xact{animation:hudIn .5s ease both} @keyframes hudIn{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion: reduce){ body.landed .panel,body.landed .xact{animation:none} }
+
+/* ═══ 解題視窗：題目、四個選項（A～D 圓章）、答對綠／答錯紅、說明 ═══ */
+.overlay.quiz{z-index:9;align-items:center} .quiz-box{position:relative;max-width:560px!important;text-align:left} .quiz-box .close{position:absolute;right:14px;top:10px;width:36px;height:36px;border:0;background:transparent;font-size:28px;line-height:1;color:var(--ink)}
+.quiz-q{font-size:20px;font-weight:900;line-height:1.5;margin:8px 0 14px;text-wrap:balance}
+.quiz-choices{display:grid;gap:8px} .quiz-choices .qc{display:flex;align-items:center;gap:10px;text-align:left;border:2px solid var(--line);background:#fff;border-radius:14px;padding:10px 12px;font-size:16px;font-weight:700;min-height:48px}
+.quiz-choices .qc .n{flex:none;width:28px;height:28px;border-radius:999px;background:var(--navy-soft);color:var(--coral);display:grid;place-items:center;font-size:13px;font-weight:900}
+.quiz-choices .qc:hover:not(:disabled){background:var(--navy-soft);border-color:var(--coral)} .quiz-choices .qc:disabled{opacity:.7;cursor:default} .quiz-choices .qc.ok{background:#e6f3dc;border-color:var(--ok);opacity:1} .quiz-choices .qc.ok .n{background:var(--ok);color:#fff} .quiz-choices .qc.bad{background:#fbe4e0;border-color:var(--bad)} .quiz-choices .qc.bad .n{background:var(--bad);color:#fff}
+.quiz-fb{min-height:1.5em;margin:12px 0 0;font-weight:700;font-size:14px} .quiz-fb.ok{color:var(--ok)} .quiz-fb.bad{color:var(--bad)}
+.quiz-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px} .quiz-reward{font-size:12px;color:var(--muted);font-weight:700} .quiz-foot .go2{border-radius:999px;padding:8px 18px;font-weight:900}
+@media (max-width:640px){ .act.quiz{width:64px;height:60px} .act.quiz b{font-size:12px} .act.quiz small{display:none} .quiz-q{font-size:18px} }

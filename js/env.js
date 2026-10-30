@@ -1,4 +1,4 @@
-/* 天空、光、水、台北盆地地形、雲、晝夜。純裝飾。做法參考原站 environment.js，重新實作。 */
+/* 天空、光、水、校園盆地地形、雲、晝夜。純裝飾。做法參考原站 environment.js，重新實作。 */
 import * as THREE from 'three';
 import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';

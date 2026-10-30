@@ -19,7 +19,7 @@ $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to anon, authenticated;
 
--- 管理員可以新增／修改／刪除政策與議題，並刪除英雄資料（清測試帳號用）
+-- 管理員可以新增／修改／刪除課程與挑戰，並刪除學生資料（清測試帳號用）
 drop policy if exists "admin writes policies" on public.policies;
 drop policy if exists "admin writes issues"   on public.issues;
 drop policy if exists "admin deletes heroes"  on public.heroes;

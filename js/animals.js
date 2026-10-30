@@ -1,5 +1,5 @@
 /* 攻擊方動物（Q 版，和行人同一個比例尺）。每隻一個 Group，零件用圓角方塊與球體。
-   打工版多了：洗版塔（tower）、鐵粉龍的護盾、側翼大V頭上的懶人包、飛彈鸚鵡的飛彈莢、金色會發光、被定住時頭上轉星星。 */
+   闖關版多了：洗版塔（tower）、鐵粉龍的護盾、錯字大嘴鳥頭上的懶人包、飛彈鸚鵡的飛彈莢、金色會發光、被定住時頭上轉星星。 */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 export function createAnimals(scene, ANIMALS, opts = {}) { const chantSize = opts.chantSize || 0.5;
@@ -57,7 +57,7 @@ export function createAnimals(scene, ANIMALS, opts = {}) { const chantSize = opt
     if (p.shift && (A.stealth || A.shift)) { const hue = (t * 0.15 + e.seed) % 1; for (const m of p.shift) m.color.setHSL(hue, 0.55, 0.5); p.tail.rotation.y = Math.sin(t * 4) * 0.4; }
     if (A.model === 'mouse') p.inner.position.y = Math.abs(Math.sin(t * 18 + e.seed * 10)) * 0.02;
     if (A.fly) p.inner.position.y = 0.5 + Math.sin(t * 3 + e.seed * 6) * 0.04; }
-  // 打工版的狀態外觀：f = { stun, bomb, shield, stealth（0～1 透明度）, flash }
+  // 闖關版的狀態外觀：f = { stun, bomb, shield, stealth（0～1 透明度）, flash }
   function setState(g, f, t) { const p = g.userData.parts;
     p.stars.visible = !!f.stun; if (f.stun) p.stars.rotation.y = t * 6;
     if (p.bomb) { p.bomb.visible = !!f.bomb; if (f.bomb) p.bomb.rotation.z = Math.sin(t * 20) * 0.12; }
