@@ -1,7 +1,7 @@
 # 萬安政策島 打工・逛城市（Taipei: Hold the Line）
 
 > **2026-10-30 已關閉下架。** 首頁、`/admin/`、`/traffic/` 都換成下架公告，每天自動抓車流資料的 workflow 也停了（只留手動）。
-> 下架前最後一版在 git tag `pre-takedown`（commit `637a825`）；要恢復營運，`git revert` 下架那個 commit 推上 main 即可，Cloudflare Pages 會自動重新部署。
+> 下架前最後一版在分支 `pre-takedown`（commit `637a825`）；要恢復營運，`git revert` 下架那個 commit 推上 main 即可，Cloudflare Pages 會自動重新部署。
 > Supabase 後端（匿名登入、Realtime、資料表）與 Cloudflare Pages 專案、網域不在 repo 裡，要關要到各自後台處理。
 > 以下是下架前的說明，留作紀錄。
 
