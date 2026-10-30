@@ -3,214 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>萬安政策島 打工・逛城市</title>
-<meta name="description" content="非官方自製的 3D 政策島遊戲：最多 4 人一隊打工搬金蛋（人不夠有 NPC 同事），再帶著自己的角色逛城市，用金蛋買衣服、大家一起蓋城市。">
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex,nofollow">
+<title>萬安政策島 已下架</title>
+<meta name="description" content="萬安政策島（二創惡搞、非官方）已經關閉下架。">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#db6a41">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
-<link rel="stylesheet" href="css/ui.css">
+<style>
+  :root { --bg:#fff8f4; --ink:#211d1d; --muted:#78685e; --coral:#db6a41; --line:#211d1d1f; color-scheme:light; }
+  * { box-sizing:border-box }
+  html, body { height:100%; margin:0 }
+  body { display:grid; place-items:center; padding:24px 16px; background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; line-height:1.6 }
+  .box { max-width:460px; width:100%; background:#fff; border:1px solid var(--line); border-radius:28px; padding:36px 28px; box-shadow:0 12px 40px #78685e26; text-align:center }
+  .future { font-size:11px; letter-spacing:.28em; color:var(--coral); font-weight:900 }
+  .future span { color:var(--muted) }
+  h1 { margin:10px 0 6px; font-size:28px; font-weight:900; letter-spacing:.02em }
+  .status { display:inline-block; margin:6px 0 18px; padding:4px 14px; border-radius:999px; background:var(--coral); color:#fff8f4; font-weight:900; font-size:14px }
+  p { margin:0 0 10px; color:var(--muted); font-size:15px }
+  p:last-child { margin:0 }
+</style>
 </head>
 <body>
-<!-- artifact:body:start -->
-<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
-<main id="app">
-  <div class="loading" id="loading" role="status"><div class="ld-box"><div class="future">TAIPEI <span>HOLD THE LINE.</span></div><b>萬安政策島</b><span id="ldMsg">正在組合政策城市…</span><i class="ld-bar"></i></div></div>
-  <div id="labels" aria-hidden="true"></div>
-  <div id="stage" aria-label="3D 台北政策島打工場：打倒魔王搶金蛋，搬進金蛋籃"></div>
-  <header class="brand panel">
+  <main class="box" role="status">
     <div class="future">TAIPEI <span>HOLD THE LINE.</span></div>
-    <h1 id="siteName">萬安政策島</h1>
-    <div class="proj"><em id="siteProj">打工</em> <span id="siteSub">搬金蛋</span></div>
-    <div class="tribute" id="siteTribute">致敬沈伯洋的政策島</div>
-    <div class="tag" id="siteTag">二創惡搞・非官方</div>
-  </header>
-  <button type="button" class="xstage panel" id="xStage" hidden aria-label="打工場現況：現在的打工場、換場倒數、總攻擊倒數">
-    <span class="xs-k">🥚 現在的打工場 <em id="xsLive"></em></span><b id="xsName"></b><span class="xs-rot" id="xsRot"></span><span class="xs-eve" id="xsEve"></span>
-  </button>
-  <div class="parody-badge" id="parodyBadge" aria-label="二創惡搞作品，非官方">二創惡搞</div>
-  <section class="gstrip panel" aria-label="全體戰績">
-    <button class="online" id="btnOnline" type="button" aria-expanded="false" aria-controls="playersPanel" title="看在線的人"><i class="dot"></i><b id="gOnline">1</b><span>人在線</span><span class="lg" id="gPlaying"></span></button>
-    <div><b id="gShifts">0</b><span class="lg">班打工完成</span><span class="sm">班</span></div>
-    <div><b id="gEggs">0</b><span>顆金蛋入籃</span></div>
-    <div><b id="gWorkers">0</b><span>位打工仔</span></div>
-    <div class="vis" id="gVisitorsBox" hidden><b id="gVisitors">0</b><span>人來過</span></div>
-    <div class="cd" id="gCountdown">總攻擊倒數</div>
-  </section>
-  <aside class="dpanel panel" id="dPanel" aria-label="12 區對抗"><button class="dp-head" id="dpHead" type="button" aria-expanded="false"><b>12 區對抗</b><span id="dpMine"></span></button><ol id="dpList"></ol></aside>
-  <aside class="players panel" id="playersPanel" hidden aria-label="在線的人"><div class="pl-head"><b id="plTitle"></b><button class="close" id="btnPlClose" type="button" aria-label="關閉">×</button></div><ol class="plist" id="plList"></ol><p class="note">人數＝開著這個網頁的人（同一支手機或電腦開多個分頁算一個）。還在等人的公開房可以直接按「加入」。</p></aside>
-  <section class="hud panel" id="hudPanel" aria-label="鏡頭與設定">
-    <div class="btns"><button id="btnFollow" type="button" title="鏡頭跟著（F）"><span class="ic" data-ic="cam"></span><span class="t" id="followLbl">跟隨市長</span></button><button id="btnHome" type="button" title="全景（H）"><span class="ic" data-ic="home"></span><span class="t">全景</span></button><button id="btnPause" type="button" aria-pressed="false" hidden>暫停</button><button id="btnQuit" type="button" hidden>收工</button><button id="btnFull" type="button">⤢ 全螢幕</button><button id="btnHelp" type="button" title="怎麼玩"><span class="ic" data-ic="howto"></span><span class="t">怎麼玩</span></button></div>
-  </section>
-  <section class="shud panel" id="shiftHud" hidden aria-label="這一波">
-    <div class="sh-wave"><span class="k">第</span><b id="shWave">1</b><span class="k" id="shWaves">／3 波</span></div>
-    <div class="sh-time"><b id="shTime">1:40</b></div>
-    <div class="sh-egg" id="shEggBox"><span class="egg" aria-hidden="true"></span><b id="shGold">0</b><span class="k">／</span><b id="shQuota">0</b><span class="bar"><i id="shBar"></i></span></div>
-    <div class="sh-sp" id="shSpecial" hidden></div>
-  </section>
-  <aside class="team panel" id="teamPanel" hidden aria-label="這一班的同事"><ol id="teamList"></ol></aside>
-  <section class="actions" id="actionBar" hidden aria-label="動作">
-    <div class="emotes" id="emotes" role="group" aria-label="快速訊號"></div>
-    <div class="act-row"><button id="btnThrow" type="button" class="act throw" disabled><span class="egg" aria-hidden="true"></span><b>丟蛋</b><span class="kbd">E</span></button><button id="btnSpecial" type="button" class="act special"><b id="spName">特殊技</b><span class="dots" id="spDots"></span><span class="kbd">Q</span></button></div>
-  </section>
-  <div class="joy" id="joy" hidden aria-hidden="true"><i id="joyKnob"></i></div>
-  <section class="actions xact" id="xAct" hidden aria-label="逛城市">
-    <div class="x-prompt" id="xPrompt" hidden><button id="btnXPrompt" type="button" class="act special"></button></div>
-    <div class="emotes" id="xEmotes" role="group" aria-label="打招呼"></div>
-    <div class="act-row"><button id="btnXFit" type="button" class="act xbtn" aria-pressed="false"><span class="pi">👕</span><b>衣櫃</b></button><button id="btnXCity" type="button" class="act xbtn" aria-pressed="false"><span class="pi">🏗</span><b>蓋城市</b></button><button id="btnXDonate" type="button" class="act xbtn" aria-pressed="false"><span class="pi">💰</span><b>獻金</b></button></div>
-  </section>
-  <aside class="xlist panel live-panel" id="livePanel" hidden aria-label="打工現場">
-    <div class="xl-head"><div><div class="eyebrow">LIVE・打工現場</div><b>打工場現況</b></div><button class="close" id="liveClose" type="button" aria-label="關閉">×</button></div>
-    <div class="xl-body" id="liveBody"></div>
-  </aside>
-  <aside class="xlist panel shop-panel" id="shopPanel" hidden aria-label="金蛋商店">
-    <div class="xl-head"><div class="wallet"><span class="egg" aria-hidden="true"></span><div><span class="k">你的金蛋</span><b id="wallet">0</b><small id="walletNote"></small></div></div><button class="close" id="btnShopClose" type="button" aria-label="關閉">×</button></div>
-    <div class="shop-tabs" id="shopTabs" role="tablist" aria-label="金蛋怎麼花"><button type="button" role="tab" data-tab="fit" aria-selected="true">👕 衣服</button><button type="button" role="tab" data-tab="city" aria-selected="false">🏗 蓋城市</button><button type="button" role="tab" data-tab="donate" aria-selected="false">💰 獻金</button></div>
-    <div class="xl-body shop-body" id="shopBody"></div>
-    <p class="note shop-legal" id="shopLegal"></p>
-  </aside>
-  <div class="hurtfx" id="hurtFx" aria-hidden="true"></div>
-  <section class="logp panel" id="logPanel">
-    <button id="btnLogToggle" type="button" class="eyebrow">LOG・日誌 ▾</button>
-    <ul class="log" id="log"></ul>
-  </section>
-  <aside class="card panel" id="card" hidden aria-label="政策內容">
-    <button class="grip" id="cardGrip" type="button" aria-label="展開或收合政策卡" aria-expanded="false"></button>
-    <button class="close" id="btnCardClose" type="button" aria-label="關閉">×</button>
-    <header class="c-head"><div class="c-ic" id="cardIcon" aria-hidden="true"></div><div><div class="eyebrow"><span id="cardNo"></span> · <span id="cardTag"></span></div><h2 id="cardTitle"></h2></div></header>
-    <p class="lead" id="cardSummary"></p>
-    <p class="why" id="cardWhy"></p>
-    <div class="chips" id="cardChips"></div>
-    <div class="bignums" id="cardNums"></div>
-    <section class="c-sec"><h3>細項</h3><ol class="facts" id="cardFacts"></ol></section>
-    <section class="c-sec" id="cardAgSec"><h3>主責局處</h3><div class="chips" id="cardAgencies"></div></section>
-    <section class="c-sec"><h3>在遊戲裡</h3><ul class="c-game" id="cardGame"></ul></section>
-    <section class="c-sec" id="cardRelSec"><h3>相關政策</h3><div class="chips rel" id="cardRelated"></div></section>
-    <p class="note" id="cardStatus"></p>
-    <div class="c-btns"><button id="btnCardFly" type="button">看這座島</button><button id="btnCardMayor" type="button">跟著市長</button></div>
-  </aside>
-  <aside class="card panel iscard" id="isCard" hidden aria-label="行政區">
-    <button class="grip" id="isGrip" type="button" aria-label="展開或收合" aria-expanded="false"></button>
-    <button class="close" id="btnIsClose" type="button" aria-label="關閉">×</button>
-    <header class="c-head"><div class="c-ic num" id="isNum" aria-hidden="true"></div><div><div class="eyebrow">DISTRICT · <span id="isLand"></span></div><h2 id="isTitle"></h2></div></header>
-    <p class="lead" id="isLead"></p>
-    <div class="chips" id="isChips"></div>
-    <section class="c-sec"><h3>這座島上的政策</h3><ol class="is-list" id="isList"></ol></section>
-    <div class="c-btns"><button id="btnIsBird" type="button">鳥瞰這一帶</button><button id="btnIsMayor" type="button">跟著市長</button></div>
-  </aside>
-  <aside class="xlist panel" id="xlist" hidden aria-label="政策清單">
-    <button class="grip" id="xlGrip" type="button" aria-label="展開或收合清單" aria-expanded="false"></button>
-    <div class="xl-head"><div><div class="eyebrow">POLICY LIST</div><b>政策清單</b></div><button class="close" id="xlClose" type="button" aria-label="關閉清單">×</button></div>
-    <input id="xlSearch" type="search" placeholder="搜尋政策、標籤、行政區" aria-label="搜尋政策">
-    <div class="xl-tabs" role="tablist"><button role="tab" type="button" data-tab="district" aria-selected="true">行政區</button><button role="tab" type="button" data-tab="tag" aria-selected="false">政策主題</button></div>
-    <div class="xl-body" id="xlBody"></div>
-  </aside>
-  <nav class="xbar panel" id="xbar" hidden aria-label="逛島工具列">
-    <button type="button" class="xb clock" id="xbClockBtn" aria-expanded="false" title="時間"><span class="i">◷</span><span id="xbClock">10:00</span></button>
-    <div class="xb-times" id="xbTimes"></div>
-    <span class="sep" aria-hidden="true"></span>
-    <button type="button" class="xb" id="xbLabels" aria-pressed="true"><span class="i">🏷️</span>名牌</button>
-    <button type="button" class="xb" id="xbPause" aria-pressed="false" title="停住時間"><span class="i">⏸️</span>時間</button>
-    <button type="button" class="xb" id="xbBird" aria-pressed="false"><span class="i">🛰️</span>鳥瞰</button>
-    <button type="button" class="xb" id="xbList" aria-pressed="false"><span class="i">☰</span>清單</button>
-    <button type="button" class="xb live" id="xbLive" aria-pressed="false" title="別人正在打的班"><span class="i">🔴</span>打工現場<em id="xbLiveN"></em></button>
-    <button type="button" class="xb primary" id="xbWork"><span class="i">🥚</span>去打工</button>
-  </nav>
-  <div class="guide" id="guide" hidden><div class="g-box" role="dialog" aria-modal="true" aria-labelledby="guideTitle"><div class="eyebrow">QUICK START</div><h2 id="guideTitle"></h2><ol id="guideSteps"></ol><button id="guideOk" class="go" type="button">知道了</button></div></div>
-  <aside class="hotline panel" id="hotline" aria-label="市民熱線">
-    <div class="hl-head"><span class="hl-ic">📞</span><b>1999 市民熱線</b><span class="hl-count" id="hlCount"></span></div>
-    <div class="hl-body" id="hlBody"></div>
-    <div class="hl-foot"><span>二創惡搞・純屬虛構</span><button id="hlNext" type="button">下一則 →</button></div>
-  </aside>
-  <div class="ticker" id="ticker" aria-label="城市快訊"><span class="tk-label">城市快訊</span><div class="tk-track"><span class="tk-text" id="tkText"></span></div></div>
-  <div class="banner" id="banner" role="status" aria-live="polite"></div>
-  <div class="cloudwipe" id="cloudwipe" hidden aria-hidden="true"><div class="cw-fog"></div><div class="cw-text" id="cwText"></div></div>
-  <div class="hint" id="hint"></div>
-
-  <div class="overlay" id="lobby">
-    <div class="box lobby" id="lobbyBox">
-      <div class="lobby-tribute" id="lobbyTribute">致敬沈伯洋的政策島</div>
-      <div class="parody" role="note"><b id="parodyTitle">二創惡搞作品｜非官方</b><span id="parodyLong"></span></div>
-      <div class="lobby-head">
-        <div class="eyebrow">WORK・打工場大廳</div>
-        <div class="lh-row"><h2 id="lobbyTitle">今天也來搬金蛋。</h2><button id="btnToCity" class="go2 tocity" type="button"><span class="cl" aria-hidden="true">☁️</span>🏙 進城市逛逛<small>買衣服、蓋城市、看大家打工</small></button></div>
-        <p class="first-note" id="firstNote" hidden>👋 第一次來：取個暱稱、選職業和你的區（逛城市從這區出發、也算進 12 區對抗），然後按「進城市逛逛」或直接開工。下次打開會直接回到城市。</p>
-        <p class="stage-line shift-only" id="stageLine"></p>
-        <p class="count" id="countdown"></p>
-      </div>
-      <section class="quick" aria-label="開工">
-        <label class="field">暱稱<input id="nick" type="text" maxlength="24" placeholder="會顯示在排行榜" autocomplete="nickname"></label>
-        <label class="field">你的行政區（12 區對抗；逛城市也從這區出發）<select id="homeDistrict"></select></label>
-        <div class="grade shift-only" id="gradeCard"></div>
-        <div class="classes" id="classes"></div>
-                <div class="q-actions shift-only" id="quickActions">
-          <button id="btnSolo" class="go" type="button">立刻開工<small>單人＋3 位 NPC 同事</small></button>
-          <button id="btnQuick" class="go2" type="button">快速配對<small>加入別人的房，或開公開房等人</small></button>
-          <button id="btnCreate" class="go2" type="button">開房間<small>拿房號邀朋友</small></button>
-          <div class="join"><input id="joinCode" type="text" maxlength="8" placeholder="房號" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="房號"><button id="btnJoin" type="button">加入</button></div>
-        </div>
-        <div class="room shift-only" id="roomSec" hidden>
-          <div class="room-head"><div><span class="k">房號</span><b id="roomCode"></b><span class="pub" id="roomPub"></span></div><button id="btnInvite" type="button">複製邀請連結</button></div>
-          <ol class="room-list" id="roomList"></ol>
-          <p class="note" id="roomNote"></p>
-          <div class="room-btns"><button id="btnStart" class="go" type="button">開工！</button><button id="btnLeaveRoom" type="button">離開房間</button></div>
-        </div>
-        <p class="note q-note"><span id="goWho"></span> <span id="mine" class="shift-only"></span> <span id="modeNote"></span></p>
-      </section>
-      <div class="lobby-grid">
-        <div class="col"><div class="shift-only"><h3>魔王圖鑑</h3><ul class="bosses" id="bossList"></ul><h3>全體戰績</h3><div class="lobby-stats" id="lobbyStats"></div></div><h3>現在在線</h3><div class="note" id="onlineList"></div></div>
-        <div class="col"><h3>12 區對抗（金蛋＋蓋城市）</h3><ol class="dboard" id="dboard"></ol></div>
-        <div class="col"><div class="shift-only"><h3>打工榜</h3><ol class="board" id="board"></ol></div></div>
-      </div>
-      <section class="howto" aria-labelledby="howtoTitle"><h3 id="howtoTitle">怎麼玩</h3><p class="lead" id="howtoLead"></p><ol id="howto"></ol></section>
-      <details class="admin" id="adminBox" hidden>
-        <summary>後台：政策與議題（編輯者）</summary>
-        <h3>政策建築</h3>
-        <form id="policyForm" class="issue-form">
-          <label class="wide">選一筆編輯，或新增<select id="pSel"></select></label>
-          <label>代號<input name="pid" required placeholder="例如 metro-east"></label><label>標題<input name="ptitle" required maxlength="20"></label><label>標籤<input name="ptag" maxlength="16" placeholder="#交通"></label>
-          <label>建築外型<select name="pModel" id="pModel"></select></label><label class="wide2">行政區<select name="pDistrict" id="pDistrict"></select></label>
-          <label class="wide">一句話摘要<input name="psummary" maxlength="120"></label><label class="wide">為什麼（一句話，選填）<input name="pwhy" maxlength="60"></label>
-          <label class="wide">細項（一行一條，最多 8 條）<textarea name="pfacts" rows="4"></textarea></label><label class="wide2">主責局處（逗號分隔）<input name="pagencies" placeholder="都發局, 社會局"></label><label>相關議題<select name="pIssue" id="pIssue"></select></label>
-          <button type="submit">儲存政策</button><span id="pMsg" class="note"></span>
-        </form>
-        <h3>議題（決定雜魚組合與頭上台詞）</h3>
-        <form id="issueForm" class="issue-form">
-          <label class="wide">選一筆編輯，或新增<select id="iSel"></select></label>
-          <label>代號<input name="iid" required placeholder="例如 metro-fare"></label><label>標題<input name="title" required maxlength="20" placeholder="例如 捷運票價"></label><label>標籤<input name="tag" maxlength="16" placeholder="#捷運票價"></label>
-          <label>起始日<input name="startsAt" type="date"></label><label>雜魚群大小<input name="intensity" type="number" step="0.1" min="0.5" max="2" value="1"></label><label>（保留）<input name="boss" type="hidden" value=""></label>
-          <label class="wide">雜魚組合（動物:權重，逗號分隔；可用 mouse bird frog parrot caterpillar chameleon）<input name="mix" value="bird:2, frog:2, mouse:1"></label><label class="wide">口號（逗號分隔）<input name="chants" placeholder="票價漲了, 出來面對"></label><label class="wide">一句話描述<input name="desc" maxlength="60"></label>
-          <button type="submit">儲存議題</button><span id="issueMsg" class="note"></span>
-        </form>
-      </details>
-      <div class="foot"><b>免責聲明</b><p id="disclaimer"></p></div>
-    </div>
-  </div>
-  <div class="overlay result" id="resultBox" hidden>
-    <div class="box result-box" role="dialog" aria-modal="true" aria-labelledby="resTitle">
-      <div class="eyebrow">SHIFT RESULT・打工結算</div>
-      <h2 id="resTitle"></h2>
-      <p class="lead" id="resWhy"></p>
-      <ol class="res-waves" id="resWaves"></ol>
-      <table class="res-team"><thead><tr><th>同事</th><th>金蛋</th><th>勸退</th><th>救人</th><th>倒下</th></tr></thead><tbody id="resTeam"></tbody></table>
-      <div class="res-me" id="resMe"></div>
-      <p class="res-d" id="resDistrict"></p>
-      <div class="res-auto" id="resAuto" hidden><span>☁ <b id="resAutoN">8</b> 秒後飛回城市</span><i class="bar"><i id="resAutoBar"></i></i><button type="button" id="btnResStay">留在打工場</button></div>
-      <div class="res-btns"><button id="btnAgain" class="go" type="button">再打一班</button><button id="btnResLobby" type="button">回大廳</button><button id="btnResCity" type="button">🏙 回城市花金蛋</button></div>
-    </div>
-  </div>
-  <div class="overlay help" id="helpOverlay" hidden><div class="box help-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><button class="close" id="btnHelpClose" type="button" aria-label="關閉">×</button><div class="eyebrow">HOW TO PLAY</div><h2 id="helpTitle">怎麼玩</h2><ol class="howto-list" id="howtoHelp"></ol></div></div>
-</main>
-<script>/* 剛部署完幾分鐘內，瀏覽器可能拿到新舊混雜的檔案，模組載入失敗整頁不會動；遊戲還沒啟動就出錯時，提示重新整理 */
-addEventListener('error', function () { if (window.PI || document.getElementById('staleNote')) return; var ld = document.getElementById('ldMsg'); if (ld) ld.textContent = '畫面載入失敗（可能是瀏覽器不支援 WebGL，或網站剛更新），請重新整理再試一次。'; var d = document.createElement('div'); d.id = 'staleNote'; d.className = 'stale'; d.setAttribute('role', 'alert'); d.innerHTML = '畫面載入失敗，可能是網站剛更新。<button type="button">重新整理</button>'; d.querySelector('button').onclick = function () { location.reload(); }; document.body.appendChild(d); });
-</script>
-<script src="js/backend.js"></script>
-<script src="js/store.js"></script>
-<script type="module" src="js/main.js"></script>
-<!-- artifact:body:end -->
+    <h1>萬安政策島</h1>
+    <div class="status">已關閉下架</div>
+    <p>這個網友自製、非官方的二創惡搞遊戲已經結束營運，打工場、逛城市與台北車流模擬都不再提供。</p>
+    <p>感謝每一位來打過工、逛過城市的玩家。</p>
+  </main>
 </body>
 </html>
