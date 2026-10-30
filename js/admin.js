@@ -50,7 +50,7 @@ function render() {
   renderHeroes();
   window.__merged = { pols, iss }; fillIssueOptions(iss);
 }
-// 學生資料：可以用暱稱搜尋；GM 發金蛋記在 gift（錢包＝金蛋＋GM 發的−花掉的），不算闖關榜與 學期對抗
+// 學生資料：可以用暱稱搜尋；GM 發金蛋記在 gift（錢包＝金蛋＋GM 發的−花掉的），不算闖關榜與學期對抗
 const walletOf = h => h.gift == null ? null : (h.eggs || 0) + (h.gift || 0) - (h.donated || 0) - (h.built || 0) - (h.spent || 0);
 function renderHeroes() { const q = $('heroSearch').value.trim().toLowerCase(), H = rows.heroes.filter(h => !q || String(h.nick || '').toLowerCase().includes(q)), gm = rows.heroes.some(h => h.gift != null);
   $('heroRows').innerHTML = H.length ? H.map(h => `<tr><td>${esc(h.nick || '（未取名）')}<br><small>${esc(h.id.slice(0, 8))}</small></td><td>${esc((C.heroes[h.cls] || {}).name || h.cls)}</td><td class="num">${h.shifts ?? '—'}</td><td class="num">${h.eggs ?? '—'}</td><td class="num">${h.gift ?? '—'}</td><td class="num">${walletOf(h) ?? '—'}</td><td><small>${esc(new Date(h.last_at).toLocaleString('zh-TW', { timeZone: C.exam.tz }))}</small></td>

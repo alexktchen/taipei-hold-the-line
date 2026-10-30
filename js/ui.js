@@ -64,7 +64,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地板走過去，跨島會自己找橋。'],
     ['買衣服', `走進地圖上標「👕 服飾店」的店（共 ${XC.boutiques.length} 間）買帽子、背心、配件；買過的隨時能換，闖關時也會穿著，其他玩家看得到。`],
     ['解題任務', `點課程建築打開課程卡，先看學習重點再按「解題任務」；答對每題 +${C.quiz.reward} 顆金蛋（每個單元每天 ${C.quiz.dailyCap} 題有獎勵，之後只是練習）。`],
-    ['蓋校園', `全站一起投金蛋，依序蓋 ${C.econ.city.length} 棟建設；走到「🚧 工地」旁邊投。蓋好的建築換掉那座島上的小房子，每個人的地圖上都看得到，投入的金蛋也算進你學期的 學期對抗。`],
+    ['蓋校園', `全站一起投金蛋，依序蓋 ${C.econ.city.length} 棟建設；走到「🚧 工地」旁邊投。蓋好的建築換掉那座島上的小房子，每個人的地圖上都看得到，投入的金蛋也算進你學期的學期對抗。`],
     ['捐書', '走到校長旁邊捐，校長會回你一句；全站累計解鎖全校加成（闖關更好過、晚上放煙火）。金蛋不是錢，這也不是真的捐款。'],
     ['帶我去', '右下的衣櫃、蓋校園、捐書按鈕會開面板；不在地點旁邊時按「帶我去」自動走過去。'],
     ['一起逛', '其他正在逛的人也在同一張地圖上。表情列打招呼（1～4）、點別人擊掌。'],
@@ -88,7 +88,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   setDpOpen((() => { try { const v = localStorage.getItem(C.ui.districtPanelKey); if (v) return v === 'open'; } catch (e) {} return !matchMedia('(max-width:900px)').matches; })());
   $('dpHead').addEventListener('click', () => { const open = !$('dPanel').classList.contains('open'); setDpOpen(open); try { localStorage.setItem(C.ui.districtPanelKey, open ? 'open' : 'closed'); } catch (e) {} });
   $('dboard').addEventListener('click', e => { const li = e.target.closest('li[data-id]'); if (!li) return; $('homeDistrict').value = li.dataset.id; districtPicked = true; renderDistricts(); profileChanged(); });
-  function districtLine(eggs, id) { if (!id) return ''; const board = S.districtBoard(), i = board.findIndex(r => r.id === id), me = board[i], name = districtName(id); if (!me) return ''; if (!me.eggs) return `${name}還沒有金蛋入籃，搬一顆就能上 學期對抗榜。`;
+  function districtLine(eggs, id) { if (!id) return ''; const board = S.districtBoard(), i = board.findIndex(r => r.id === id), me = board[i], name = districtName(id); if (!me) return ''; if (!me.eggs) return `${name}還沒有金蛋入籃，搬一顆就能上學期對抗榜。`;
     if (i === 0) return `你替${name}搬了 ${fmt(eggs)} 顆金蛋。${name}暫居 12 區第 1 名，領先第 2 名 ${fmt(me.eggs - (board[1] ? board[1].eggs : 0))} 顆。`;
     const up = board[i - 1]; return `你替${name}搬了 ${fmt(eggs)} 顆金蛋。${name}目前第 ${i + 1} 名，再 ${fmt(up.eggs - me.eggs + 1)} 顆就超過${up.name}。`; }
   // ── 大廳 ──
