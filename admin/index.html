@@ -2,12 +2,108 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta http-equiv="refresh" content="0; url=../">
-<title>萬安政策島 已下架</title>
+<title>萬安政策島 後台</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="manifest" href="../site.webmanifest">
+<meta name="theme-color" content="#db6a41">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* 後台：單欄工具版面；奶油底、墨色字、珊瑚橘主色（和遊戲同一套色） */
+:root{ --bg:#fff8f4; --paper:#ffffff; --ink:#211d1d; --muted:#78685e; --line:#211d1d1f; --coral:#db6a41; --soft:#fbe4d8; --gold:#fcea8b; --bad:#c23b2a; --ok:#4f8a3f;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color-scheme:light }
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+button,input,select,textarea{font:inherit;color:inherit} button{cursor:pointer} :focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:24px;font-weight:900;color:var(--coral)} h1 small{font-size:13px;color:var(--muted);font-weight:700;margin-left:8px}
+h2{margin:0 0 10px;font-size:17px;font-weight:900}
+.card{background:var(--paper);border-radius:16px;box-shadow:0 4px 18px #78685e22;padding:18px}
+.login{max-width:380px;margin:40px auto 0;display:flex;flex-direction:column;gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:700}
+input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);font-size:14px;min-width:0} textarea{min-height:70px;resize:vertical}
+.btn{border:0;background:var(--coral);color:#fff8f4;font-weight:900;border-radius:999px;padding:10px 18px} .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)} .btn.sm{padding:5px 12px;font-size:12px} .btn.danger{background:transparent;color:var(--bad);border:1px solid #c23b2a55}
+.btn:disabled{opacity:.5;cursor:default} .gift-n{width:96px;padding:5px 8px;font-size:12px}
+.msg{font-size:13px;min-height:1.4em} .msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap} .tabs button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 16px;font-weight:700} .tabs button[aria-selected="true"]{background:var(--coral);color:#fff8f4;border-color:var(--coral)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px} .stats div{background:var(--paper);border-radius:14px;padding:12px 14px;box-shadow:0 4px 18px #78685e18} .stats b{display:block;font-size:24px;font-weight:900;color:var(--coral);font-variant-numeric:tabular-nums} .stats span{font-size:12px;color:var(--muted)}
+.tablewrap{overflow-x:auto} table{width:100%;border-collapse:collapse;font-size:13px} th{text-align:left;font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap} td{padding:8px;border-bottom:1px dashed var(--line);vertical-align:top} td.num{font-variant-numeric:tabular-nums;text-align:right} td.act{white-space:nowrap;text-align:right}
+.tag{font-family:var(--mono);color:var(--coral);font-weight:700} .pill{display:inline-block;font-size:11px;border-radius:999px;padding:1px 8px;background:#f3e7de;color:var(--muted);font-weight:700} .pill.db{background:var(--soft);color:var(--coral)} .pill.hid{background:#eee;color:#999}
+.form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)} .form .wide{grid-column:1/-1} .form .two{grid-column:span 2} .form fieldset{border:1px solid var(--line);border-radius:10px;display:flex;gap:12px;flex-wrap:wrap;padding:8px 12px} .form fieldset label{flex-direction:row;align-items:center;gap:4px;font-weight:500;color:var(--ink)} .form .row{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.parody{background:var(--gold);border:2px solid var(--ink);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:700}
+@media (max-width:700px){ .stats{grid-template-columns:repeat(2,minmax(0,1fr))} .form{grid-template-columns:1fr} .form .two{grid-column:1/-1} }
+</style>
 </head>
-<body style="font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',system-ui,sans-serif;background:#fff8f4;color:#211d1d;padding:24px 16px">
-  <p>萬安政策島已關閉下架，後台不再提供。<a href="../">回首頁</a></p>
+<body>
+<div class="wrap">
+  <header><h1>萬安政策島<small>後台管理</small></h1><div id="who" hidden><span id="whoEmail" class="pill"></span> <button id="btnLogout" class="btn ghost sm" type="button">登出</button></div></header>
+  <p class="parody">二創惡搞作品｜非官方。這裡只有管理員能修改遊戲裡的政策與議題。</p>
+
+  <section id="login" class="card login">
+    <h2>管理員登入</h2>
+    <form id="loginForm">
+      <label>Email<input id="email" type="email" autocomplete="username" required></label>
+      <label style="margin-top:10px">密碼<input id="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" style="margin-top:14px;width:100%">登入</button>
+    </form>
+    <p class="msg" id="loginMsg"></p>
+  </section>
+
+  <section id="app" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" role="tablist" style="margin-top:16px"><button role="tab" data-tab="policies" aria-selected="true">政策</button><button role="tab" data-tab="issues" aria-selected="false">議題攻擊</button><button role="tab" data-tab="heroes" aria-selected="false">英雄資料</button></div>
+
+    <div class="card" data-panel="policies" style="margin-top:12px">
+      <h2>政策建築</h2>
+      <div class="tablewrap"><table><thead><tr><th>標題</th><th>標籤</th><th>行政區</th><th>外型</th><th>來源</th><th></th></tr></thead><tbody id="polRows"></tbody></table></div>
+      <form class="form" id="polForm">
+        <label>代號（英數）<input name="id" required pattern="[A-Za-z0-9_-]{1,32}" placeholder="metro-east"></label>
+        <label>標題<input name="title" required maxlength="20"></label>
+        <label>標籤<input name="tag" maxlength="16" placeholder="#交通"></label>
+        <label>建築外型<select name="model" id="polModel"></select></label>
+        <label class="two">行政區<select name="district" id="polDistrict"></select></label>
+        <label class="wide">一句話摘要<input name="summary" maxlength="120"></label>
+        <label class="wide">為什麼（一句話，選填）<input name="why" maxlength="60"></label>
+        <label class="wide">細項（一行一條，最多 8 條）<textarea name="facts"></textarea></label>
+        <label class="two">主責局處（逗號分隔）<input name="agencies" placeholder="都發局, 社會局"></label>
+        <label>相關議題<select name="issue" id="polIssue"></select></label>
+        <div class="row"><button class="btn" type="submit">儲存政策</button><button class="btn ghost" type="reset" id="polReset">清空表單</button><span class="msg" id="polMsg"></span></div>
+      </form>
+    </div>
+
+    <div class="card" data-panel="issues" hidden style="margin-top:12px">
+      <h2>議題攻擊</h2>
+      <div class="tablewrap"><table><thead><tr><th>標題</th><th>標籤</th><th>開放日</th><th>強度</th><th>來源</th><th></th></tr></thead><tbody id="issRows"></tbody></table></div>
+      <form class="form" id="issForm">
+        <label>代號（英數）<input name="id" required pattern="[A-Za-z0-9_-]{1,32}"></label>
+        <label>標題<input name="title" required maxlength="20"></label>
+        <label>標籤<input name="tag" maxlength="16"></label>
+        <label>開放日（空白＝只在大選前夜）<input name="startsAt" type="date"></label>
+        <label>強度<input name="intensity" type="number" step="0.1" min="0.5" max="4" value="1.2"></label>
+        <label>魔王（打工不使用）<select name="boss" id="issBoss"></select></label>
+        <label class="wide">雜魚組合（動物:權重，逗號分隔；可用 mouse bird frog parrot caterpillar chameleon）<input name="mix" placeholder="bird:2, frog:1"></label>
+        <fieldset class="wide" id="issRoutes" hidden><legend>登陸方向</legend></fieldset>
+        <label class="wide">口號（一行一句）<textarea name="chants"></textarea></label>
+        <label class="wide">一句話描述<input name="desc" maxlength="60"></label>
+        <div class="row"><button class="btn" type="submit">儲存議題</button><button class="btn ghost" type="reset">清空表單</button><span class="msg" id="issMsg"></span></div>
+      </form>
+    </div>
+
+    <div class="card" data-panel="heroes" hidden style="margin-top:12px">
+      <h2>打工仔資料</h2>
+      <p class="msg">刪除打工仔會從打工榜與總戰績移除。測試資料可以在這裡清掉。「＋金蛋」是 GM 發的金蛋（記在 gift）：錢包會多這麼多，但不算打工榜與 12 區對抗；填負數是收回。</p>
+      <label style="max-width:320px">用暱稱找<input id="heroSearch" type="search" placeholder="例如：我是GM"></label>
+      <p class="msg" id="heroNote"></p>
+      <div class="tablewrap"><table><thead><tr><th>暱稱</th><th>職業</th><th>班數</th><th>打工金蛋</th><th>GM 發的</th><th>錢包</th><th>最後上線</th><th></th></tr></thead><tbody id="heroRows"></tbody></table></div>
+    </div>
+  </section>
+</div>
+<script src="../js/backend.js"></script>
+<script type="module" src="../js/admin.js"></script>
 </body>
 </html>

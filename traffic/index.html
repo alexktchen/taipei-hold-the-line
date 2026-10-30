@@ -2,12 +2,93 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<meta http-equiv="refresh" content="0; url=../">
-<title>台北車流模擬 已下架</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>台北車流模擬</title>
+<meta name="description" content="用 OpenStreetMap 道路和臺北市公開的號誌位置與時制計畫，模擬台北市的車流（實驗、非官方）。">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#db6a41">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<link rel="stylesheet" href="traffic.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/examples/jsm/"}}</script>
 </head>
-<body style="font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',system-ui,sans-serif;background:#fff8f4;color:#211d1d;padding:24px 16px">
-  <p>萬安政策島與台北車流模擬已關閉下架。<a href="../">回首頁</a></p>
+<body>
+<div id="app">
+  <div id="stage" aria-label="台北市 3D 車流模擬地圖：拖曳移動、滾輪或雙指縮放、右鍵或雙指旋轉"></div>
+  <div id="labels" aria-hidden="true"></div>
+  <div class="loading" id="loading" role="status"><div class="ld-box"><div class="future">TAIPEI <span>TRAFFIC.</span></div><b>台北車流模擬</b><span id="ldMsg">正在鋪路…</span><i class="ld-bar"></i></div></div>
+
+  <header class="brand panel">
+    <div class="future">TAIPEI <span>TRAFFIC.</span></div>
+    <h1>台北車流模擬</h1>
+    <div class="tag">實驗・非官方・不是即時路況</div>
+  </header>
+
+  <nav class="cam panel" aria-label="鏡頭">
+    <button type="button" id="btnCity" title="看整個台北市">🗺 全市</button>
+    <button type="button" id="btnCenter" title="回到台北車站">🚉 台北車站</button>
+    <button type="button" id="btnFull" title="全螢幕">⤢ 全螢幕</button>
+    <button type="button" id="btnHelp" title="說明">❔ 說明</button>
+  </nav>
+
+  <section class="stats panel" id="stats" aria-label="模擬數據" aria-live="off"></section>
+
+  <aside class="evpanel panel" id="evPanel" hidden aria-label="路網事件">
+    <div class="ev-head"><b>路網事件</b><div class="tabs" id="evTabs" role="tablist"><button type="button" role="tab" data-tab="live" aria-selected="true">即時事件</button><button type="button" role="tab" data-tab="rules" aria-selected="false">時制體檢</button></div><button class="close" id="evClose" type="button" aria-label="關閉">×</button></div>
+    <div class="ev-body" id="evBody"></div>
+  </aside>
+  <div class="caption" id="caption" hidden aria-live="polite"><b id="capTitle"></b><span id="capText"></span></div>
+  <div class="toast" id="toast" hidden role="status"></div>
+  <div class="scmenu panel" id="scMenu" hidden aria-label="情境"><button type="button" data-sc="crash">🚗💥 事故佔一個車道（10 分鐘）</button><button type="button" data-sc="work">🚧 道路施工封一個車道（30 分鐘）</button><button type="button" data-sc="flash">⚠️ 附近路口號誌故障閃黃（5 分鐘）</button><button type="button" data-sc="rain">🌧 下大雨（開／關）</button>
+    <button type="button" data-sc="venue0">🎤 台北小巨蛋 散場</button><button type="button" data-sc="venue1">⚾ 台北大巨蛋 散場</button><button type="button" data-sc="venue2">🏢 南港展覽館 散場</button><button type="button" data-sc="venue3">🎆 台北 101 散場</button><button type="button" data-sc="venue4">🚉 台北車站 尖峰</button><small>事故與施工：先點一條路再選，沒點就用鏡頭附近最忙的幹道。</small></div>
+
+  <aside class="inspect panel" id="inspect" hidden aria-live="polite">
+    <button class="close" id="inspectClose" type="button" aria-label="關閉">×</button>
+    <div id="inspectBody"></div>
+  </aside>
+
+  <nav class="bar panel" id="bar" aria-label="模擬工具列">
+    <div class="grp clock"><span class="ic">🕗</span><b id="clock">08:00</b><small id="clockDay">平日</small></div>
+    <div class="grp"><button type="button" id="btnDirector" aria-pressed="false" title="導播：自動切到最值得看的新事件">🎬 導播</button><button type="button" id="btnEvents" aria-pressed="false" title="路網事件與時制體檢">📣 事件<em id="evCount"></em></button>
+      <button type="button" id="btnScene" aria-expanded="false" aria-controls="scMenu" title="製造一個情境，看號誌撐不撐得住">🧪 情境</button></div>
+    <div class="grp" role="group" aria-label="模擬速度">
+      <button type="button" data-speed="0" aria-label="暫停">⏸</button><button type="button" data-speed="1">1×</button><button type="button" data-speed="5">5×</button><button type="button" data-speed="20">20×</button>
+    </div>
+    <div class="grp" role="group" aria-label="時段">
+      <button type="button" data-hour="6">清晨</button><button type="button" data-hour="8">上班</button><button type="button" data-hour="12">中午</button><button type="button" data-hour="18">下班</button><button type="button" data-hour="23">深夜</button>
+    </div>
+    <label class="grp vol" title="車有多少（模擬的車數）">🚗 <input type="range" id="volume" min="0.25" max="2.5" step="0.05" value="1" aria-label="交通量"><span id="volumeN">100%</span></label>
+    <div class="grp" role="group" aria-label="圖層">
+      <button type="button" data-layer="flow" aria-pressed="true">路況</button><button type="button" data-layer="signals" aria-pressed="true">號誌</button><button type="button" data-layer="cars" aria-pressed="true">車</button><button type="button" data-layer="buildings" aria-pressed="true">建築</button><button type="button" data-layer="mrt" aria-pressed="true">捷運</button><button type="button" data-layer="names" aria-pressed="true">路名</button>
+    </div>
+  </nav>
+
+  <div class="legend panel" id="legend" aria-label="路況顏色">
+    <span><i style="background:#5f9a4c"></i>順暢</span><span><i style="background:#f2c14e"></i>車多</span><span><i style="background:#e8893a"></i>壅塞</span><span><i style="background:#c23b2a"></i>停滯</span>
+  </div>
+  <p class="credits" id="credits">道路 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors・號誌位置與時制：臺北市政府開放資料・車流是模擬的，不是即時路況・<a href="../">萬安政策島</a></p>
+
+  <div class="overlay" id="help" hidden>
+    <div class="box" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="eyebrow">HOW IT WORKS・說明</div>
+      <h2 id="helpTitle">這是什麼</h2>
+      <ul>
+        <li><b>道路</b>來自 OpenStreetMap。拉遠只看快速道路與主要幹道，拉近才出現次要道路，再拉近有巷弄與建築（建築是示意，不是真實的房子）。</li>
+        <li><b>紅綠燈</b>的位置來自臺北市交通管制工程處公開的號誌位置；<b>秒數</b>照臺北市交通局公開的路口號誌時制計畫跑。沒有對到時制的路口用推估的時制（標「推估」），主要幹道的燈號會排成綠波。</li>
+        <li><b>車</b>是模擬的：依時段決定有多少車，跟車、在紅燈前停下、綠燈起步。顏色是模擬出來的車速，<b>不是</b>即時路況。</li>
+        <li>點路口看那個路口現在的燈號與時制；點道路看路名、車道數與現在的車速。</li>
+        <li><b>📣 事件</b>：模擬裡出現號誌撐不住的地方會自動記下來——排隊回堵到上一個路口、一次綠燈過不完、綠燈空轉、下游塞住進不去、綠波斷點。<b>時制體檢</b>用交通工程常用的準則檢查公開的時制（黃燈、全紅、行人綠閃、週期、主次道路、同群組週期）。</li>
+        <li><b>🎬 導播</b>：像看電影一樣，自動切到最嚴重的新事件、繞著拍，下方字幕說明發生什麼、建議怎麼調。<b>🧪 情境</b>：製造事故、施工、活動散場、下大雨、號誌故障，看號誌撐不撐得住。路口資訊卡可以<b>試算調整</b>綠燈與週期，看排隊有沒有改善。</li>
+        <li>操作：拖曳移動地圖、滾輪或雙指縮放、右鍵拖曳或雙指旋轉。</li>
+      </ul>
+      <p class="fine">非官方、實驗性質。號誌與時制資料可能有缺漏或過時；交通部說明號誌的即時燈態沒有對外開放，所以這裡的燈號是用公開的時制「排」出來的。</p>
+      <button type="button" class="go" id="helpClose">開始看</button>
+    </div>
+  </div>
+  <div class="empty panel" id="empty" hidden></div>
+</div>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

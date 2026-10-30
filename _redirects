@@ -1,4 +1,0 @@
-# 2026-10-30 下架：所有子頁面都導回首頁的下架公告（Cloudflare Pages 會先看這個檔，再找靜態檔）。
-/admin/*    /  302
-/traffic/*  /  302
-/index.html /  302
