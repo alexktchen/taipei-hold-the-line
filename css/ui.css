@@ -582,3 +582,13 @@ body.landed .panel,body.landed .xact{animation:hudIn .5s ease both} @keyframes h
 /* 鎖住的場景：橋頭的牌子、排行榜灰掉 */
 .nameplate.gate{background:#211d1d;color:#fcea8b;font-size:12px;padding:5px 12px} .dpanel li.locked{opacity:.55}
 @media (prefers-reduced-motion: reduce){ .scene-fade,.scene-fade b{transition:none} }
+
+/* ═══ 速算祕笈：章節分頁、每招一張卡（編號、名稱、年級、星星、口訣、例子、練習鈕）═══ */
+.overlay.book{z-index:8;align-items:center} .book-box{position:relative;max-width:880px!important;max-height:calc(100vh - 28px);display:flex;flex-direction:column} .book-box .close{position:absolute;right:14px;top:10px;width:36px;height:36px;border:0;background:transparent;font-size:28px;line-height:1;color:var(--ink)}
+.book-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0} .book-tabs button{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px} .book-tabs button small{color:var(--muted);font-weight:700} .book-tabs button[aria-selected="true"]{background:var(--coral);border-color:var(--coral);color:#fff8f4} .book-tabs button[aria-selected="true"] small{color:#fcea8b}
+.book-body{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;padding:2px 2px 6px} .book-ch{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)} .book-ch b{color:var(--ink)}
+.trick{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px} .trick.done{border-color:#f2c14e;box-shadow:0 0 0 2px #fcea8b inset}
+.trick .tk-head{display:flex;align-items:center;gap:6px} .trick .no{flex:none;width:26px;height:26px;border-radius:999px;background:var(--navy-soft);color:var(--coral);display:grid;place-items:center;font-size:12px;font-weight:900} .trick .tk-head b{font-size:15px;line-height:1.3} .trick .tk-head small{color:var(--muted);font-size:11px;white-space:nowrap} .trick .stars{margin-left:auto;color:#f2b530;letter-spacing:1px;white-space:nowrap}
+.trick .rule{margin:0;font-size:13px} .trick .ex{margin:0;font-size:13px;font-family:var(--mono);background:#fbf3ea;border-radius:8px;padding:6px 8px;color:var(--ink)} .trick .go2{align-self:flex-start;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:900}
+.card .c-btns .book{background:#fcea8b;border-color:#e8c547;color:var(--ink)}
+@media (max-width:640px){ .book-body{grid-template-columns:1fr} .book-tabs button{padding:5px 10px;font-size:12px} }

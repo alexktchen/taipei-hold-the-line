@@ -44,7 +44,7 @@
   <aside class="dpanel panel" id="dPanel" aria-label="學期對抗"><button class="dp-head" id="dpHead" type="button" aria-expanded="false"><b>學期對抗</b><span id="dpMine"></span></button><ol id="dpList"></ol></aside>
   <aside class="players panel" id="playersPanel" hidden aria-label="在線的人"><div class="pl-head"><b id="plTitle"></b><button class="close" id="btnPlClose" type="button" aria-label="關閉">×</button></div><ol class="plist" id="plList"></ol><p class="note">人數＝開著這個網頁的人（同一支手機或電腦開多個分頁算一個）。還在等人的公開房可以直接按「加入」。</p></aside>
   <section class="hud panel" id="hudPanel" aria-label="鏡頭與設定">
-    <div class="btns"><button id="btnFollow" type="button" title="鏡頭跟著（F）"><span class="ic" data-ic="cam"></span><span class="t" id="followLbl">跟隨校長</span></button><button id="btnHome" type="button" title="全景（H）"><span class="ic" data-ic="home"></span><span class="t">全景</span></button><button id="btnPause" type="button" aria-pressed="false" hidden>暫停</button><button id="btnQuit" type="button" hidden>下課</button><button id="btnFull" type="button">⤢ 全螢幕</button><button id="btnHelp" type="button" title="怎麼玩"><span class="ic" data-ic="howto"></span><span class="t">怎麼玩</span></button></div>
+    <div class="btns"><button id="btnFollow" type="button" title="鏡頭跟著（F）"><span class="ic" data-ic="cam"></span><span class="t" id="followLbl">跟隨校長</span></button><button id="btnHome" type="button" title="全景（H）"><span class="ic" data-ic="home"></span><span class="t">全景</span></button><button id="btnPause" type="button" aria-pressed="false" hidden>暫停</button><button id="btnQuit" type="button" hidden>下課</button><button id="btnFull" type="button">⤢ 全螢幕</button><button id="btnSpeed" type="button" title="速算祕笈（M）"><span class="ic">🧮</span><span class="t">速算</span></button><button id="btnHelp" type="button" title="怎麼玩"><span class="ic" data-ic="howto"></span><span class="t">怎麼玩</span></button></div>
   </section>
   <section class="shud panel" id="shiftHud" hidden aria-label="這一波">
     <div class="sh-wave"><span class="k">第</span><b id="shWave">1</b><span class="k" id="shWaves">／3 波</span></div>
@@ -91,7 +91,7 @@
     <section class="c-sec"><h3>在遊戲裡</h3><ul class="c-game" id="cardGame"></ul></section>
     <section class="c-sec" id="cardRelSec"><h3>相關單元</h3><div class="chips rel" id="cardRelated"></div></section>
     <p class="note" id="cardStatus"></p>
-    <div class="c-btns"><button id="btnCardQuiz" type="button" class="primary">✏️ 解題任務</button><button id="btnCardFly" type="button">看這個學期</button><button id="btnCardMayor" type="button">跟著校長</button></div>
+    <div class="c-btns"><button id="btnCardQuiz" type="button" class="primary">✏️ 解題任務</button><button id="btnCardBook" type="button" class="book" hidden>📖 速算祕笈</button><button id="btnCardFly" type="button">看這個學期</button><button id="btnCardMayor" type="button">跟著校長</button></div>
   </aside>
   <aside class="card panel iscard" id="isCard" hidden aria-label="學期">
     <button class="grip" id="isGrip" type="button" aria-label="展開或收合" aria-expanded="false"></button>
@@ -205,6 +205,7 @@
     </div>
   </div>
   <div class="overlay quiz" id="quizBox" hidden><div class="box quiz-box" role="dialog" aria-modal="true" aria-labelledby="quizTitle"><button class="close" id="quizClose" type="button" aria-label="關閉">×</button><div class="eyebrow" id="quizEyebrow">QUIZ・解題</div><h2 id="quizTitle">解題</h2><p class="quiz-q" id="quizQ"></p><div class="quiz-choices" id="quizChoices"></div><p class="quiz-fb" id="quizFb"></p><div class="quiz-foot"><span class="quiz-reward" id="quizReward"></span><button id="quizNext" type="button" class="go2" hidden>繼續</button></div></div></div>
+  <div class="overlay book" id="speedBook" hidden><div class="box book-box" role="dialog" aria-modal="true" aria-labelledby="bookTitle"><button class="close" id="btnBookClose" type="button" aria-label="關閉">×</button><div class="eyebrow">SPEED MATH・速算祕笈</div><h2 id="bookTitle">🧮 速算祕笈 44 招</h2><p class="lead" id="bookLead"></p><div class="book-tabs" id="bookTabs" role="tablist" aria-label="速算章節"></div><div class="book-body" id="bookBody"></div></div></div>
   <div class="overlay help" id="helpOverlay" hidden><div class="box help-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><button class="close" id="btnHelpClose" type="button" aria-label="關閉">×</button><div class="eyebrow">HOW TO PLAY</div><h2 id="helpTitle">怎麼玩</h2><ol class="howto-list" id="howtoHelp"></ol></div></div>
 </main>
 <script>/* 剛部署完幾分鐘內，瀏覽器可能拿到新舊混雜的檔案，模組載入失敗整頁不會動；遊戲還沒啟動就出錯時，提示重新整理 */

@@ -105,6 +105,7 @@ export const POLICY_ICONS = {
 };
 // 科目圖示：沿用既有的卡通圖示，數學與英語用字母磚
 POLICY_ICONS.國語 = POLICY_ICONS.教育; POLICY_ICONS.自然 = POLICY_ICONS.環境; POLICY_ICONS.社會 = POLICY_ICONS.社子島; POLICY_ICONS.生活 = POLICY_ICONS.智慧; POLICY_ICONS.期末考 = POLICY_ICONS.安全;
+POLICY_ICONS.速算 = svg(`<rect x="3.5" y="6" width="25" height="20" rx="3" fill="#fff8f4" ${S}/><path d="M3.5 13h25" stroke="#211d1d" stroke-width="1.8"/>${[10, 18, 23].map((y, j) => [7, 11.5, 16, 20.5, 25].map((x, i) => `<circle cx="${x}" cy="${y}" r="2.1" fill="${['#db6a41', '#f2c14e', '#58a6a6'][(i + j) % 3]}" stroke="#211d1d" stroke-width="1"/>`).join('')).join('')}`);
 POLICY_ICONS.數學 = svg(`<rect x="4" y="4" width="24" height="24" rx="5" fill="#fcea8b" ${S}/><path d="M9 11h6M12 8v6M17 11h6M9 21h6M17 19h6M17 23h6" stroke="#211d1d" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="21" r="1.4" fill="#db6a41"/>`);
 POLICY_ICONS.英語 = svg(`<rect x="4" y="4" width="24" height="24" rx="5" fill="#58a6a6" ${S}/><text x="16" y="21.5" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="13" fill="#fff8f4" stroke="#211d1d" stroke-width=".8">ABC</text>`);
 export const policyIcon = tag => POLICY_ICONS[String(tag || '').replace(/^#/, '')] || POLICY_ICONS.fallback;

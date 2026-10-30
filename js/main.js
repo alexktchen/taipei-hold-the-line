@@ -67,7 +67,7 @@ let unlockedNow = [], unlockT = 0; // 一次解鎖好幾個學期時，公告合
 const progress = createProgress({ islands: C.islands, neighbors, onUnlock: id => { unlockedNow.push(islName(id)); clearTimeout(unlockT); unlockT = setTimeout(() => { refreshGates(); callbacks.banner && callbacks.banner(`🔓 解鎖新場景：${unlockedNow.join('、')}！`, 3.5); unlockedNow = []; }, 0); } });
 const gkit = { k: null };
 // 門扇：關著＝兩片木門擋住門口（中間一塊黃色鎖牌）；開著＝兩片門往兩邊打開
-function gateDoors(k, g, open) { const along = g.axis === 'z' ? [1, 0] : [0, 1], across = [along[1], along[0]], yaw = g.axis === 'z' ? 0 : Math.PI / 2; const w = g.river ? 0.38 : 0.48;
+function gateDoors(k, g, open) { const along = g.axis === 'z' ? [1, 0] : [0, 1], across = [along[1], along[0]], yaw = g.axis === 'z' ? 0 : Math.PI / 2; const w = g.river ? 0.7 : 0.48;
   for (const sg of [-1, 1]) { let x, z, ry = yaw, dir = along; if (!open) { x = g.x + along[0] * sg * w / 2; z = g.z + along[1] * sg * w / 2; } else { x = g.x + along[0] * sg * (w + 0.03) + across[0] * w / 2; z = g.z + along[1] * sg * (w + 0.03) + across[1] * w / 2; ry = yaw + Math.PI / 2; dir = across; }
     k.hbox(x, TOP + 0.2, z, w, 0.04, 0.035, 0xb48560, null, [0, ry, 0]); k.hbox(x, TOP + 0.07, z, w, 0.04, 0.035, 0xb48560, null, [0, ry, 0]); for (const t of [-0.4, 0, 0.4]) k.hbox(x + dir[0] * t * w, TOP + 0.14, z + dir[1] * t * w, 0.05, 0.22, 0.04, 0xa07550, null, [0, ry, 0]); }
   if (!open) { k.hbox(g.x, TOP + 0.18, g.z, 0.14, 0.12, 0.07, 0xf2c14e, null, [0, yaw, 0]); k.part('torus', [g.x, TOP + 0.26, g.z], [0.05, 0.05, 0.05], 0x6a665f, [0, yaw, 0]); } }

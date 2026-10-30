@@ -3,6 +3,7 @@
    makeQuestion(topic, grade) → { q, choices, a, why }；a 是正確選項的索引（choices 已洗牌）。
    createQuizUI() → ask({ topic, grade, title, mode }) 回傳 Promise<true 答對／false 答錯／null 關掉>。 */
 import { CONFIG as C } from './config.js';
+import { speedQuestion, chaptersForGrade } from './speedmath.js';
 const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1)), pick = a => a[Math.floor(Math.random() * a.length)];
 const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 // 數字題的錯誤選項：答案附近、不重複、不是負數
@@ -203,7 +204,9 @@ const BANK = {
 const TOPIC_GRADE = { shapes: 0, zhuyin: 1, add10: 1, words1: 1, add20: 1, times: 2, clock: 2, measure: 2, sentence: 2, eng1: 3, divide: 3, plants: 3, fraction: 3, map: 4, bignum: 4, water: 4, idiom: 4, decimal: 5, taiwan: 5, eng2: 5, force: 5, ratio: 6, solar: 6, geometry: 6, reading: 6 };
 export const TOPICS = Object.keys(TOPIC_GRADE);
 export const topicsForGrade = (g, span = 1) => { const list = TOPICS.filter(t => TOPIC_GRADE[t] <= g && TOPIC_GRADE[t] >= g - span); return list.length ? list : TOPICS.filter(t => TOPIC_GRADE[t] <= Math.max(1, g)); };
+export const speedTopicsForGrade = g => chaptersForGrade(g).map(c => 'sm:' + c.id); // 闖關中混進來的速算題（章節的建議年級不超過自己的年級）
 export function makeQuestion(topic, grade) {
+  if (typeof topic === 'string' && topic.startsWith('sm:')) { const s = speedQuestion(topic.slice(3), grade); const ans = String(s.a); const { choices, a } = textChoices(ans, s.wrongs.map(String)); return { topic, q: s.q, choices, a, why: s.why, trick: s.trick }; }
   if (!topic || !(GEN[topic] || BANK[topic])) topic = pick(topicsForGrade(Number.isFinite(grade) ? grade : 3));
   if (GEN[topic]) { const g = GEN[topic](); return { topic, q: g.q, choices: g.choices, a: g.a, why: g.why || '' }; }
   const it = pick(BANK[topic]); const { choices, a } = textChoices(it.a, it.wrongs); return { topic, q: it.q, choices, a, why: it.why }; }

@@ -12,7 +12,7 @@ export const RING_H = H - 1.0, RING_R = RING_H;       // 區塊內的泥土步�
 export const INNER = RING_H - 0.4;                    // 建築可以放的範圍（半寬）
 export const R = H * 1.25;                            // 其他模組拿來當「區塊半徑」的安全距離
 export const ISLAND_K = 1, SIZE_K = W.sizeK || 1.5, MAP_K = W.mapK || 1.4;
-export const GATE_HW = 0.45, BRIDGE_HW = 0.38, MARGIN = 0.3, RIVER_HW = 0.5, RIVER_M = 0.8;
+export const GATE_HW = 0.45, BRIDGE_HW = 0.66, MARGIN = 0.3, RIVER_HW = 0.5, RIVER_M = 0.8;
 export const NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // 北 東 南 西
 const SIDE = ['N', 'E', 'S', 'W'];
 export const cellKey = (c, r) => c + ',' + r;
@@ -66,17 +66,22 @@ function buildRiver(scene, kit, rv, rnd) { const S = SPACING; const along0 = rv.
     for (let k = 0; k < n; k++) { if (rnd() < 0.45) continue; const t = along0 + (k + rnd()) * len / n, o = off + sg * (0.05 + rnd() * 0.08); const [x, z] = rv.axis === 'z' ? [t, at + o] : [at + o, t];
       if (rnd() < 0.6) kit.part('ico', [x, TOP + 0.05, z], [0.14 + rnd() * 0.12, 0.08, 0.12 + rnd() * 0.08], [0xc9bba6, 0xb7a993, 0xd8ccba][k % 3]); else kit.part('leaf', [x, TOP + 0.08, z], [0.2, 0.16, 0.2], 0x8db86f); } }
   return mesh; }
-// 木橋：跨過河的門（closed 時 main.js 會在橋中間放關著的門）
-function buildBridge(kit, g) { const vertical = g.axis === 'z'; const L = RIVER_HW * 2 + 0.6, yaw = vertical ? 0 : Math.PI / 2, N = 9; // vertical＝南北向過河（河是東西向）
-  for (let s = 0; s <= N; s++) { const t = s / N - 0.5, off = t * L; const [x, z] = vertical ? [g.x, g.z + off] : [g.x + off, g.z]; const arch = Math.cos(t * Math.PI) * 0.06; kit.hbox(x, TOP + 0.035 + arch, z, 0.82, 0.04, L / (N + 1) + 0.01, s % 2 ? 0xc9a27c : 0xb48560, null, [0, yaw, 0]); }
-  for (const sg of [-1, 1]) for (const t of [-0.5, -0.25, 0, 0.25, 0.5]) { const off = t * L; const [x, z] = vertical ? [g.x + sg * 0.4, g.z + off] : [g.x + off, g.z + sg * 0.4]; kit.hbox(x, TOP + 0.16, z, 0.05, 0.22, 0.05, WOOD); }
-  for (const sg of [-1, 1]) { const [x, z] = vertical ? [g.x + sg * 0.4, g.z] : [g.x, g.z + sg * 0.4]; kit.hbox(x, TOP + 0.25, z, vertical ? 0.04 : L, 0.04, vertical ? L : 0.04, RAIL); } }
+// 木橋（動森風）：寬寬的木板橋面、兩側粗木樑、方形木欄柱加圓帽、扶手，橋面微微拱起；兩端各一對大柱子（closed 時 main.js 在橋中間放關著的門）
+export const BRIDGE_W = 1.5;
+function buildBridge(kit, g) { const vertical = g.axis === 'z'; const L = RIVER_M * 2 + 0.5, W = BRIDGE_W, N = 14; // vertical＝南北向過河（河是東西向）
+  const at = (t, side) => vertical ? [g.x + side, g.z + t * L] : [g.x + t * L, g.z + side], rise = t => Math.cos(t * Math.PI) * 0.09;
+  for (let s = 0; s < N; s++) { const t = (s + 0.5) / N - 0.5, [x, z] = at(t, 0), tilt = -Math.sin(t * Math.PI) * 0.18, col = [0xc9a27c, 0xbf956c, 0xd1ab86][s % 3]; // 每片木板順著拱度斜一點
+    if (vertical) kit.hbox(x, TOP + 0.05 + rise(t), z, W, 0.05, L / N - 0.015, col, null, [-tilt, 0, 0]); else kit.hbox(x, TOP + 0.05 + rise(t), z, L / N - 0.015, 0.05, W, col, null, [0, 0, tilt]); }
+  for (const sd of [-1, 1]) { const off = sd * (W / 2 + 0.04);
+    for (let s = 0; s < 6; s++) { const t0 = s / 6 - 0.5, t1 = (s + 1) / 6 - 0.5, tm = (t0 + t1) / 2, [x, z] = at(tm, off); kit.hbox(x, TOP + 0.04 + rise(tm), z, vertical ? 0.12 : L / 6 + 0.01, 0.12, vertical ? L / 6 + 0.01 : 0.12, 0x9a7454); kit.hbox(x, TOP + 0.33 + rise(tm), z, vertical ? 0.07 : L / 6 + 0.01, 0.06, vertical ? L / 6 + 0.01 : 0.07, 0xb48560); kit.hbox(x, TOP + 0.2 + rise(tm), z, vertical ? 0.04 : L / 6 + 0.01, 0.04, vertical ? L / 6 + 0.01 : 0.04, 0xb48560); }
+    for (const t of [-0.5, -0.25, 0, 0.25, 0.5]) { const [x, z] = at(t, off), big = Math.abs(t) === 0.5; kit.hbox(x, TOP + 0.2 + rise(t) + (big ? 0.05 : 0), z, big ? 0.16 : 0.1, big ? 0.5 : 0.38, big ? 0.16 : 0.1, 0x8a6a4a); kit.cyl(x, TOP + 0.41 + rise(t) + (big ? 0.1 : 0), z, big ? 0.2 : 0.13, 0.05, 0x6a4e36); if (big) kit.part('sphere', [x, TOP + 0.47 + rise(t) + 0.1, z], [0.12, 0.08, 0.12], 0x6a4e36); } }
+  for (const t of [-0.28, 0, 0.28]) for (const sd of [-1, 1]) { const [x, z] = at(t, sd * W * 0.36); kit.cyl(x, TOP - 0.12, z, 0.1, 0.24, 0x7a5a3e); } }
 // ── 一個區塊的地面：區塊色塊、方形步道環、往每道門的小路、廣場 ──
 function buildZone(scene, kit, i, c, gateSides, plazaZ) { const g0 = new THREE.ShapeGeometry(polyShape(sqPts(H - 0.04, 0.6))); g0.rotateX(-Math.PI / 2); worldUV(g0, c.x, c.z);
   const patch = new THREE.Mesh(g0, matOf(i.ground || 'lawn')); patch.position.set(c.x, TOP + 0.002, c.z); patch.receiveShadow = true; patch.userData = { island: i.id }; scene.add(patch);
   const pm = matOf('ringtile', { polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); const add = (geo, x, z) => { worldUV(geo, x, z); const m = new THREE.Mesh(geo, pm); m.position.set(x, TOP + 0.006, z); m.receiveShadow = true; scene.add(m); return m; };
   add(ringGeo(sqPts(RING_H + 0.22, 0.7), sqPts(RING_H - 0.22, 0.5)), c.x, c.z);
-  for (let k = 0; k < 4; k++) { if (!gateSides[k]) continue; const [dx, dz] = NEIGHBORS[k], L = H - RING_H + 0.06, m = RING_H + L / 2 - 0.02; add(dx ? plane(L, 0.6) : plane(0.6, L), c.x + dx * m, c.z + dz * m); }
+  for (let k = 0; k < 4; k++) { const g = gateSides[k]; if (!g) continue; const [dx, dz] = NEIGHBORS[k], L = H - RING_H + 0.06, m = RING_H + L / 2 - 0.02, w = g.river ? 1.45 : 0.6; add(dx ? plane(L, w) : plane(w, L), c.x + dx * m, c.z + dz * m); }
   if (plazaZ != null) { const pg = new THREE.CircleGeometry(1.0, 28); pg.rotateX(-Math.PI / 2); add(pg, c.x, c.z + plazaZ); add(plane(0.6, RING_H - plazaZ - 0.9), c.x, c.z + (RING_H + plazaZ + 0.9) / 2); }
   // 步道環四角的木頭路燈
   for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const x = c.x + sx * (RING_H + 0.38), z = c.z + sz * (RING_H + 0.38); kit.cyl(x, TOP + 0.26, z, 0.035, 0.52, WOOD); kit.hbox(x, TOP + 0.55, z, 0.1, 0.11, 0.1, 0x6a4e36); kit.bulb(x, TOP + 0.55, z, 0.07); kit.part('hip', [x, TOP + 0.63, z], [0.15, 0.06, 0.15], 0x6a4e36); }
@@ -101,7 +106,7 @@ export function buildIslands(scene, islands, kit, colors, campus = [], makeKit =
   for (const Z of cells.values()) { if (!Z.zone) continue; const nb = []; for (let k = 0; k < 4; k++) { const [dq, dr] = NEIGHBORS[k]; const O = cells.get(cellKey(Z.grid[0] + dq, Z.grid[1] + dr));
       const ok = O && (O.zone || (O.campus && O.campus.link === Z.id)); nb.push({ id: O && O.zone ? O.id : null, dq, dr, side: SIDE[k] });
       if (ok && (!O.zone || Z.id < O.id)) mkGate(Z, O, k); } neighbors.set(Z.id, nb); }
-  const gateSidesOf = Z => NEIGHBORS.map(([dq, dr]) => { const O = cells.get(cellKey(Z.grid[0] + dq, Z.grid[1] + dr)); return !!(O && gateOf.has([Z.id, O.id].sort().join('|'))); });
+  const gateSidesOf = Z => NEIGHBORS.map(([dq, dr]) => { const O = cells.get(cellKey(Z.grid[0] + dq, Z.grid[1] + dr)); return (O && gateOf.get([Z.id, O.id].sort().join('|'))) || null; });
   // 大地：一整片草地（往外延伸到遠山腳下）
   const all = [...cells.values()]; const cx0 = Math.min(...all.map(z => z.c.x)), cx1 = Math.max(...all.map(z => z.c.x)), cz0 = Math.min(...all.map(z => z.c.z)), cz1 = Math.max(...all.map(z => z.c.z)); const mx = (cx0 + cx1) / 2, mz = (cz0 + cz1) / 2;
   const gg = plane(180, 180); worldUV(gg, mx, mz); const ground = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: texOf('wild'), roughness: 1 })); ground.position.set(mx, TOP, mz); ground.receiveShadow = true; scene.add(ground);

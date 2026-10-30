@@ -1,6 +1,7 @@
 /* 校園快訊跑馬燈與校園信箱：全部原創、純屬虛構的教學小遊戲文案。
    每一類 = 手寫精選 + 零件組合產生器；各自用洗牌袋輪播，不會連續重複。
    類別：monster 小怪糗事／tip 學習小訣竅／quiz 快問快答（題目與答案在同一則）／campus 校園快訊／fun 冷知識 */
+import { TRICKS } from './speedmath.js';
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
 // ── 小怪糗事（遊戲裡的攻擊方）──
@@ -187,7 +188,7 @@ function bag(make, size) { let q = []; return () => { if (!q.length) { const see
 const mix = (hand, gen, handShare) => () => (Math.random() < handShare ? pick(hand) : gen());
 const GEN = {
   monster: mix(MON_HAND, () => `${pick(MON_WHO)}${pick(MON_DID)}，${pick(MON_TWIST)}。`, 0.45),
-  tip: mix(TIP_HAND, () => `${pick(TIP_WHO)}說：「${pick(TIP_SAY)}。」${pick(TIP_END)}`, 0.5),
+  tip: mix(TIP_HAND, () => Math.random() < 0.55 ? (t => `🧮 速算第 ${t.no} 招「${t.title}」：${t.rule}例如 ${t.ex}。`)(pick(TRICKS)) : `${pick(TIP_WHO)}說：「${pick(TIP_SAY)}。」${pick(TIP_END)}`, 0.4),
   quiz: mix(QUIZ_HAND, QZ_MATH, 0.6),
   campus: mix(CAMPUS_HAND, () => `${pick(CAMPUS_PLACE)}${pick(CAMPUS_EVENT)}，${pick(CAMPUS_TAIL)}`, 0.5),
   fun: mix(FUN_HAND, () => `${pick(FUN_WHO)}分享冷知識：${pick(FUN_FACT)}。${pick(FUN_END)}`, 0.5),

@@ -6,7 +6,8 @@ import { ICONS, policyIcon } from './icons.js';
 import { createRoom } from './room.js';
 import { createExploreUI } from './exploreui.js';
 import { createShop } from './shop.js';
-import { createQuizUI, dailyTally, topicsForGrade } from './quiz.js';
+import { createQuizUI, dailyTally, topicsForGrade, speedTopicsForGrade } from './quiz.js';
+import { TRICKS, CHAPTERS, tricksOf, trickById, chapterById } from './speedmath.js';
 const SH = C.shift, GR = C.grades, $ = id => document.getElementById(id);
 export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, progress, refreshGates, islName, stageCenter, callbacks, overview, stageView, flyTo, placePolicies, islandOf, setDistrictRanks, renderer, follow, input }) {
   const S = window.PIStore, G = game.G; const fmt = n => Number(n || 0).toLocaleString('zh-TW');
@@ -52,7 +53,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地面走過去。每個學期是一個用木圍欄圍起來的區塊，走到上下左右的門（過河的是木橋）就換到隔壁的區塊。'],
     ['自動攻擊', '武器會自動打射程內的敵人。點敵人＝鎖定它，射程內就優先打（打魔王很好用）。'],
     ['金蛋', `魔王倒下會掉 ${SH.egg.perBoss} 顆金蛋，走過去就撿起來（一次一顆、搬著會變慢），走進金蛋籃的黃圈就算一顆。按 E 或空白鍵可以把蛋丟出去，離籃子 ${SH.egg.throwAim} 格內丟會直接進籃。`],
-    ['解題', `按 R 或右下的「解題」會出一題（依你選的學期出題），答對這一波金蛋 +${C.quiz.bonusEggs}、血補滿；答錯要等 ${C.quiz.cooldown} 秒，每關最多 ${C.quiz.perShift} 題。`],
+    ['解題', `按 R 或右下的「解題」會出一題（依你選的學期出題，有時是速算題），答對這一波金蛋 +${C.quiz.bonusEggs}、血補滿；答錯要等 ${C.quiz.cooldown} 秒，每關最多 ${C.quiz.perShift} 題。`],
     ['配額', `每波 ${SH.waveSeconds} 秒，時間到時搬滿配額才過關；${SH.waves} 波都過就下課。`],
     ['倒下與救人', '血條歸零會倒下（搬著的蛋會掉在地上）。隊友走到旁邊站一下就能救起來；四個人全倒，這關就結束。'],
     ['魔王', `${C.bossTypes.length} 種魔王招式都不一樣：看到地上的紅圈、紅線就閃開。招式寫在大廳的魔王圖鑑。`],
@@ -65,6 +66,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     ['選角色、選你的學期', `角色決定你的角色長相；角色從你選的學期出發。一開始只有幼兒園、一年級上和你的學期開著，其他學期要在相鄰的場景答對 ${C.unlock.need} 題才會解鎖（橋頭有 🔒 的牌子寫著還差幾題）。`],
     ['怎麼走', '電腦用 WASD 或方向鍵（跟著鏡頭方向走），手機用左下角搖桿；也可以直接點地板走過去。每個學期是一個場景，走到上下左右邊緣的木橋就換到隔壁的場景。'],
     ['買衣服', `走進地圖上標「👕 服飾店」的店（共 ${XC.boutiques.length} 間）買帽子、背心、配件；買過的隨時能換，闖關時也會穿著，其他玩家看得到。`],
+    ['速算祕笈', `右上角的「🧮 速算」（或按 M）打開速算祕笈：${CHAPTERS.length} 章 ${TRICKS.length} 招，每招有口訣、例子和練習，答對三次就學會。小鎮裡也有 ${CHAPTERS.length} 棟「速算道場」，點了打開那一章。`],
     ['解題任務', `點課程建築打開課程卡，先看學習重點再按「解題任務」；答對每題 +${C.quiz.reward} 顆金蛋（每個單元每天 ${C.quiz.dailyCap} 題有獎勵，之後只是練習）。`],
     ['蓋校園', `全站一起投金蛋，依序蓋 ${C.econ.city.length} 棟建設；走到「🚧 工地」旁邊投。蓋好的建築換掉那個區塊裡的小房子，每個人的地圖上都看得到，投入的金蛋也算進你學期的學期對抗。`],
     ['捐書', '走到校長旁邊捐，校長會回你一句；全站累計解鎖全校加成（闖關更好過、晚上放煙火）。金蛋不是錢，這也不是真的捐款。'],
@@ -155,7 +157,7 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
     $('cardFacts').innerHTML = facts.map(f => `<li>${esc(f)}</li>`).join(''); $('cardFacts').parentElement.hidden = !facts.length;
     $('cardAgencies').innerHTML = ags.map(a => `<span class="chip">${esc(a)}</span>`).join(''); $('cardAgSec').hidden = !ags.length;
     const rel = related(pol, islandId); $('cardRelated').innerHTML = rel.map(p => `<button type="button" class="chip" data-pol="${esc(p.id)}"><span>${policyIcon(p.tag)}</span>${esc(p.title)}</button>`).join(''); $('cardRelSec').hidden = !rel.length;
-    $('cardStatus').textContent = pol.status || '教學遊戲・學習重點整理自國小常見課程，僅供練習參考，以學校課本為準'; $('btnCardFly').onclick = () => flyTo(islandId); $('btnCardQuiz').onclick = () => lessonQuiz(pol);
+    $('cardStatus').textContent = pol.status || '教學遊戲・學習重點整理自國小常見課程，僅供練習參考，以學校課本為準'; $('btnCardFly').onclick = () => flyTo(islandId); $('btnCardQuiz').onclick = () => lessonQuiz(pol); { const smCh = pol.speed && chapterById(pol.speed); $('btnCardBook').hidden = !smCh; if (smCh) { $('btnCardBook').textContent = pol.tag === '#速算' ? '📖 速算祕笈' : `🧮 相關速算：${smCh.title}`; $('btnCardBook').onclick = () => openBook(smCh.id); } }
     renderCardGame(); clearInterval(cardTimer); cardTimer = setInterval(() => { if ($('card').hidden) { clearInterval(cardTimer); return; } renderCardGame(); }, 1000); }
   const setCardFull = on => { $('card').classList.toggle('full', on); $('cardGrip').setAttribute('aria-expanded', String(on)); };
   const closeCard = () => { $('card').hidden = true; setCardFull(false); clearInterval(cardTimer); };
@@ -256,12 +258,28 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   let emoteAt = 0; function doEmote(k) { const now = Date.now(); if (now - emoteAt < C.emoteCooldown * 1000) return; emoteAt = now; const m = game.emote(k); if (m) room.sendUp(m); }
   $('btnSpecial').addEventListener('click', doSpecial); $('btnThrow').addEventListener('click', doThrow);
   // ── 解題（闖關中）：按 R 或右下「解題」出一題（依自己的學期出題）；答對這一波金蛋 +bonusEggs、血補滿；答錯等 cooldown 秒；每關最多 perShift 題。單人時出題中暫停 ──
-  const quiz = createQuizUI(); const gradeOfDistrict = id => { const isl = DISTRICTS.find(i => i.id === id); return isl && Number.isFinite(isl.grade) ? isl.grade : 3; }; const pickTopic = g => { const list = topicsForGrade(g); return list[Math.floor(Math.random() * list.length)]; };
+  const quiz = createQuizUI(); const gradeOfDistrict = id => { const isl = DISTRICTS.find(i => i.id === id); return isl && Number.isFinite(isl.grade) ? isl.grade : 3; }; const pickTopic = g => { const sp = speedTopicsForGrade(g); if (sp.length && Math.random() < 0.3) return sp[Math.floor(Math.random() * sp.length)]; const list = topicsForGrade(g); return list[Math.floor(Math.random() * list.length)]; }; // 三成的機會出速算題
   function renderQuizBtn() { const P = game.me(), b = $('btnQuiz'); if (!P) return; const left = Math.max(0, C.quiz.perShift - (P.quizN || 0)), cd = Math.ceil(Math.max(0, P.quizT || 0)); b.disabled = G.phase !== 'wave' || P.down || !left || cd > 0 || quiz.open; $('quizLeft').textContent = cd > 0 ? `${cd} 秒後` : left ? `剩 ${left} 題` : '用完了'; }
   async function doQuiz() { const P = game.me(); if (!P || P.down || G.phase !== 'wave' || (P.quizT || 0) > 0 || (P.quizN || 0) >= C.quiz.perShift || quiz.open) return; const wasPaused = G.paused; if (G.role === 'solo') G.paused = true; const g = gradeOfDistrict(myDistrict()), isl = DISTRICTS.find(i => i.id === myDistrict());
     const ok = await quiz.ask({ grade: g, topic: pickTopic(g), mode: 'shift', title: `${isl ? isl.name : ''}解題`, reward: `答對：這一波金蛋 +${C.quiz.bonusEggs}、血補滿` }); if (G.role === 'solo') G.paused = wasPaused; renderQuizBtn();
     if (ok === null) return; if (ok) { const m = game.quizBonus(); if (m) room.sendUp(m); progress.add(G.stage ? G.stage.basket : myDistrict()); renderDistricts(); } else { const P2 = game.me(); if (P2) P2.quizT = C.quiz.cooldown; banner(`❌ 答錯了，${C.quiz.cooldown} 秒後可以再試`, 2); } renderQuizBtn(); }
-  $('btnQuiz').addEventListener('click', doQuiz); setInterval(() => { if (G.phase !== 'lobby') renderQuizBtn(); }, 500);
+  $('btnQuiz').addEventListener('click', doQuiz);
+  // ── 速算祕笈：44 招分 7 章；每招有口訣、例子和練習（答對一題得一顆星，三顆星＝學會；星星記在裝置上）──
+  const SPEED_KEY = 'pi.speed.v1'; let speedStars = {}; try { speedStars = JSON.parse(localStorage.getItem(SPEED_KEY) || '{}') || {}; } catch (e) { speedStars = {}; }
+  const saveStars = () => { try { localStorage.setItem(SPEED_KEY, JSON.stringify(speedStars)); } catch (e) { /* 無痕 */ } };
+  const starOf = id => Math.min(3, speedStars[id] || 0); let bookCh = 'A';
+  function renderBook() { const learned = TRICKS.filter(t => starOf(t.id) >= 3).length;
+    $('bookLead').textContent = `整理自小學常見的速算口訣與印度吠陀速算，分成 ${CHAPTERS.length} 章、${TRICKS.length} 招。先看口訣和例子，再按「練習」：答對一題得一顆星，三顆星就學會了。已學會 ${learned}／${TRICKS.length} 招。`;
+    $('bookTabs').innerHTML = CHAPTERS.map(c => { const list = tricksOf(c.id), done = list.filter(t => starOf(t.id) >= 3).length; return `<button type="button" role="tab" data-ch="${c.id}" aria-selected="${c.id === bookCh}"><span class="i">${c.icon}</span><b>${esc(c.title)}</b><small>${done}／${list.length}</small></button>`; }).join('');
+    const ch = chapterById(bookCh); $('bookBody').innerHTML = `<p class="book-ch"><b>${esc(ch.title)}</b>・建議 ${ch.grade} 年級以上・${esc(ch.summary)}</p>` + tricksOf(bookCh).map(t => { const st = starOf(t.id); return `<article class="trick${st >= 3 ? ' done' : ''}"><div class="tk-head"><span class="no">${t.no}</span><b>${esc(t.title)}</b><small>${t.grade} 年級</small><span class="stars" aria-label="${st} 顆星">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span></div><p class="rule">${esc(t.rule)}</p><p class="ex">例：${esc(t.ex)}</p><button type="button" class="go2" data-trick="${t.id}">✏️ 練習</button></article>`; }).join(''); }
+  function openBook(ch) { if (ch && chapterById(ch)) bookCh = ch; renderBook(); $('speedBook').hidden = false; }
+  $('btnSpeed').addEventListener('click', () => openBook());
+  $('btnBookClose').addEventListener('click', () => { $('speedBook').hidden = true; });
+  $('bookTabs').addEventListener('click', e => { const b = e.target.closest('[data-ch]'); if (!b) return; bookCh = b.dataset.ch; renderBook(); });
+  $('bookBody').addEventListener('click', async e => { const b = e.target.closest('[data-trick]'); if (!b || quiz.open) return; const t = trickById(b.dataset.trick), ch = chapterById(t.ch), lessonId = 'sm-' + t.ch.toLowerCase(), tally = dailyTally('lesson:' + lessonId), capped = tally.count >= C.quiz.dailyCap;
+    const ok = await quiz.ask({ topic: 'sm:' + t.id, mode: 'lesson', title: t.title, eyebrow: `SPEED・第 ${t.no}／${TRICKS.length} 招`, reward: capped ? `今天「${ch.title}」的獎勵拿完了，再答只是練習` : `答對 +${C.quiz.reward} 顆金蛋（「${ch.title}」今天還有 ${C.quiz.dailyCap - tally.count} 題有獎勵）` });
+    if (ok === null) return; if (ok) { speedStars[t.id] = (speedStars[t.id] || 0) + 1; saveStars(); if (speedStars[t.id] === 3) banner(`🏅 學會第 ${t.no} 招「${t.title}」！`, 3); const n = tally.add(); progress.add(ch.zone); renderDistricts(); if (n <= C.quiz.dailyCap) { const r = await S.recordQuiz(C.quiz.reward, lessonId); if (r.ok) hint(`金蛋 +${C.quiz.reward}`); } shop.sync(); }
+    renderBook(); }); setInterval(() => { if (G.phase !== 'lobby') renderQuizBtn(); }, 500);
   // ── 解題任務（課程卡）：答對每題 +reward 顆金蛋記進雲端（每個單元每天 dailyCap 題有獎勵，之後只是練習）──
   const solvedToday = id => dailyTally('lesson:' + id).count;
   async function lessonQuiz(pol) { if (quiz.open) return; const t = dailyTally('lesson:' + pol.id), capped = t.count >= C.quiz.dailyCap, g = Number.isFinite(pol.grade) ? pol.grade : gradeOfDistrict(islandOf(pol.id));
@@ -351,7 +369,8 @@ export function createUI({ game, explore, xCallbacks, placeCity, bird, policyPos
   $('plList').addEventListener('click', joinFromList); $('onlineList').addEventListener('click', joinFromList);
   // ═══════════════ 快捷鍵 ═══════════════
   document.addEventListener('keydown', ev => { if (/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return; const k = ev.key.toLowerCase();
-    if (ev.key === 'Escape') { closeCard(); closeHelp(); quiz.close(); return; }
+    if (ev.key === 'Escape') { closeCard(); closeHelp(); quiz.close(); $('speedBook').hidden = true; return; }
+    if (k === 'm' && !quiz.open) { if ($('speedBook').hidden) openBook(); else $('speedBook').hidden = true; return; }
     if (G.phase === 'lobby') { if (k === 'h') overview(); else if (k === 'f') $('btnFollow').click(); return; }
     if (k === 'q') { ev.preventDefault(); doSpecial(); } else if (k === 'r') { ev.preventDefault(); doQuiz(); } else if (k === 'e' || ev.key === ' ') { ev.preventDefault(); doThrow(); } else if (k >= '1' && k <= String(C.emotes.length)) doEmote(C.emotes[+k - 1].k); else if (k === 'h') $('btnHome').click(); else if (k === 'f') { follow.start('hero', false); renderFollowBtn(); } else if (k === 'p') togglePause(); });
   const fsBtn = $('btnFull'); if (!document.fullscreenEnabled) fsBtn.hidden = true; fsBtn.addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => { hint('這個環境不允許全螢幕', true); }); }); document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? '⤡ 離開全螢幕' : '⤢ 全螢幕'; });
