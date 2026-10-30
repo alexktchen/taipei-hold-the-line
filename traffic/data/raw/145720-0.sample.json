@@ -73,7 +73,7 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-29T03:01:52+08:00"
+  "InfoTime": "2026-10-30T03:01:52+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -149,7 +149,7 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-29T03:01:52+08:00"
+  "InfoTime": "2026-10-30T03:01:52+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -225,7 +225,7 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-29T03:01:52+08:00"
+  "InfoTime": "2026-10-30T03:01:52+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -301,7 +301,7 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-29T03:01:52+08:00"
+  "InfoTime": "2026-10-30T03:01:52+08:00"
  },
  {
   "Agency_name": "臺北市政府交通局",
@@ -309,7 +309,7 @@
   "icid": "I0SSA",
   "icname": "老泉街　　　　防汛道路",
   "deviceid": "S0SSA10",
-  "segmenttype": 4,
+  "segmenttype": 3,
   "subsegment": [
    {
     "subsegmentid": 1,
@@ -377,6 +377,6 @@
     "planid（SeqNo）": "5"
    }
   ],
-  "InfoTime": "2026-10-29T03:01:52+08:00"
+  "InfoTime": "2026-10-30T03:01:52+08:00"
  }
 ]
