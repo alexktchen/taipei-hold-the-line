@@ -2,7 +2,7 @@
    跨島找路：步道路網（每島 12 個環節點＋橋）先算好全部節點兩兩之間的「下一跳」，走的時候挑看得到的最遠節點直接走過去。 */
 import { R, insideHex } from './islands.js';
 export function createNav({ islands, centers, bridges, links, graph }) {
-  const HEX = (R - 0.06) * 0.8660254, nodes = graph.nodes, N = nodes.length;
+  const HEX = (R - 0.22) * 0.8660254, nodes = graph.nodes, N = nodes.length;
   const isl = islands.map(i => ({ id: i.id, c: centers.get(i.id) }));
   const segOf = ([a, b, w]) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return { ax: a.x, az: a.z, dx, dz, L2: L * L, L, ux: dx / L, uz: dz / L, w }; };
   const segs = [...bridges.map(b => [b.pa, b.pb, 0.3]), ...links.map(l => [l.pa, l.pb, 0.36])].map(segOf); // 橋的可走寬度比橋面寬一點，不用對得很準

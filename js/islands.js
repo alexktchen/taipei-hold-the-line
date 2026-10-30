@@ -1,4 +1,4 @@
-/* 六邊形闖關島：島面材質、步道環、路緣、島側、淺灘與浪花、橋、行人路網。做法參考原站 world.js，重新實作。 */
+/* 闖關島（動森＋牧場物語風）：圓潤的海岸線、草地島面、泥土步道環、沙岩崖壁、沙灘與淺灘、木橋、行人路網。步道環與可走範圍仍是六邊形（導航用），海岸線永遠包住它。 */
 import * as THREE from 'three';
 import { WATER_Y, mulberry } from './env.js';
 import { CONFIG } from './config.js';
@@ -11,74 +11,64 @@ export function axialToWorld(q, r) { return new THREE.Vector3(SQ3 * SPACING * (q
 export function dirOf(dq, dr) { const x = SQ3 * (dq + dr / 2), z = 1.5 * dr, l = Math.hypot(x, z); return [x / l, z / l]; }
 export function hexVertex(cx, cz, r, k) { const a = Math.PI / 2 + (k * Math.PI) / 3; return [cx + Math.cos(a) * r, cz + Math.sin(a) * r]; }
 export function insideHex(x, z, ri) { const ax = Math.abs(x), az = Math.abs(z); return ax <= ri && ax * 0.5 + az * 0.8660254 <= ri; }
-const TONE = { granite: 0xd9cbb4, lawn: 0xb9cd98, gravel: 0xc7b08f, street: 0xcfc3b2, meadow: 0xbccf9c, terracotta: 0xdcb79a, garden: 0xb4c993, forest: 0x9fb683, rubber: 0xe2a46f, boardwalk: 0xc9a27c, ringtile: 0xf4f1ec, schoolyard: 0xc9785a, softpad: 0xb9d6e6, courtyard: 0xd9b08c };
-const SHALLOW = { granite: 0xb9d9d6, lawn: 0xa9d6e0, gravel: 0xc9c4a8, street: 0x9fc7cf, schoolyard: 0xd8d4a4, forest: 0x8fb89a, softpad: 0xd9cfc6, terracotta: 0xd9c3a8, garden: 0xa9cfa8, meadow: 0x9fcfbf, boardwalk: 0x8fc0d6, rubber: 0xbfd0e6, courtyard: 0xb9c6d6 };
-const RING_TINT = { granite: 0xe3d3b8, lawn: 0xbfd6df, gravel: 0xc9b89a, street: 0xb9b3ab, schoolyard: 0xf1dc9a, forest: 0xa98e6c, softpad: 0xf2d2d6, terracotta: 0xe6b796, garden: 0xdfe6cf, meadow: 0xd9866a, boardwalk: 0xc9a27c, rubber: 0x8fc6c4, courtyard: 0xe6cfb0 };
-const EDGE_BLOCKS = { granite: [0xe9e2d6, 0xd9cbb4, 0xf4efe6], lawn: [0xbfd6df, 0x9fc4c6, 0xe6f0ef], gravel: [0xdb6a41, 0xf2efe8, 0xe8c547], street: [0xe8c547, 0x3b3a42], schoolyard: [0xe8c547, 0x58a6a6, 0xdb6a41, 0xf3e2c6], forest: [0x8a6e52, 0x6f8a62, 0x9cc27a], softpad: [0xf2b5c6, 0x9fc4e6, 0xf6e3a6, 0xc4e2c4], terracotta: [0xd08a64, 0xf2d0b4, 0xc27c58], garden: [0x8db86f, 0xdfe6cf, 0xf2b5c6], meadow: [0xc8775a, 0xffffff, 0xe8c547], boardwalk: [0xc9a27c, 0xb48560, 0xe6cfb0], rubber: [0xe8c547, 0x58a6a6, 0xdb6a41, 0xf3e2c6, 0xdb6a41], courtyard: [0xc77b5c, 0xe9d8c0, 0x3f5a8a] };
-const BAND = { granite: ['blocks', '#d8ccb8', '#bfae95'], lawn: ['glass', '#9fc4c6', '#e6f0ef'], gravel: ['hoarding', '#db6a41', '#f2efe8'], street: ['hazard', '#e8c547', '#3b3a42'], schoolyard: ['mural', '#e8c547', '#58a6a6'], forest: ['moss', '#6f8a62', '#9cc27a'], softpad: ['pastel', '#f2b5c6', '#9fc4e6'], terracotta: ['tiles', '#d08a64', '#f2d0b4'], garden: ['ivy', '#8db86f', '#b4c993'], meadow: ['stripe', '#c8775a', '#ffffff'], boardwalk: ['timber', '#9a7a5a', '#c9a27c'], rubber: ['graffiti', '#e7a383', '#58a6a6'], courtyard: ['blocks', '#c77b5c', '#e9d8c0'] };
+// 島面：全部是草地（動森／牧場物語風），依島的類型換一點色調；gravel／boardwalk／courtyard 是泥土田地
+const TONE = { granite: 0xa9c98a, lawn: 0xb3cf8e, gravel: 0xc9a27c, street: 0x9cc27a, meadow: 0xb9d492, terracotta: 0xc3cf86, garden: 0xa9c98a, forest: 0x86ad6a, rubber: 0xb3cf8e, boardwalk: 0xcfa985, ringtile: 0xd6b58d, schoolyard: 0x9cc27a, softpad: 0xb9d492, courtyard: 0xcaa57f, dirt: 0xd6b58d };
+const SHALLOW = { default: 0x9fd9d8 };
+const CLIFF = [0x7fa060, 0xf0e0bd, 0xe2cba0, 0xd0b183, 0xbf9a6c]; // 由上到下：草皮邊、沙岩層
+const SAND = 0xf2e5c6, SAND_WET = 0xe4d2a9;
 function groundTexture(type) {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const rnd = mulberry(type.length * 97 + 3);
-  g.fillStyle = '#' + TONE[type].toString(16).padStart(6, '0'); g.fillRect(0, 0, 256, 256);
+  g.fillStyle = '#' + (TONE[type] || TONE.lawn).toString(16).padStart(6, '0'); g.fillRect(0, 0, 256, 256);
   const speck = (n, cols, rmin, rmax, a = 1) => { for (let i = 0; i < n; i++) { g.globalAlpha = a * (0.4 + rnd() * 0.6); g.fillStyle = cols[Math.floor(rnd() * cols.length)]; g.beginPath(); g.arc(rnd() * 256, rnd() * 256, rmin + rnd() * (rmax - rmin), 0, Math.PI * 2); g.fill(); } g.globalAlpha = 1; };
-  const tiles = (sz, grout, jitter, cols) => { for (let y = 0; y < 256; y += sz) for (let x = 0; x < 256; x += sz) { g.fillStyle = cols[Math.floor(rnd() * cols.length)]; g.fillRect(x + 1, y + 1, sz - 2, sz - 2); g.globalAlpha = jitter; g.fillStyle = rnd() > 0.5 ? '#fff' : '#000'; g.fillRect(x + 1, y + 1, sz - 2, sz - 2); g.globalAlpha = 1; } g.strokeStyle = grout; g.lineWidth = 2; for (let i = 0; i <= 256; i += sz) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.moveTo(0, i); g.lineTo(256, i); g.stroke(); } };
-  switch (type) {
-    case 'granite': tiles(32, '#bfae95', 0.04, ['#dccfb8', '#d6c7ae', '#e0d3bd', '#d2c2a7']); speck(400, ['#b8a68b', '#efe4d2'], 0.4, 1.1, 0.5); break;
-    case 'street': tiles(21, '#b3a796', 0.03, ['#d0c4b3', '#c8bba8', '#d6cbbb']); break;
-    case 'schoolyard': g.strokeStyle = '#f6eee6'; g.lineWidth = 3; for (let y = 16; y < 256; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); } speck(900, ['#b86c50', '#d68a6a'], 0.4, 1.0, 0.6); break;
-    case 'softpad': for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) { g.fillStyle = ['#b9d6e6', '#f2c4d0', '#f6e3a6', '#c4e2c4'][((x + y) / 32) % 4]; g.fillRect(x + 1, y + 1, 30, 30); } break;
-    case 'ringtile': tiles(18, '#c9c2b8', 0.035, ['#f6f3ee', '#efebe4', '#faf8f4']); break;
-    case 'terracotta': tiles(26, '#b98d6f', 0.05, ['#dcb79a', '#d4ab8c', '#e1c0a4']); break;
-    case 'courtyard': tiles(30, '#b58a68', 0.04, ['#d9b08c', '#d2a682', '#e0b995']); break;
-    case 'boardwalk': for (let y = 0; y < 256; y += 16) { g.fillStyle = ['#c9a27c', '#bf9771', '#d1ab86'][Math.floor(rnd() * 3)]; g.fillRect(0, y + 1, 256, 14); g.fillStyle = '#a9805e'; for (let x = (y * 7) % 64; x < 256; x += 64) g.fillRect(x, y + 1, 2, 14); } break;
-    case 'rubber': g.fillStyle = '#e8c06a'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128); speck(1800, ['#c98a59', '#f1c48f', '#d9965f'], 0.5, 1.3, 0.6); break;
-    case 'gravel': speck(2600, ['#b29a78', '#d8c4a3', '#a68c6c', '#c9b392'], 0.5, 1.6, 0.8); break;
-    default: { const deep = type === 'forest' ? ['#8ea873', '#a9bf8e', '#7e9866'] : ['#a9bf8e', '#c7d7a8', '#9fb684', '#b5c995']; speck(3200, deep, 0.4, 1.4, 0.55); if (type !== 'forest') speck(70, ['#f3e7a6', '#ffffff', '#f2c4b2', '#d9c6f0'], 0.9, 1.6, 0.85); }
+  const dirt = type === 'gravel' || type === 'boardwalk' || type === 'courtyard' || type === 'ringtile' || type === 'dirt';
+  if (dirt) { speck(2200, ['#c49a6e', '#dcbf98', '#b8906a', '#e3cba6'], 0.5, 1.8, 0.7); speck(60, ['#a98a6a', '#8f7355'], 1.4, 3.0, 0.6); if (type === 'ringtile' || type === 'dirt') speck(40, ['#f1e4c3', '#d9c6a3'], 2.5, 4.5, 0.5); }
+  else { const deep = type === 'forest' ? ['#7a9a60', '#95b37a', '#6e8c58'] : type === 'terracotta' ? ['#b5c47a', '#d3dc98', '#a8b870'] : ['#a2bb84', '#c1d49e', '#95ae79', '#b0c78e']; speck(3200, deep, 0.4, 1.4, 0.55);
+    speck(220, ['#8fae70', '#7f9f62'], 1.0, 2.2, 0.35); // 草叢深色斑
+    if (['meadow', 'garden', 'softpad', 'lawn', 'granite'].includes(type)) speck(90, ['#f3e7a6', '#ffffff', '#f2c4b2', '#d9c6f0', '#f6d36a'], 0.9, 1.7, 0.9); // 小花
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
 }
-function bandTexture(type) {
-  const [kind, a, b] = BAND[type]; const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); const rnd = mulberry(type.length * 31 + 7); g.fillStyle = a; g.fillRect(0, 0, 512, 64);
-  switch (kind) {
-    case 'blocks': case 'tiles': for (let y = 0; y < 64; y += 21) for (let x = (y / 21) % 2 ? -18 : 0; x < 512; x += 36) { g.fillStyle = rnd() < 0.5 ? a : b; g.fillRect(x + 1, y + 1, 34, 19); } break;
-    case 'glass': for (let x = 0; x < 512; x += 32) { g.fillStyle = b; g.fillRect(x + 2, 6, 26, 52); g.fillStyle = '#3e7c8c'; g.fillRect(x, 0, 2, 64); } break;
-    case 'hoarding': case 'stripe': for (let x = 0; x < 512; x += 32) { g.fillStyle = (x / 32) % 2 ? a : b; g.fillRect(x, 0, 32, 64); } break;
-    case 'hazard': g.fillStyle = b; for (let x = -64; x < 576; x += 32) { g.beginPath(); g.moveTo(x, 64); g.lineTo(x + 16, 64); g.lineTo(x + 48, 0); g.lineTo(x + 32, 0); g.fill(); } break;
-    case 'mural': case 'graffiti': case 'pastel': for (let k = 0; k < 40; k++) { g.fillStyle = [a, b, '#fcea8b', '#db6a41', '#ffffff', '#6f7fb5'][k % 6]; g.beginPath(); g.arc(rnd() * 512, rnd() * 64, 6 + rnd() * 14, 0, Math.PI * 2); g.fill(); } break;
-    case 'moss': case 'ivy': for (let x = 0; x < 512; x += 6) { g.fillStyle = b; const h = 10 + rnd() * 40; g.fillRect(x, 0, 5, h); g.beginPath(); g.arc(x + 2.5, h, 3.5, 0, Math.PI * 2); g.fill(); } break;
-    case 'timber': for (let x = 0; x < 512; x += 24) { g.fillStyle = rnd() < 0.5 ? a : b; g.fillRect(x + 1, 0, 22, 64); } break;
-  }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.set(3, 1); return t;
-}
-function cliffGeometry(cx, cz, r, yTop, yBot, type) {
-  const segH = 8, segV = 7, posA = [], colA = [], idx = []; const shallow = new THREE.Color(SHALLOW[type] || 0xb9d9d6), waterTone = new THREE.Color(0x9fcfd6);
-  for (let e = 0; e < 6; e++) { const [ax, az] = hexVertex(cx, cz, r, e), [bx, bz] = hexVertex(cx, cz, r, e + 1); const base = posA.length / 3;
-    for (let v = 0; v <= segV; v++) { const t = v / segV, y = yTop + (yBot - yTop) * t; for (let h = 0; h <= segH; h++) { const s = h / segH; posA.push(ax + (bx - ax) * s, y, az + (bz - az) * s); const c = shallow.clone().lerp(waterTone, Math.min(1, t * 1.4)); colA.push(c.r, c.g, c.b); } }
-    for (let v = 0; v < segV; v++) for (let h = 0; h < segH; h++) { const a = base + v * (segH + 1) + h, b = a + 1, c = a + segH + 1, d = c + 1; idx.push(a, c, b, b, c, d); } }
+// 海岸線：圓角六邊形（永遠包住步道環與可走的範圍）加一點起伏，看起來像動森的島
+const SEG = 84;
+export function shoreR(a, seed = 0) { const ph = ((a - Math.PI / 3) % (Math.PI / 3) + Math.PI / 3) % (Math.PI / 3) - Math.PI / 6; const ri = R * 0.8660254; const hex = ri / Math.cos(ph), round = ri / Math.pow(Math.cos(ph), 0.45);
+  return Math.min(hex + 0.12, round) + 0.04 + Math.sin(a * 3 + seed) * 0.04 + Math.sin(a * 7 + seed * 1.7) * 0.025 + Math.sin(a * 11 + seed * 0.4) * 0.012; }
+function shorePts(seed, extra = 0, wobble = 0) { const out = []; for (let k = 0; k < SEG; k++) { const a = (k / SEG) * Math.PI * 2; const r = shoreR(a, seed) + extra + Math.sin(a * 5 + seed * 2.3) * wobble; out.push([Math.cos(a) * r, Math.sin(a) * r]); } return out; }
+function polyShape(pts) { const s = new THREE.Shape(); pts.forEach(([x, z], k) => k ? s.lineTo(x, -z) : s.moveTo(x, -z)); s.closePath(); return s; }
+function ringGeo(outer, inner) { const s = polyShape(outer); const h = new THREE.Path(); inner.forEach(([x, z], k) => k ? h.lineTo(x, -z) : h.moveTo(x, -z)); h.closePath(); s.holes.push(h); const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); return g; }
+// 島側：沿海岸線往下的崖壁，上面一圈草皮邊，往下是一層層沙岩，到水下漸漸變成水色；越往下略縮進去
+function cliffGeometry(cx, cz, seed, yTop, yBot) {
+  const segV = 8, posA = [], colA = [], idx = []; const water = new THREE.Color(0x8fc9cf); const pts = shorePts(seed); const layer = t => new THREE.Color(t < 0.08 ? CLIFF[0] : t < 0.3 ? CLIFF[1] : t < 0.5 ? CLIFF[2] : t < 0.7 ? CLIFF[3] : CLIFF[4]);
+  for (let k = 0; k <= SEG; k++) { const [px, pz] = pts[k % SEG]; for (let v = 0; v <= segV; v++) { const t = v / segV, y = yTop + (yBot - yTop) * t, sh = 1 - t * 0.06; posA.push(cx + px * sh, y, cz + pz * sh); const c = layer(t).lerp(water, Math.max(0, (y - (WATER_Y + 0.1)) < 0 ? Math.min(1, (WATER_Y + 0.1 - y) * 1.8) : 0)); colA.push(c.r, c.g, c.b); } }
+  for (let k = 0; k < SEG; k++) for (let v = 0; v < segV; v++) { const a = k * (segV + 1) + v, b = a + segV + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(posA, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(colA, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
 function hexRing(rOut, rIn) { const s = new THREE.Shape(), h = new THREE.Path(); for (let k = 0; k < 6; k++) { const [x, z] = hexVertex(0, 0, rOut, k); k ? s.lineTo(x, -z) : s.moveTo(x, -z); const [x2, z2] = hexVertex(0, 0, rIn, k); k ? h.lineTo(x2, -z2) : h.moveTo(x2, -z2); } s.closePath(); h.closePath(); s.holes.push(h); const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); return g; }
 
 // 共用材質（第一次用到才建；之後新蓋的島也共用）
 const MATS = { top: new Map() };
-function mats() { if (!MATS.cliff) { MATS.cliff = new THREE.MeshLambertMaterial({ vertexColors: true }); MATS.ringTex = groundTexture('ringtile'); MATS.curb = new THREE.MeshStandardMaterial({ color: 0xe4d6c3, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); MATS.foam = new THREE.MeshBasicMaterial({ color: 0xf6fbfa, transparent: true, opacity: 0.55, depthWrite: false }); } return MATS; }
-const topMat = ground => { if (!MATS.top.has(ground)) MATS.top.set(ground, new THREE.MeshStandardMaterial({ map: groundTexture(ground), roughness: 0.92 })); return MATS.top.get(ground); };
-// 一座島：島面、步道環、路緣、島側、色帶、淺灘與浪花、島緣積木、路燈（積木與路燈放進 kit）
-function buildIsland(scene, i, c, kit) { const M = mats();
-  const topGeo = new THREE.CircleGeometry(R - 0.05, 6); topGeo.rotateZ(Math.PI / 6); topGeo.rotateX(-Math.PI / 2); const uv = topGeo.attributes.uv, p = topGeo.attributes.position; for (let n = 0; n < p.count; n++) uv.setXY(n, (p.getX(n) + c.x) / 2.2, (p.getZ(n) + c.z) / 2.2);
+function mats() { if (!MATS.cliff) { MATS.cliff = new THREE.MeshLambertMaterial({ vertexColors: true }); MATS.ringTex = groundTexture('ringtile'); MATS.sand = new THREE.MeshStandardMaterial({ color: SAND, roughness: 1 }); MATS.sandWet = new THREE.MeshStandardMaterial({ color: SAND_WET, roughness: 1 }); MATS.shallow = new THREE.MeshBasicMaterial({ color: SHALLOW.default, transparent: true, opacity: 0.5, depthWrite: false }); MATS.foam = new THREE.MeshBasicMaterial({ color: 0xf6fbfa, transparent: true, opacity: 0.6, depthWrite: false }); } return MATS; }
+const topMat = ground => { if (!MATS.top.has(ground)) MATS.top.set(ground, new THREE.MeshStandardMaterial({ map: groundTexture(ground), roughness: 0.95 })); return MATS.top.get(ground); };
+const seedOf = i => (i.number || 1) * 1.37;
+// 一座島：草地島面、泥土步道環、崖壁、沙灘、淺灘與浪花、岸邊的小石頭與草叢、木頭路燈（小零件放進 kit）
+function buildIsland(scene, i, c, kit) { const M = mats(); const seed = seedOf(i);
+  const topGeo = new THREE.ShapeGeometry(polyShape(shorePts(seed, 0.02))); topGeo.rotateX(-Math.PI / 2); const uv = topGeo.attributes.uv, p = topGeo.attributes.position; for (let n = 0; n < p.count; n++) uv.setXY(n, (p.getX(n) + c.x) / 2.2, (p.getZ(n) + c.z) / 2.2);
   const top = new THREE.Mesh(topGeo, topMat(i.ground)); top.position.set(c.x, TOP, c.z); top.receiveShadow = true; top.userData = { island: i.id }; scene.add(top);
-  const rm = new THREE.MeshStandardMaterial({ map: M.ringTex, roughness: 0.9, color: RING_TINT[i.ground], polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
-  const ring = new THREE.Mesh(hexRing(RING_R + 0.14, RING_R - 0.14), rm); ring.position.set(c.x, TOP + 0.012, c.z); ring.receiveShadow = true; scene.add(ring);
-  const curb = new THREE.Mesh(hexRing(R, R - 0.07), M.curb); curb.position.set(c.x, TOP + 0.04, c.z); scene.add(curb);
-  const inner = new THREE.Mesh(hexRing(RING_R - 0.14, RING_R - 0.18), M.curb); inner.position.set(c.x, TOP + 0.02, c.z); scene.add(inner);
-  const cliff = new THREE.Mesh(cliffGeometry(c.x, c.z, R, TOP + 0.04, WATER_Y - 0.5, i.ground), M.cliff); cliff.castShadow = true; cliff.receiveShadow = true; cliff.userData = { island: i.id }; scene.add(cliff);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.012, R - 0.002, 0.16, 6, 1, true), new THREE.MeshStandardMaterial({ map: bandTexture(i.ground), roughness: 0.85 })); band.position.set(c.x, TOP - 0.04, c.z); scene.add(band);
-  const shallow = new THREE.Mesh(hexRing(R + 0.7, R - 0.02), new THREE.MeshBasicMaterial({ color: SHALLOW[i.ground], transparent: true, opacity: 0.55, depthWrite: false })); shallow.position.set(c.x, WATER_Y + 0.008, c.z); scene.add(shallow);
-  const foam = new THREE.Mesh(hexRing(R + 0.16, R - 0.02), M.foam); foam.position.set(c.x, WATER_Y + 0.012, c.z); scene.add(foam);
-  // 島緣：一圈彩色圓角積木（島的辨識色）
-  { const cols = EDGE_BLOCKS[i.ground] || [0xf4efe6, 0xd9cbb4]; let n = 0; for (let e = 0; e < 6; e++) { const [ax, az] = hexVertex(c.x, c.z, R, e), [bx, bz] = hexVertex(c.x, c.z, R, e + 1); const mx = (ax + bx) / 2 - c.x, mz = (az + bz) / 2 - c.z, ml = Math.hypot(mx, mz); const yaw = Math.atan2(-(bz - az), bx - ax); const N = 7, L = Math.hypot(bx - ax, bz - az);
-    for (let k = 0; k < N; k++) { const t = (k + 0.5) / N; const x = ax + (bx - ax) * t + (mx / ml) * 0.05, z = az + (bz - az) * t + (mz / ml) * 0.05; kit.part('rbox', [x, TOP - 0.08, z], [L / N * 0.9, 0.18, 0.13], cols[(n++) % cols.length], [0, yaw, 0]); } } }
-  // 步道環上的路燈
-  for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R + 0.3, k); kit.cyl(vx, TOP + 0.22, vz, 0.03, 0.44, 0x6a665f); kit.bulb(vx, TOP + 0.47, vz, 0.07); }
+  const rm = new THREE.MeshStandardMaterial({ map: M.ringTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  const ring = new THREE.Mesh(hexRing(RING_R + 0.15, RING_R - 0.15), rm); ring.position.set(c.x, TOP + 0.012, c.z); ring.receiveShadow = true; scene.add(ring);
+  const cliff = new THREE.Mesh(cliffGeometry(c.x, c.z, seed, TOP + 0.02, WATER_Y - 0.5), M.cliff); cliff.castShadow = true; cliff.receiveShadow = true; cliff.userData = { island: i.id }; scene.add(cliff);
+  // 沙灘：崖腳一圈沙，靠水那一邊顏色深一點（濕沙），再外面是淺灘和一圈浪花
+  const beach = new THREE.Mesh(ringGeo(shorePts(seed, 0.24, 0.03), shorePts(seed, -0.08)), M.sand); beach.position.set(c.x, WATER_Y + 0.02, c.z); beach.receiveShadow = true; scene.add(beach);
+  const wet = new THREE.Mesh(ringGeo(shorePts(seed, 0.3, 0.035), shorePts(seed, 0.2, 0.03)), M.sandWet); wet.position.set(c.x, WATER_Y + 0.016, c.z); scene.add(wet);
+  const shallow = new THREE.Mesh(ringGeo(shorePts(seed, 0.75, 0.08), shorePts(seed, 0.29, 0.035)), M.shallow); shallow.position.set(c.x, WATER_Y + 0.008, c.z); scene.add(shallow);
+  const foam = new THREE.Mesh(ringGeo(shorePts(seed, 0.38, 0.04), shorePts(seed, 0.31, 0.035)), M.foam); foam.position.set(c.x, WATER_Y + 0.012, c.z); scene.add(foam);
+  // 岸邊：幾顆小石頭、草叢、貝殼、椰子樹（沙灘上）
+  { const rnd = mulberry(Math.round(seed * 100)); for (let k = 0; k < 14; k++) { const a = rnd() * Math.PI * 2; const r = shoreR(a, seed); const kind = k % 4;
+      if (kind === 0) kit.part('ico', [c.x + Math.cos(a) * (r + 0.08 + rnd() * 0.1), WATER_Y + 0.05, c.z + Math.sin(a) * (r + 0.08 + rnd() * 0.1)], [0.12 + rnd() * 0.1, 0.07, 0.1 + rnd() * 0.08], [0xc9bba6, 0xb7a993, 0xd8ccba][k % 3]);
+      else if (kind === 1) kit.part('leaf', [c.x + Math.cos(a) * (r - 0.16), TOP + 0.05, c.z + Math.sin(a) * (r - 0.16)], [0.16, 0.12, 0.16], [0x8db86f, 0x9cc27a][k % 2]);
+      else if (kind === 2) kit.part('sphere', [c.x + Math.cos(a) * (r + 0.1 + rnd() * 0.1), WATER_Y + 0.035, c.z + Math.sin(a) * (r + 0.1 + rnd() * 0.1)], [0.05, 0.03, 0.05], [0xfff8f4, 0xf2a1a1, 0xf6d36a][k % 3]);
+      else if (k % 8 === 3) kit.tree(c.x + Math.cos(a) * (r + 0.12), c.z + Math.sin(a) * (r + 0.12), 0.3, k + Math.round(seed * 10), 'palm', WATER_Y + 0.02); } }
+  // 步道環上的木頭路燈：木柱＋小燈籠
+  for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R + 0.18, k); kit.cyl(vx, TOP + 0.22, vz, 0.03, 0.44, 0x8a6a4a); kit.hbox(vx, TOP + 0.47, vz, 0.09, 0.1, 0.09, 0x6a4e36); kit.bulb(vx, TOP + 0.47, vz, 0.065); kit.part('hip', [vx, TOP + 0.54, vz], [0.13, 0.05, 0.13], 0x6a4e36); }
   return { top, cliff }; }
 // 步道環上的 12 個點（頂點＋邊中點）
 export function ringPoints(c) { const out = []; for (let k = 0; k < 6; k++) { const [vx, vz] = hexVertex(c.x, c.z, RING_R, k), [wx, wz] = hexVertex(c.x, c.z, RING_R, k + 1); out.push(new THREE.Vector3(vx, TOP + 0.03, vz), new THREE.Vector3((vx + wx) / 2, TOP + 0.03, (vz + wz) / 2)); } return out; }
@@ -86,18 +76,18 @@ export function ringPoints(c) { const out = []; for (let k = 0; k < 6; k++) { co
 export function nearestRingPair(ca, cb) { let best = null; for (const a of ringPoints(ca)) for (const b of ringPoints(cb)) { const d = a.distanceTo(b); if (!best || d < best.d) best = { pa: a, pb: b, d }; } return best; }
 // 陸橋：有拱架、橋墩、欄杆、燈的人行陸橋
 function buildLink(kit, pa, pb, colors) { const len = pa.distanceTo(pb), dir = pb.clone().sub(pa).normalize(), yaw = Math.atan2(dir.x, dir.z), side = new THREE.Vector3(dir.z, 0, -dir.x); const N = Math.max(8, Math.round(len / 0.22));
-  for (let s2 = 0; s2 < N; s2++) { const t = (s2 + 0.5) / N, q = pa.clone().lerp(pb, t); kit.hbox(q.x, TOP + 0.04, q.z, 0.46, 0.04, len / N + 0.005, s2 % 2 ? 0xd4a07e : 0xc49470, null, [0, yaw, 0]); }
-  kit.hbox((pa.x + pb.x) / 2, TOP + 0.0, (pa.z + pb.z) / 2, 0.5, 0.06, len, 0xe4d6c3, null, [0, yaw, 0]);
+  for (let s2 = 0; s2 < N; s2++) { const t = (s2 + 0.5) / N, q = pa.clone().lerp(pb, t); kit.hbox(q.x, TOP + 0.04, q.z, 0.46, 0.04, len / N + 0.005, s2 % 2 ? 0xc9a27c : 0xb48560, null, [0, yaw, 0]); }
+  kit.hbox((pa.x + pb.x) / 2, TOP + 0.0, (pa.z + pb.z) / 2, 0.5, 0.06, len, 0x9a7454, null, [0, yaw, 0]);
   for (const sgn of [-1, 1]) { const o = side.clone().multiplyScalar(0.24 * sgn); const M = Math.round(len / 0.3);
-    for (let k = 0; k <= M; k++) { const q = pa.clone().lerp(pb, k / M).add(o); kit.hbox(q.x, TOP + 0.13, q.z, 0.025, 0.18, 0.025, 0xfff8f4); }
-    const mid = pa.clone().lerp(pb, 0.5).add(o); kit.hbox(mid.x, TOP + 0.22, mid.z, 0.03, 0.03, len, colors.accent, null, [0, yaw, 0]);
+    for (let k = 0; k <= M; k++) { const q = pa.clone().lerp(pb, k / M).add(o); kit.hbox(q.x, TOP + 0.13, q.z, 0.03, 0.18, 0.03, 0x8a6a4a); }
+    const mid = pa.clone().lerp(pb, 0.5).add(o); kit.hbox(mid.x, TOP + 0.22, mid.z, 0.03, 0.03, len, 0xb48560, null, [0, yaw, 0]);
     // 拱架：一節節方塊沿拋物線排起來，吊索垂到橋面
     const A = 14, H = Math.min(1.1, 0.25 + len * 0.18); let prev = null;
-    for (let k = 0; k <= A; k++) { const t = k / A; const q = pa.clone().lerp(pb, t).add(o); q.y = TOP + 0.22 + Math.sin(t * Math.PI) * H; if (prev) { const m2 = prev.clone().lerp(q, 0.5), seg = q.distanceTo(prev); const pitch = Math.atan2(q.y - prev.y, Math.hypot(q.x - prev.x, q.z - prev.z)); kit.part('box', [m2.x, m2.y, m2.z], [0.05, 0.05, seg + 0.01], 0xfff8f4, [-pitch, yaw, 0]); }
-      if (k > 0 && k < A && k % 2 === 0) { kit.hbox(q.x, (q.y + TOP + 0.22) / 2, q.z, 0.012, q.y - TOP - 0.22, 0.012, 0x9a8a7a); }
+    for (let k = 0; k <= A; k++) { const t = k / A; const q = pa.clone().lerp(pb, t).add(o); q.y = TOP + 0.22 + Math.sin(t * Math.PI) * H; if (prev) { const m2 = prev.clone().lerp(q, 0.5), seg = q.distanceTo(prev); const pitch = Math.atan2(q.y - prev.y, Math.hypot(q.x - prev.x, q.z - prev.z)); kit.part('box', [m2.x, m2.y, m2.z], [0.06, 0.06, seg + 0.01], 0x9a7454, [-pitch, yaw, 0]); }
+      if (k > 0 && k < A && k % 2 === 0) { kit.hbox(q.x, (q.y + TOP + 0.22) / 2, q.z, 0.014, q.y - TOP - 0.22, 0.014, 0xc9a27c); }
       if (k % 4 === 2) kit.bulb(q.x, q.y + 0.05, q.z, 0.05, 0xfff0c2); prev = q; } }
-  for (let k = 1; k < 4; k++) { const q = pa.clone().lerp(pb, k / 4); kit.cyl(q.x, (TOP - 0.02 + WATER_Y - 0.4) / 2, q.z, 0.16, TOP - 0.02 - (WATER_Y - 0.4), 0xd9cbb4); kit.cyl(q.x, WATER_Y + 0.02, q.z, 0.3, 0.04, 0xf6fbfa); }
-  for (const end of [pa, pb]) { kit.cyl(end.x + side.x * 0.3, TOP + 0.3, end.z + side.z * 0.3, 0.05, 0.6, colors.accent); kit.cyl(end.x - side.x * 0.3, TOP + 0.3, end.z - side.z * 0.3, 0.05, 0.6, colors.accent); } }
+  for (let k = 1; k < 4; k++) { const q = pa.clone().lerp(pb, k / 4); kit.cyl(q.x, (TOP - 0.02 + WATER_Y - 0.4) / 2, q.z, 0.14, TOP - 0.02 - (WATER_Y - 0.4), 0x8a6a4a); kit.cyl(q.x, WATER_Y + 0.02, q.z, 0.3, 0.04, 0xf6fbfa); }
+  for (const end of [pa, pb]) { kit.cyl(end.x + side.x * 0.3, TOP + 0.3, end.z + side.z * 0.3, 0.05, 0.6, 0x8a6a4a); kit.cyl(end.x - side.x * 0.3, TOP + 0.3, end.z - side.z * 0.3, 0.05, 0.6, 0x8a6a4a); } }
 // 新蓋的島（蓋校園的填海造島）：島本身＋一座陸橋接到指定的島
 export function buildExtraIsland(scene, isl, c, linkC, kit, colors) { const v = buildIsland(scene, isl, c, kit); const { pa, pb } = nearestRingPair(c, linkC); buildLink(kit, pa, pb, colors); return { ...v, pa, pb }; }
 export function buildIslands(scene, islands, kit, colors) {
@@ -116,9 +106,9 @@ export function buildIslands(scene, islands, kit, colors) {
   for (const [id, nb] of neighbors) for (const n of nb) { if (!n.id) continue; const key = [id, n.id].sort().join('|'); if (seen.has(key)) continue; seen.add(key);
     const a = centers.get(id), b = centers.get(n.id); const [dx, dz] = dirOf(n.dq, n.dr); const ri = RING_R * 0.8660254;
     const pa = new THREE.Vector3(a.x + dx * ri, TOP, a.z + dz * ri), pb = new THREE.Vector3(b.x - dx * ri, TOP, b.z - dz * ri); bridges.push({ a: id, b: n.id, pa, pb });
-    const len = pa.distanceTo(pb), yaw = Math.atan2(dx, dz), mid = pa.clone().lerp(pb, 0.5), arch = 0.08; const deck = [0xb48560, 0xa77a55];
+    const len = pa.distanceTo(pb), yaw = Math.atan2(dx, dz), mid = pa.clone().lerp(pb, 0.5), arch = 0.08; const deck = [0xc9a27c, 0xb48560];
     for (let s = 0; s <= 8; s++) { const t = s / 8, pnt = pa.clone().lerp(pb, t); kit.hbox(pnt.x, TOP + 0.03 + Math.sin(t * Math.PI) * arch, pnt.z, 0.3, 0.035, len / 9 + 0.01, s % 2 ? deck[0] : deck[1], null, [Math.cos(t * Math.PI) * -arch * 2, yaw, 0]); }
-    for (const side of [-1, 1]) { const ox = Math.cos(yaw) * 0.15 * side, oz = -Math.sin(yaw) * 0.15 * side; for (let s = 0; s <= 4; s++) { const t = s / 4, pnt = pa.clone().lerp(pb, t); kit.hbox(pnt.x + ox, TOP + 0.13 + Math.sin(t * Math.PI) * arch, pnt.z + oz, 0.022, 0.16, 0.022, colors.cream); } kit.hbox(mid.x + ox, TOP + 0.21 + arch * 0.66, mid.z + oz, 0.02, 0.02, len, 0x9a7454, null, [0, yaw, 0]); }
+    for (const side of [-1, 1]) { const ox = Math.cos(yaw) * 0.15 * side, oz = -Math.sin(yaw) * 0.15 * side; for (let s = 0; s <= 4; s++) { const t = s / 4, pnt = pa.clone().lerp(pb, t); kit.hbox(pnt.x + ox, TOP + 0.13 + Math.sin(t * Math.PI) * arch, pnt.z + oz, 0.03, 0.16, 0.03, 0x8a6a4a); } kit.hbox(mid.x + ox, TOP + 0.21 + arch * 0.66, mid.z + oz, 0.025, 0.025, len, 0xb48560, null, [0, yaw, 0]); }
   }
   // 陸橋：獨立島與指定的島之間，取兩島步道環上最近的一對節點
   const links = [];

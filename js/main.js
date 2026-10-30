@@ -31,8 +31,8 @@ const model = createModels(kit, colors); const rnd = mulberry(5);
 // 每座島固定 8 個槽位：前 5 個給課程建築（動態），後 3 個放小房子（靜態）
 const POLICY_SLOTS = 5, LAYOUT = new Map(), STATIC_OBST = [], CITY_POS = new Map(), BOUTIQUES = []; // BOUTIQUES：逛校園的服飾店（那幾座島的第 1 棟小房子） // STATIC_OBST：闖關時不能穿過的建築（地標、小房子），課程建築另外動態加
 const PZ = C.plaza, inPlaza = (x, z, h) => Math.abs(x) < PZ.r + h && z + h > PZ.z - PZ.r && z - h < PZ.z + PZ.len; // 金蛋籃廣場：島中央前方一條走道不放建築
-const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'topiary', boardwalk: 'palm', rubber: 'palm', street: 'poplar', courtyard: 'blossom', meadow: 'willow', lawn: 'round', granite: 'topiary', terracotta: 'round', schoolyard: 'round', gravel: 'round' };
-const TRIM = { granite: 'bollard', lawn: 'hedge', gravel: 'hoarding', street: 'bollard', schoolyard: 'railing', forest: 'logs', softpad: 'picket', terracotta: 'wall', garden: 'hedge', meadow: 'railing', boardwalk: 'rope', rubber: 'picket', courtyard: 'wall' };
+const TREE_STYLE = { forest: 'conifer', garden: 'blossom', softpad: 'round', boardwalk: 'round', rubber: 'round', street: 'round', courtyard: 'blossom', meadow: 'willow', lawn: 'round', granite: 'round', terracotta: 'round', schoolyard: 'round', gravel: 'round' };
+const TRIM = { lawn: 'hedge', garden: 'hedge', forest: 'logs', softpad: 'picket' }; // 其他島：牧場木圍欄
 for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLayout(8, 1.18, isl.plaza ? inPlaza : null); LAYOUT.set(isl.id, lay); const style = TREE_STYLE[isl.ground] || 'round'; const occ = [[0, lay.heroZ, 0.95 * ISLAND_K], ...lay.slots.map(([x, z]) => [x, z, lay.size * 0.55]), ...(isl.plaza ? [[0, PZ.basketZ, 0.8], [0, PZ.z + PZ.len - 0.2, 0.5]] : [])];
   const free = (x, z, r) => occ.every(([ox, oz, orr]) => Math.hypot(x - ox, z - oz) > r + orr);
   model(isl.landmark, c.x, c.z + lay.heroZ, 1.18 * ISLAND_K, isl.number); STATIC_OBST.push([c.x, c.z + lay.heroZ, 0.42 * ISLAND_K]);
@@ -41,24 +41,23 @@ for (const isl of C.islands) { const c = centers.get(isl.id); const lay = slotLa
     if (bq && !cp) BOUTIQUES.push({ x: c.x + sx, z: c.z + sz, island: isl.id }); });
   // 島緣：沒有橋的邊放圍欄／樹籬／矮牆
   const nb = neighbors.get(isl.id); const bridgeDirs = nb.filter(n => n.id).map(n => dirOf(n.dq, n.dr)); for (const L of links) if (L.a === isl.id || L.b === isl.id) { const mine = L.a === isl.id ? L.pa : L.pb; const v = mine.clone().sub(c).setY(0).normalize(); bridgeDirs.push([v.x, v.z]); } const trim = TRIM[isl.ground];
-  for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.3, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.3, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
+  for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(0, 0, RING_R + 0.12, k), [bx, bz] = hexVertex(0, 0, RING_R + 0.12, k + 1); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ml = Math.hypot(mx, mz); if (bridgeDirs.some(([dx, dz]) => (dx * mx + dz * mz) / ml > 0.86)) continue; const yaw = Math.atan2(bx - ax, bz - az), len = Math.hypot(bx - ax, bz - az);
     for (let s = 0; s <= 8; s++) { const t = 0.08 + (s / 8) * 0.84; const x = c.x + ax + (bx - ax) * t, z = c.z + az + (bz - az) * t;
       if (trim === 'bollard') { if (s % 2 === 0) { kit.cyl(x, TOP + 0.07, z, 0.045, 0.14, 0x3b3a42); kit.cyl(x, TOP + 0.15, z, 0.05, 0.03, 0xe8c547); } }
       else if (trim === 'hedge') kit.part('leaf', [x, TOP + 0.1, z], [0.22, 0.18, 0.22], s % 2 ? 0x9cc27a : 0x8db86f);
       else if (trim === 'wall') { if (s % 2 === 0) kit.hbox(x, TOP + 0.08, z, 0.08, 0.16, 0.08, 0xd9cbb4); }
       else if (trim === 'logs') { if (s % 2 === 0) kit.cyl(x, TOP + 0.09, z, 0.06, 0.18, 0x7a5c42); }
-      else if (trim === 'picket') kit.hbox(x, TOP + 0.08, z, 0.025, 0.16, 0.025, [0xf2b5c6, 0xfff8f4, 0x9fc4e6][s % 3]);
-      else kit.hbox(x, TOP + 0.09, z, 0.022, 0.18, 0.022, trim === 'rope' ? 0x9a7a5a : 0xfff8f4); }
+      else if (trim === 'picket') kit.hbox(x, TOP + 0.08, z, 0.025, 0.16, 0.025, [0xfff8f4, 0xf7ede0][s % 2]);
+      else if (s % 2 === 0) kit.hbox(x, TOP + 0.1, z, 0.04, 0.2, 0.04, 0x8a6a4a); }
     if (trim === 'wall') kit.hbox(c.x + mx, TOP + 0.08, c.z + mz, 0.06, 0.14, len * 0.84, 0xe4d6c3, null, [0, yaw, 0]);
-    else if (trim === 'railing' || trim === 'picket') kit.hbox(c.x + mx, TOP + 0.16, c.z + mz, 0.015, 0.015, len * 0.84, trim === 'picket' ? 0xfff8f4 : 0xdb6a41, null, [0, yaw, 0]);
-    else if (trim === 'rope') kit.hbox(c.x + mx, TOP + 0.14, c.z + mz, 0.012, 0.012, len * 0.84, 0x7a5c42, null, [0, yaw, 0]);
-    else if (trim === 'hoarding') kit.hbox(c.x + mx, TOP + 0.12, c.z + mz, 0.03, 0.24, len * 0.84, k % 2 ? 0xdb6a41 : 0xf2efe8, null, [0, yaw, 0]); }
+    else if (trim === 'picket') kit.hbox(c.x + mx, TOP + 0.16, c.z + mz, 0.015, 0.015, len * 0.84, 0xfff8f4, null, [0, yaw, 0]);
+    else if (!trim) { kit.hbox(c.x + mx, TOP + 0.16, c.z + mz, 0.025, 0.025, len * 0.84, 0xb48560, null, [0, yaw, 0]); kit.hbox(c.x + mx, TOP + 0.08, c.z + mz, 0.025, 0.025, len * 0.84, 0xb48560, null, [0, yaw, 0]); } }
   // 散景：樹、灌木、花、長椅（有人坐）、單車架、垃圾桶、花盆、鵝卵石、小攤
-  const MIX = ['tree', 'bush', 'flowers', 'bench', 'umbrella', 'tree', 'pot', 'vending', 'bikerack', 'cone', 'flowers', 'hedge', 'tree', 'signpost', 'pebble', 'stand', 'bush', 'bin'];
-  let placed = 0; for (let tries = 0; tries < 220 && placed < 20; tries++) { const lx = (rnd() - 0.5) * INNER * 1.93, lz = (rnd() - 0.5) * INNER * 1.64; const t = MIX[placed % MIX.length]; const r = t === 'tree' ? 0.22 : t === 'bench' || t === 'stand' || t === 'umbrella' ? 0.2 : t === 'vending' || t === 'signpost' ? 0.13 : 0.1; if (Math.hypot(lx, lz) > INNER - 0.12 || Math.abs(lx) * 0.5 + Math.abs(lz) * 0.866 > INNER - 0.12 || !free(lx, lz, r)) continue; occ.push([lx, lz, r]);
+  const MIX = ['tree', 'field', 'flowers', 'hay', 'tree', 'bush', 'field', 'scarecrow', 'pebble', 'bench', 'tree', 'well', 'flowers', 'barrel', 'bush', 'field', 'stump', 'signpost', 'crate', 'tree']; // 牧場物語：田地、乾草捲、稻草人、水井、木桶、樹樁
+  let placed = 0; for (let tries = 0; tries < 480 && placed < 22; tries++) { const lx = (rnd() - 0.5) * INNER * 1.93, lz = (rnd() - 0.5) * INNER * 1.64; const t = MIX[tries % MIX.length]; // 放不下就換下一種，不會卡在同一種 const r = t === 'tree' ? 0.22 : t === 'field' ? 0.32 : t === 'bench' || t === 'stand' || t === 'umbrella' || t === 'well' || t === 'scarecrow' ? 0.2 : t === 'vending' || t === 'signpost' || t === 'hay' || t === 'barrel' ? 0.13 : 0.1; if (Math.hypot(lx, lz) > INNER - 0.12 || Math.abs(lx) * 0.5 + Math.abs(lz) * 0.866 > INNER - 0.12 || !free(lx, lz, r)) continue; occ.push([lx, lz, r]);
     if (t === 'tree') kit.tree(c.x + lx, c.z + lz, 0.3 + rnd() * 0.22, placed + isl.number, style); else model(t, c.x + lx, c.z + lz, 0.5, placed + isl.number); placed++; }
   // 彩旗：夜市與老街風格的島，在路燈間掛旗
-  if (['boardwalk', 'courtyard', 'rubber'].includes(isl.ground)) for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(c.x, c.z, RING_R + 0.3, k), [bx, bz] = hexVertex(c.x, c.z, RING_R + 0.3, k + 1); for (let s = 1; s < 9; s++) { const t = s / 9; kit.hbox(ax + (bx - ax) * t, TOP + 0.5 - Math.sin(t * Math.PI) * 0.06, az + (bz - az) * t, 0.05, 0.07, 0.01, [0xdb6a41, 0xe8c547, 0x58a6a6, 0xf2a1a1][s % 4], null, [0, Math.atan2(bx - ax, bz - az), 0]); } kit.hbox((ax + bx) / 2, TOP + 0.47, (az + bz) / 2, 0.008, 0.008, Math.hypot(bx - ax, bz - az), 0x211d1d, null, [0, Math.atan2(bx - ax, bz - az), 0]); } }
+  if (['boardwalk', 'courtyard', 'rubber'].includes(isl.ground)) for (let k = 0; k < 6; k++) { const [ax, az] = hexVertex(c.x, c.z, RING_R + 0.12, k), [bx, bz] = hexVertex(c.x, c.z, RING_R + 0.12, k + 1); for (let s = 1; s < 9; s++) { const t = s / 9; kit.hbox(ax + (bx - ax) * t, TOP + 0.5 - Math.sin(t * Math.PI) * 0.06, az + (bz - az) * t, 0.05, 0.07, 0.01, [0xdb6a41, 0xe8c547, 0x58a6a6, 0xf2a1a1][s % 4], null, [0, Math.atan2(bx - ax, bz - az), 0]); } kit.hbox((ax + bx) / 2, TOP + 0.47, (az + bz) / 2, 0.008, 0.008, Math.hypot(bx - ax, bz - az), 0x211d1d, null, [0, Math.atan2(bx - ax, bz - az), 0]); } }
 
 // 蓋校園的新島學期：位置先算好（海上裝飾避開這些位置），蓋好才真的從海上長出來（placeCity）
 const NEW_ISLES = new Map(C.econ.city.filter(p => p.kind === 'island').map(p => [p.id, { p, c: axialToWorld(...p.axial) }]));
