@@ -187,6 +187,6 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
     if (first && g) { const opened = REGIONS.filter(R => (R.requires || []).includes(nodeById(id).region) && regionOpen(R.id)); if (opened.length) d.appendChild(el('p', null, `${ICON.svg('door', 22)} 新地圖打開了：${opened.map(R => esc(R.name)).join('、')}`)); }
     if (first) { const nexts = NODES.filter(n => n.pre.includes(id) && nodeState(n.id) === 'open'); d.appendChild(el('p', null, nexts.length ? `${ICON.svg('st-available', 22)} 石板路打通了：${nexts.map(n => `${esc(regionById(n.region).name)}「${esc(n.name)}」`).join('、')}` : '')); }
     const again = el('button', 'lf-btn alt', '再練一次'); again.onclick = () => renderQuiz(body, id); const done = el('button', 'lf-btn go', '回到森林'); done.onclick = close; const bs = el('div', 'lf-btns'); bs.style.justifyContent = 'center'; bs.append(again, done); d.appendChild(bs);
-    body.appendChild(d); dispatchEvent(new CustomEvent('forest', { detail: { type: 'practice', id, pass, wasDue } })); if (pass && onDone) onDone(id, first, res.up); }; // 練習（不論對錯）都算每日任務；答錯只是沒有這次的熟練度
+    body.appendChild(d); dispatchEvent(new CustomEvent('forest', { detail: { type: 'practice', id, pass, wasDue, right, total: qs.length } })); if (pass && onDone) onDone(id, first, res.up); }; // 練習（不論對錯）都算每日任務；答錯只是沒有這次的熟練度
   show(); }
 export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone, quizOf };

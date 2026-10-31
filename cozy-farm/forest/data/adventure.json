@@ -1,0 +1,40 @@
+{
+  "about": "出了新手村的冒險：森林主幹道和各區域有怪物（原創積木造型），打倒會掉金幣；同一種怪物打倒 drop.n 隻，一定會得到那件裝備（不抽卡、不隨機）。金幣也能靠學習賺：練習每答對一題 +2、過關 +5、玩小遊戲 +6、收成 +1。被怪物碰到只會少愛心，愛心用完就回到入口休息，不會掉金幣或裝備。lv 越高怪物越強：血量 ×(1+0.35×(lv-1))、攻擊 +floor((lv-1)/2)、金幣 ×(1+0.5×(lv-1))。atk 以「半顆愛心」為單位。",
+  "player": { "hearts": 5, "speed": 3.3 },
+  "learnCoins": { "right": 2, "pass": 5, "game": 6, "harvest": 1 },
+  "monsters": {
+    "shroom": { "name": "蘑菇跳跳", "icon": "mo-shroom", "hp": 3, "atk": 1, "speed": 1.5, "coins": [1, 3], "move": "hop", "drop": { "n": 5, "item": "pot" }, "desc": "戴著粉紅點點帽，一跳一跳地追人。" },
+    "ink": { "name": "墨水團", "icon": "mo-ink", "hp": 4, "atk": 2, "speed": 1.4, "coins": [2, 4], "move": "hop", "drop": { "n": 5, "item": "brush" }, "desc": "打翻的墨水變成的小怪，走過的地方會留下點點。" },
+    "chest": { "name": "刺刺栗", "icon": "mo-chest", "hp": 5, "atk": 2, "speed": 1.3, "coins": [2, 5], "move": "roll", "drop": { "n": 5, "item": "pencil" }, "desc": "全身是刺的栗子，滾來滾去，脾氣不太好。" },
+    "moth": { "name": "紙飛蛾", "icon": "mo-moth", "hp": 4, "atk": 2, "speed": 2.0, "coins": [3, 5], "move": "fly", "drop": { "n": 5, "item": "wing" }, "desc": "作業紙摺成的飛蛾，飛得很快。" },
+    "rock": { "name": "石頭小兵", "icon": "mo-rock", "hp": 9, "atk": 3, "speed": 1.0, "coins": [4, 8], "move": "walk", "drop": { "n": 5, "item": "stone" }, "desc": "山谷裡的石頭醒過來了，又硬又慢。" },
+    "drop": { "name": "水滴怪", "icon": "mo-drop", "hp": 6, "atk": 2, "speed": 1.8, "coins": [3, 6], "move": "hop", "drop": { "n": 5, "item": "splash" }, "desc": "河邊的水滴，跳起來會濺出水花。" },
+    "ghost": { "name": "迷霧幽靈", "icon": "mo-ghost", "hp": 10, "atk": 3, "speed": 1.6, "coins": [6, 10], "move": "fly", "drop": { "n": 5, "item": "star" }, "desc": "書塔山頂的霧氣變成的幽靈，其實很怕光。" }
+  },
+  "maps": {
+    "trunk": { "lv": 1, "n": 6, "types": ["shroom", "ink"] },
+    "zhuyin": { "lv": 1, "n": 5, "types": ["shroom", "chest"] },
+    "shizi": { "lv": 1, "n": 6, "types": ["chest", "moth"] },
+    "bushou": { "lv": 2, "n": 6, "types": ["rock", "chest"] },
+    "juzi": { "lv": 2, "n": 6, "types": ["drop", "moth"] },
+    "xiuci": { "lv": 3, "n": 6, "types": ["moth", "drop"] },
+    "chengyu": { "lv": 3, "n": 6, "types": ["rock", "ink"] },
+    "shuta": { "lv": 4, "n": 6, "types": ["ghost", "ink"] }
+  },
+  "slots": { "weapon": "武器", "shield": "盾牌", "shoes": "鞋子" },
+  "items": [
+    { "id": "twig", "slot": "weapon", "name": "樹枝", "icon": "eq-twig", "atk": 1, "price": 0, "desc": "路邊撿到的樹枝，一開始就有。" },
+    { "id": "wood", "slot": "weapon", "name": "木劍", "icon": "eq-wood", "atk": 2, "price": 30, "desc": "小舖老闆親手削的木劍。" },
+    { "id": "pencil", "slot": "weapon", "name": "鉛筆劍", "icon": "eq-pencil", "atk": 3, "from": "chest", "desc": "削得尖尖的大鉛筆。" },
+    { "id": "brush", "slot": "weapon", "name": "毛筆杖", "icon": "eq-brush", "atk": 3, "range": 0.7, "from": "ink", "desc": "很長的毛筆，打得比較遠。" },
+    { "id": "ruler", "slot": "weapon", "name": "彩虹尺", "icon": "eq-ruler", "atk": 5, "price": 220, "desc": "量什麼都準，打怪也很準。" },
+    { "id": "star", "slot": "weapon", "name": "星光杖", "icon": "eq-star", "atk": 6, "range": 0.5, "from": "ghost", "desc": "會發光的魔杖，幽靈最怕它。" },
+    { "id": "book", "slot": "shield", "name": "書本盾", "icon": "eq-book", "def": 1, "price": 25, "desc": "厚厚的字典，拿來擋一下剛好。" },
+    { "id": "pot", "slot": "shield", "name": "鍋蓋盾", "icon": "eq-pot", "def": 2, "from": "shroom", "desc": "煮湯鍋的鍋蓋，很耐撞。" },
+    { "id": "stone", "slot": "shield", "name": "石板盾", "icon": "eq-stone", "def": 3, "from": "rock", "desc": "石頭小兵留下來的石板。" },
+    { "id": "cloud", "slot": "shield", "name": "雲朵盾", "icon": "eq-cloud", "def": 4, "price": 300, "desc": "軟綿綿的雲，什麼都彈得開。" },
+    { "id": "straw", "slot": "shoes", "name": "草鞋", "icon": "eq-straw", "spd": 0.1, "price": 20, "desc": "走起來輕輕的。" },
+    { "id": "splash", "slot": "shoes", "name": "水花鞋", "icon": "eq-splash", "spd": 0.18, "from": "drop", "desc": "每一步都濺起小水花。" },
+    { "id": "wing", "slot": "shoes", "name": "羽毛鞋", "icon": "eq-wing", "spd": 0.28, "from": "moth", "desc": "跑起來像在飛。" }
+  ]
+}
