@@ -47,6 +47,8 @@
 
 - **知識圖譜（DAG）在 `data/graph.json`**：每個節點 `{ id, name, grade, region, prerequisites[], questionTypes[], position:[x,z], intro, lesson?, questions? }`，每個區域 `{ id, name, grades, theme, gate, img, requires[] }`。石板路由 DAG 的邊自動生成（CatmullRomCurve3 連接節點位置）。**新增知識點只要改 JSON**：加一筆節點、填前置 id 與位置；`questionTypes` 用 `bank` 時，題目直接寫在 `questions`（`[題目, 正確答案, 錯誤選項…, 說明]`），也可以用內建題型（`listen-shengmu`、`tone`、`zhuyin-to-char`、`pic-char`、`stroke-count`、`radical`、`dictionary`、`homophone`、`polyphone`⋯⋯，見 `content.js` 的 `QUESTION_TYPES`）。載入時會檢查前置是否存在、圖譜有沒有循環。
 - **節點狀態**：迷霧封鎖（前置未完成，霧氣與藤蔓、石板路不通）→ 可挑戰（路標發光、上下浮動）→ 已精通（植物開花、1～3 顆星）→ 需要澆水（超過複習間隔，葉子轉黃，重新練習）。熟練度：第一次通過 1 星；到了複習時間再通過、或當天第一次全對 +1 星；複習間隔依星數是 `review.days`（預設 1、3、7 天）。每區最後是守護者（綜合 8 題答對 7 題），通過才打開 `requires` 指到它的下一張地圖。熟練度與上次練習時間存在 localStorage（`forest.progress.v2`）。
+- **各區玩法**（內容在 `data/games.json`，畫面在 `games.js`，3D 擺設在 `map.js`）：注音小村「拼音煮湯鍋」（選聲母、介音、韻母、聲調下鍋，拼對就煮出那樣食材，例如ㄩˊ得到🐟）；識字林「錯字小怪」（晚上才出現，把招牌字改錯，點出錯字再選正確的字就收服）；部首山谷「部首部落」（族長是方塊人鄰居，撿起迷路的字帶去它的部落）；書塔山頂「字精靈」（依句子換造型，選出多音字的讀音）與「鄰居來信」（讀信、回答、選回信內容、排書信格式）；修辭花園「修辭花圃」（答對修辭題種出對應的花：譬喻雙色花、擬人笑臉花、誇飾超大花、排比三連花、設問問號花、映襯黑白花）；成語古城「石碑典故」（讀故事、答對三題打開城門）。玩得好也算對應知識點的練習。遊戲進度（收集的食材、收服的小怪、種的花、開的城門、回的信）存在 localStorage（`forest.games.v1`）。
+- 朗讀用 Web Speech API（zh-TW）：題目旁的「🔊 讀題」、故事、信件、字音都可以念；會洩漏答案的題目（多音字、看字選注音）答完才念。
 - `content.js`：題型（出題函式）、注音與字詞資料集、教學卡片
 - `learn.js`：學習畫面（卡片、發音、筆順動畫、練習題、進度存在裝置上）。`map.js`：主幹道與區域的 3D 地圖。`icons/`：區域與狀態圖示。
 - 資料來源：注音、部首、筆畫數取自教育部《重編國語辭典修訂本》（創用 CC 姓名標示－禁止改作 3.0 臺灣，經 g0v/moedict-data 轉成 JSON）；筆順取自教育部《常用國字標準字體筆順學習網》（經 g0v/zh-stroke-data 整理）。`tools/build-data.py` 只抽出用得到的字，產生 `data/moe.json` 與 `data/strokes/`，並檢查每個示範字、例詞的讀音。

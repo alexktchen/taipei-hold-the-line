@@ -91,8 +91,8 @@ export const QUESTION_TYPES = {
   'listen-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk('聽聽看，這個詞的注音裡有哪一個韻母？', s, FINALS.filter(x => !stripTone(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${e} ${w}（${b}）` }); },
   'word-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk(`「${w}」${e} 的注音裡有哪一個韻母？`, s, FINALS.filter(x => !stripTone(b).includes(x)), r, { big: w, bigB: b, say: twice(w), slow: true }); },
   tone: (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], t = toneOf(b); return mk(r() < 0.5 ? '聽聽看，這個字是第幾聲？' : `「${c}」（${stripTone(b)}）是第幾聲？`, TONES[t - 1].name, TONES.map(x => x.name), r, { say: twice(c), slow: true, listen: true, big: c, after: `「${c}」念 ${b}` }); },
-  'zhuyin-to-char': (r, n, D) => { const pool = chars(POOL_BASIC).filter(D.one), c = pick(pool, r), b = D.ch(c).b[0]; return mk(`哪一個字念「${b}」？`, c, shuffle(pool.filter(x => x !== c && D.ch(x).b[0] !== b), r).slice(0, 8), r, { say: twice(c), slow: true }); },
-  'char-to-zhuyin': (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], base = stripTone(b), t = toneOf(b); return mk(`「${c}」的注音是？`, b, [1, 2, 3, 4].filter(k => k !== t).map(k => withTone(base, k)), r, { big: c, say: twice(c), slow: true }); },
+  'zhuyin-to-char': (r, n, D) => { const pool = chars(POOL_BASIC).filter(D.one), c = pick(pool, r), b = D.ch(c).b[0]; return mk(`哪一個字念「${b}」？`, c, shuffle(pool.filter(x => x !== c && D.ch(x).b[0] !== b), r).slice(0, 8), r, { say: twice(c), slow: true, noRead: true }); },
+  'char-to-zhuyin': (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], base = stripTone(b), t = toneOf(b); return mk(`「${c}」的注音是？`, b, [1, 2, 3, 4].filter(k => k !== t).map(k => withTone(base, k)), r, { big: c, say: twice(c), slow: true, noRead: true }); },
   'pic-char': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`${e} 是哪一個字？`, c, PICS.map(x => x[0]), r, { big: e, say: c }); },
   'char-to-pic': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`「${c}」（${D.ch(c).b[0]}）是哪一個圖？`, e, PICS.map(x => x[1]), r, { big: c, say: c }); },
   'stroke-count': (r, n, D) => { const c = pick(chars(STROKE_CHARS + DUTI), r), s = D.ch(c).s; return mk(`「${c}」一共有幾畫？`, s + ' 畫', [s - 1, s + 1, s + 2, s - 2].filter(x => x > 0).map(x => x + ' 畫'), r, { big: c, stroke: c }); },
@@ -105,7 +105,7 @@ export const QUESTION_TYPES = {
     return mk(`用部首查字典，「${c}」要怎麼查？`, `${lab(e.r)}，再查 ${e.n} 畫`, [`${lab(e.r)}，再查 ${e.n + 1} 畫`, `${lab(e.r)}，再查 ${Math.max(1, e.n - 1)} 畫`, `${lab(pick(rads, r))}，再查 ${e.n} 畫`, `${lab(e.r)}，再查 ${e.s} 畫`], r, { big: c, why: `「${c}」是${lab(e.r)}，去掉部首還有 ${e.n} 畫（總共 ${e.s} 畫）。` }); },
   homophone: (r, n, D) => { const g = pick(D.homo.filter(g => g.length >= 2), r), [a, b] = shuffle(g, r); return mk(`哪一個字的讀音和「${a}」（${D.ch(a).b[0]}）完全一樣？`, b, shuffle(D.homoPool.filter(x => D.ch(x).b[0] !== D.ch(a).b[0]), r).slice(0, 6), r, { big: a, why: `「${a}」和「${b}」都念 ${D.ch(a).b[0]}。` }); },
   polyphone: (r, n, D) => { const [c, w] = pick(DUOYIN, r), s = D.syl(w, c), real = [...new Set([...DUOYIN.filter(x => x[0] === c).map(x => D.syl(x[1], c)), ...D.ch(c).b])].filter(x => x !== s), base = stripTone(s);
-    return mk(`「${w}」的「${c}」怎麼念？`, s, real.concat([1, 2, 3, 4].map(k => withTone(base, k)).filter(x => x !== s)), r, { big: w, say: w, why: `「${w}」念 ${D.w(w)}。` }, Math.min(2, real.length)); },
+    return mk(`「${w}」的「${c}」怎麼念？`, s, real.concat([1, 2, 3, 4].map(k => withTone(base, k)).filter(x => x !== s)), r, { big: w, say: w, noRead: true, why: `「${w}」念 ${D.w(w)}。` }, Math.min(2, real.length)); },
   bank: (r, n) => { if (!n.questions || !n.questions.length) return null; const [q, a, ...rest] = pick(n.questions, r), why = rest.pop(); return mk(q, a, rest, r, { why }); },
 };
 export function quizOf(id, D, seed) {
@@ -125,4 +125,4 @@ export const NEED = (() => {
   return { chars: [...cs].join(''), words: [...words], symbols: [...SHENGMU, ...YUNMU].map(x => x[0]), strokes: [...new Set(chars(PICS.map(x => x[0]).join('') + STROKE_CHARS + DUTI + POOL_BASIC + '爸媽魚鳥花草山水' + HETI.map(h => h[0]).join('') + '媽河打想你花送說'))].join('') };
 })();
 // 圖譜裡 lesson.chars 用到的字也要有讀音與筆順（新增知識點只改 JSON，重跑 build-data.py 就會補上）
-export function needFor(g) { const extra = [...new Set(g.nodes.flatMap(n => [...((n.lesson && n.lesson.chars) || '')]))].join(''); return { ...NEED, chars: [...new Set(NEED.chars + extra)].join(''), strokes: [...new Set(NEED.strokes + extra)].join('') }; }
+export function needFor(g, games = null) { const extra = [...new Set(g.nodes.flatMap(n => [...((n.lesson && n.lesson.chars) || '')]).concat(games ? [...games.soup.items.map(x => x[0]).join(''), ...games.tribes.chars] : []))].join(''); return { ...NEED, chars: [...new Set(NEED.chars + extra)].join(''), strokes: [...new Set(NEED.strokes + extra)].join(''), words: [...new Set(NEED.words.concat(games ? games.spirit.sentences.map(x => x[1]) : []))] }; }

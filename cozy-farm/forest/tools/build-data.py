@@ -10,7 +10,7 @@
   筆順：教育部《常用國字標準字體筆順學習網》，經 g0v/zh-stroke-data 整理的 JSON，執行時直接下載。
 
 產生：
-  （要用哪些字：content.js 的字庫，加上 data/graph.json 裡 lesson.chars 用到的字）
+  （要用哪些字：content.js 的字庫，加上 data/graph.json 的 lesson.chars 與 data/games.json 的小遊戲用字；也會檢查小遊戲的內容）
   ../data/moe.json        每個字的讀音（含多音）、部首、總筆畫、部首外筆畫；詞語讀音；注音符號的示範字
   ../data/strokes/XXXX.json  每個字（與注音符號）的筆畫輪廓與運筆軌跡（座標 0～2150）
 """
@@ -23,7 +23,8 @@ STROKE_URL = 'https://raw.githubusercontent.com/g0v/zh-stroke-data/master/json/{
 
 def need():
     js = ("import fs from 'fs'; const m = await import('" + os.path.join(HERE, '..', 'content.js') + "'); const g = JSON.parse(fs.readFileSync('" + os.path.join(HERE, '..', 'data', 'graph.json') + "', 'utf8'));"
-          " console.log(JSON.stringify({ NEED: m.needFor(g), S: m.SHENGMU, Y: m.YUNMU }))")
+          " const games = JSON.parse(fs.readFileSync('" + os.path.join(HERE, '..', 'data', 'games.json') + "', 'utf8'));"
+          " console.log(JSON.stringify({ NEED: m.needFor(g, games), S: m.SHENGMU, Y: m.YUNMU, games }))")
     return json.loads(subprocess.check_output(['node', '--input-type=module', '-e', js], text=True))
 
 
@@ -81,6 +82,15 @@ def main(path):
         assert any(re.sub('[ˊˇˋ˙]', '', x) == s for x in r), ('韻母例字讀音不對', s, c, r)
         assert s in out['w'][w], ('韻母例詞不含', s, w, out['w'][w])
         out['sym'][s] = c
+    # 小遊戲：煮湯鍋的食材要只有一個讀音（拼出來才不會有兩種答案）；迷路的字的部首要在部落清單裡；字精靈的句子要包含那個詞
+    G = info['games']
+    for c, e in G['soup']['items']:
+        assert len(out['c'][c][0]) == 1, ('煮湯鍋的食材有多個讀音', c, out['c'][c][0])
+    rads = {r[0] for r in G['tribes']['radicals']}
+    for c in G['tribes']['chars']:
+        assert out['c'][c][1] in rads, ('迷路的字找不到部落', c, out['c'][c][1])
+    for c, w, sent in G['spirit']['sentences']:
+        assert w in sent and c in w and w in out['w'], ('字精靈句子不對', c, w, sent)
     os.makedirs(os.path.join(OUT, 'strokes'), exist_ok=True)
     json.dump(out, open(os.path.join(OUT, 'moe.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     print('moe.json', len(out['c']), '字', len(out['w']), '詞')

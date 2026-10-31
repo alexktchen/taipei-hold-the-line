@@ -4,10 +4,11 @@
      還沒打通的路沒有石板、石碑被樹叢圍住，學會前置知識點後石板一塊塊冒出來、樹叢消失。
    每張地圖回傳 { group, colliders, groundY, blocked, spawns, portals, nodes, update, refresh }，由 index.html 切換。 */
 import { REGIONS, NODES, regionById, nodeById } from './content.js';
-import { nodeState, regionOpen, regionNeeds, regionCount, levelOf, stars, ICONS, STATE_ICON } from './learn.js';
+import { nodeState, regionOpen, regionNeeds, regionCount, levelOf, stars, ICONS, STATE_ICON, dataNow, recordPass, speak, SLOW } from './learn.js';
+import * as GAMES from './games.js';
 
 export function createForest(ctx) {
-  const { THREE, G, Gc, merge, toon, addMesh, addInstanced, setRoot, curveDrop, TREE_GEO, CFG } = ctx;
+  const { THREE, G, Gc, merge, toon, addMesh, addInstanced, setRoot, curveDrop, TREE_GEO, CFG } = ctx, PL = ctx.player;
   const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), E = new THREE.Euler(), COL = new THREE.Color();
   const rng = seed => { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -120,6 +121,97 @@ export function createForest(ctx) {
     const free = (x, z, pad) => pathD(x, z) > 1.8 + pad && !(river && Math.abs(z - riverZ - Math.sin(x * 0.25) * 1.2) < 2.2 + pad) && Object.values(pos).every(([px, pz]) => Math.hypot(x - px, z - pz) > 3.4 + pad) && Math.hypot(x - ENTRY[0], z - ENTRY[1]) > 3 + pad && !colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + pad + 0.5);
     T.props.forEach((kind, i) => { for (let k = 0; k < 40; k++) { const a = r() * Math.PI * 2, d = 6 + r() * 15, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!free(x, z, 1.4)) continue; const rad = PROPS[kind](x, z, H(x, z), r() * 6.28, [0xf2928a, 0x8fb6ec, 0xf2d27a, 0xb9b0c2, 0xd8c9a0][i % 5]); colliders.push({ x, z, r: rad }); break; } });
     if (R.theme === 'tower') { const g = new THREE.Group(); const tz = -20, ty = H(0, tz); g.position.set(0, ty, tz); group.add(g); const cs = [0xe8705c, 0x8fb6ec, 0xf2d27a, 0x8fd3a0, 0xc9b8f0, 0xf2b5c6]; for (let k = 0; k < 9; k++) addMesh(Gc(3.2 - k * 0.18, 0.7, 2.4 - k * 0.12, 0.08, (k % 2) * 0.15, 0.35 + k * 0.7, 0, k * 0.12), toon(cs[k % 6]), g); colliders.push({ x: 0, z: tz, r: 1.9 }); }
+    // ── 各區玩法的擺設與互動點（items：{ x, z, r, text(), act() }，index.html 靠近時顯示提示、按空白鍵觸發）──
+    const items = [], fx = []; // fx：每幀要動的東西
+    const spot = ([x0, z0], pad = 1) => { for (let k = 0; k < 200; k++) { const a = r() * Math.PI * 2, d = k * 0.08, x = x0 + Math.cos(a) * d, z = z0 + Math.sin(a) * d; if (Math.hypot(x, z) < RAD - 2 && free(x, z, pad - 1.8 + 0.6)) return [x, z]; } return [x0, z0]; };
+    const floatLab = (text, x, z, h, opt) => { const l = label(text, opt); l.userData.base = H(x, z) + h; l.userData.x = x; l.userData.z = z; l.position.set(x, l.userData.base, z); group.add(l); fx.push(() => { l.position.y = l.userData.base - curveDrop(l.userData.x, l.userData.z); }); return l; };
+    if (R.theme === 'village') { // 拼音煮湯鍋
+      const [px, pz] = spot([7.5, 14.5], 1.6), g = new THREE.Group(); g.position.set(px, H(px, pz), pz); group.add(g);
+      for (const [lx, lz] of [[-0.45, -0.35], [0.45, -0.35], [0, 0.5]]) addMesh(Gc(0.13, 0.5, 0.13, 0.03, lx, 0.25, lz), toon(0x4a3b52), g);
+      addMesh(Gc(1.35, 0.85, 1.35, 0.32, 0, 0.88, 0), toon(0x5a4a66), g); addMesh(Gc(1.12, 0.08, 1.12, 0.03, 0, 1.3, 0), toon(0xf2c46a), g, { outline: false });
+      const fire = [0, 1, 2, 3].map(k => addMesh(Gc(0.22, 0.3, 0.22, 0.06, Math.cos(k * 1.6) * 0.3, 0.15, Math.sin(k * 1.6) * 0.3), toon(0xff9a4a, { emissive: 0xff7a2a, emissiveIntensity: 0.8 }), g, { outline: false, cast: false }));
+      const steam = [0, 1, 2, 3, 4].map(k => { const m = new THREE.Mesh(G(0.3, 0.3, 0.3, 0.1), ctx.curvify(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }))); m.frustumCulled = false; m.userData.t = k / 5; g.add(m); return m; });
+      fx.push((dt, time) => { fire.forEach((f, k) => f.scale.y = 0.8 + Math.sin(time * 9 + k * 2) * 0.25); steam.forEach(m => { m.userData.t = (m.userData.t + dt * 0.35) % 1; const t = m.userData.t; m.position.set(Math.sin(t * 7) * 0.2, 1.4 + t * 1.6, 0); m.scale.setScalar(0.5 + t); m.material.opacity = 0.6 * (1 - t); }); });
+      colliders.push({ x: px, z: pz, r: 0.95 }); floatLab('🍲 拼音煮湯鍋', px, pz, 2.6);
+      items.push({ x: px, z: pz, r: 2.1, text: () => `🍲 按空白鍵煮注音湯（拼出食材的注音）・🎒 收集了 ${GAMES.itemCount()} 樣`, act: () => GAMES.soup() });
+    }
+    if (R.theme === 'woods') { // 招牌＋夜晚的錯字小怪
+      const signs = GAMES.games().typo.signs, boards = [];
+      edges.slice(0, 5).forEach((e, k) => { if (boards.length >= 4) return; const p = e.curve.getPointAt(0.5), t = e.curve.getTangentAt(0.5), side = k % 2 ? 1 : -1, [bx, bz] = spot([p.x - t.z * 2.4 * side, p.z + t.x * 2.4 * side], 0.8);
+        const g = new THREE.Group(); g.position.set(bx, H(bx, bz), bz); g.rotation.y = Math.atan2(-bx, 19 - bz); // 招牌面向入口 group.add(g); for (const sx of [-0.7, 0.7]) addMesh(Gc(0.12, 1.4, 0.12, 0.03, sx, 0.7, 0), toon(0x9a6b48), g); addMesh(Gc(1.9, 0.75, 0.12, 0.05, 0, 1.25, 0), toon(0xd9b58a), g);
+        const mon = new THREE.Group(); mon.position.set(1.3, 0, 0.6); g.add(mon); addMesh(Gc(0.7, 0.62, 0.6, 0.25, 0, 0.4, 0), toon(0x9a6fd0, { emissive: 0x5a2f9a, emissiveIntensity: 0.25 }), mon); for (const ex of [-0.15, 0.15]) { addMesh(Gc(0.16, 0.16, 0.05, 0.05, ex, 0.5, 0.3), toon(0xffffff), mon, { outline: false }); addMesh(Gc(0.07, 0.07, 0.03, 0.02, ex, 0.49, 0.33), toon(0x2a1a3a), mon, { outline: false }); } for (const hx of [-0.2, 0.2]) addMesh(Gc(0.08, 0.18, 0.08, 0.03, hx, 0.78, 0), toon(0xffd166), mon, { outline: false });
+        colliders.push({ x: bx, z: bz, r: 0.6 }); const lab = floatLab('', bx, bz, 2.25, { h: 0.6 }); boards.push({ x: bx, z: bz, g, mon, lab, sign: signs[(k + Math.floor(r() * signs.length)) % signs.length], fixed: false, shown: null }); });
+      let wasNight = false;
+      fx.push((dt, time) => { const night = ctx.night() > 0.55; if (night && !wasNight) boards.forEach((b, k) => { b.fixed = false; b.sign = signs[Math.floor(Math.random() * signs.length)]; }); wasNight = night;
+        for (const b of boards) { const monOn = night && !b.fixed; b.mon.visible = monOn; if (monOn) { b.mon.position.y = Math.abs(Math.sin(time * 3 + b.x)) * 0.25; b.mon.rotation.y = Math.sin(time * 1.5 + b.z) * 0.6; }
+          const txt = monOn ? b.sign.wrong : b.sign.right; if (b.shown !== txt) { b.shown = txt; setLabel(b.lab, txt, monOn ? { bg: '#f3e2ff', fg: '#6a3fa0', h: 0.6 } : { bg: '#fff1dc', h: 0.6 }); } } });
+      for (const b of boards) items.push({ x: b.x, z: b.z, r: 2.2, text: () => ctx.night() > 0.55 ? (b.fixed ? '✨ 這塊招牌已經修好了' : `👾 錯字小怪把招牌改錯了！按空白鍵收服牠（已收服 ${GAMES.gameState().monsters} 隻）`) : `🪧 招牌：「${b.sign.right}」・🌙 錯字小怪晚上才會出現（可以把左上的時間調到晚上）`,
+        act: () => { if (ctx.night() > 0.55 && !b.fixed) GAMES.typo(b.sign, () => { b.fixed = true; }); } });
+    }
+    if (R.theme === 'valley') { // 部首部落：族長是鄰居，幫迷路的字找到自己的部落
+      const T2 = GAMES.games().tribes, D = dataNow(), chiefs = [], N = T2.radicals.length;
+      T2.radicals.forEach(([rad, variant, name], k) => { const th = -2.5 + 5 * k / (N - 1), [cx, cz] = spot([Math.sin(th) * 15, -Math.cos(th) * 15], 1.4);
+        const ch = ctx.makeChar({ colors: { shirt: [0xf2928a, 0x8fb6ec, 0xf2d27a, 0x8fd3a0, 0xc9b8f0, 0xffb347, 0x7fc6d6, 0xd8b07a][k], pants: 0x5d6f9e, hat: [0xe8705c, 0x6f8fc8, 0xd9a83a, 0x5faa7a, 0x9a7ad0, 0xe08a2a, 0x4fa6b8, 0xb08a4a][k], hair: [0x3a2a24, 0x5a3b2e, 0x2a2a2a, 0xb5653a][k % 4] }, accessories: [['hairShort', 'cap'], ['hairBob', 'beret'], ['hairSpiky', 'headband'], ['hairBun', 'strawhat'], ['hairShort', 'scarf'], ['hairBob', 'earsBear'], ['hairSpiky', 'cap'], ['hairShort', 'glasses']][k], face: 'happy' });
+        ch.root.position.set(cx, H(cx, cz), cz); ch.root.rotation.y = Math.atan2(-cx, -cz); group.add(ch.root);
+        const pole = new THREE.Group(); pole.position.set(cx + 0.9, H(cx, cz), cz); group.add(pole); addMesh(Gc(0.1, 2.2, 0.1, 0.03, 0, 1.1, 0), toon(0x9a6b48), pole); addMesh(Gc(0.8, 0.55, 0.06, 0.03, 0.4, 1.9, 0), toon(0xfff1dc), pole, { outline: false });
+        colliders.push({ x: cx, z: cz, r: 0.5 }, { x: cx + 0.9, z: cz, r: 0.2 }); const lab = floatLab(`${variant} ${name}`, cx + 0.4, cz, 2.8, { bg: '#fff3c4', h: 0.6 });
+        chiefs.push({ rad, variant, name, x: cx, z: cz, ch, lab, members: [] }); });
+      const lost = []; let carry = null;
+      const spawn = () => { const pool = [...T2.chars].filter(c => !lost.some(l => l.c === c)); for (let k = 0; k < 5; k++) { const c = pool.splice(Math.floor(Math.random() * pool.length), 1)[0], [lx, lz] = spot([(Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18 + 2], 0.6); const sp = label(c, { bg: '#ffffff', h: 0.75 }); group.add(sp); lost.push({ c, x: lx, z: lz, sp, ph: Math.random() * 6, home: [lx, lz] }); } };
+      spawn();
+      fx.push((dt, time) => { for (const c of chiefs) c.ch.update(dt, 0); const P = PL();
+        for (const l of lost) { if (l === carry) { l.x = P.x; l.z = P.z; l.sp.position.set(P.x, groundY(P.x, P.z) - curveDrop(P.x, P.z) + 2.25 + Math.sin(time * 4) * 0.05, P.z); continue; }
+          if (l.done) { l.sp.position.y = H(l.x, l.z) + 1.2 - curveDrop(l.x, l.z); continue; } l.ph += dt; l.x = l.home[0] + Math.sin(l.ph * 0.5) * 0.8; l.z = l.home[1] + Math.cos(l.ph * 0.4) * 0.8; l.sp.position.set(l.x, H(l.x, l.z) + 0.9 + Math.abs(Math.sin(l.ph * 3)) * 0.25 - curveDrop(l.x, l.z), l.z); } });
+      items.push({ x: 0, z: 0, r: 0, dyn: () => { const P = PL(), out = [];
+        if (!carry) for (const l of lost) if (!l.done && Math.hypot(l.x - P.x, l.z - P.z) < 1.5) out.push({ d: Math.hypot(l.x - P.x, l.z - P.z), text: () => `📦 迷路的字「${l.c}」：按空白鍵帶它去找部落`, act: () => { carry = l; speak(l.c, SLOW); } });
+        for (const c of chiefs) { const d = Math.hypot(c.x - P.x, c.z - P.z); if (d > 2.2) continue;
+          out.push({ d, text: () => carry ? `🏳️ 按空白鍵把「${carry.c}」交給${c.name}的族長` : `${c.variant} ${c.name}族長：「我們部落的字都有『${c.variant}』。已經找回 ${c.members.length} 個字！」`,
+            act: () => { if (!carry) return; const l = carry; if (D.ch(l.c).r === c.rad) { carry = null; l.done = true; c.members.push(l.c); const a = c.members.length * 0.9; l.x = c.x + Math.cos(a) * 1.3; l.z = c.z + Math.sin(a) * 1.3 + 0.8; speak(`${l.c}，${c.name}`, 0.75); ctx.banner(`🎉「${l.c}」回到${c.name}了！`);
+                if (lost.every(x => x.done)) { const res = recordPass(T2.node, 5, 5); GAMES.gameState().tribes++; ctx.talk(`🏆 迷路的字都回家了！${res ? '也算「部首」的練習。' : ''}又有新的字迷路了⋯⋯`); lost.forEach(x => setTimeout(() => { group.remove(x.sp); }, 1500)); setTimeout(() => { lost.length = 0; spawn(); }, 1600); } }
+              else ctx.talk(`${c.name}族長：「嗯⋯⋯「${l.c}」不是我們部落的字喔。看看它的部首是什麼？」`); } }); }
+        return out; } });
+    }
+    if (R.theme === 'garden') { // 修辭花圃：答對種出對應的花
+      const FL = GAMES.games().flowers, beds = [];
+      for (let k = 0; k < 12; k++) { const side = k < 6 ? -1 : 1, j = k % 6, [bx, bz] = spot([side * (7 + (j % 3) * 2.2), 13 + Math.floor(j / 3) * 2.4], 0.4);
+        const g = new THREE.Group(); g.position.set(bx, H(bx, bz), bz); group.add(g); addMesh(Gc(1.3, 0.22, 1.3, 0.06, 0, 0.11, 0), toon(0x9a6b48), g, { outline: false }); addMesh(Gc(1.1, 0.06, 1.1, 0.03, 0, 0.24, 0), toon(0x6a4a34), g, { outline: false });
+        const plant = new THREE.Group(); plant.position.y = 0.26; g.add(plant); colliders.push({ x: bx, z: bz, r: 0.6 }); beds.push({ k, x: bx, z: bz, g, plant, type: null }); }
+      const petals = (p, cols, y, s = 1) => { for (let q = 0; q < 6; q++) { const a = q / 6 * Math.PI * 2; addMesh(Gc(0.22 * s, 0.08 * s, 0.22 * s, 0.05 * s, Math.cos(a) * 0.17 * s, y, Math.sin(a) * 0.17 * s), toon(cols[q % cols.length]), p, { outline: false }); } addMesh(Gc(0.16 * s, 0.12 * s, 0.16 * s, 0.05 * s, 0, y + 0.02, 0), toon(0xffd84a), p, { outline: false }); };
+      const stem = (p, h, x = 0, z = 0) => { addMesh(Gc(0.06, h, 0.06, 0.02, x, h / 2, z), toon(0x5faa52), p, { outline: false }); addMesh(Gc(0.22, 0.06, 0.12, 0.03, x + 0.1, h * 0.45, z, 0.4), toon(0x7cc76a), p, { outline: false }); };
+      const grow = (b, type) => { b.type = type; const p = b.plant; while (p.children.length) p.remove(p.children[0]);
+        if (type === 'piyu') { stem(p, 0.7); petals(p, [0xff8fb0, 0x8fb6ec], 0.74); } // 雙色花
+        else if (type === 'niren') { stem(p, 0.7); petals(p, [0xffd166], 0.74, 1.15); const f = new THREE.Group(); f.position.set(0, 0.8, 0.1); p.add(f); for (const ex of [-0.05, 0.05]) addMesh(Gc(0.035, 0.05, 0.02, 0.01, ex, 0.02, 0), toon(0x3b2c44), f, { outline: false }); addMesh(Gc(0.09, 0.025, 0.02, 0.01, 0, -0.03, 0), toon(0xe8705c), f, { outline: false }); } // 笑臉花
+        else if (type === 'kuashi') { stem(p, 1.4); p.children.forEach(m => m.scale.set(2, 1, 2)); petals(p, [0xff6f91, 0xffb3c7], 1.45, 2.4); } // 超大花
+        else if (type === 'paibi') for (const sx of [-0.3, 0, 0.3]) { stem(p, 0.55, sx); const q = new THREE.Group(); q.position.x = sx; p.add(q); petals(q, [0xc9b8f0], 0.58, 0.8); } // 三連花
+        else if (type === 'shewen') { for (const [x, y] of [[0, 0.15], [0, 0.35], [0, 0.55], [0.08, 0.72], [0.2, 0.8], [0.32, 0.72], [0.36, 0.58]]) addMesh(Gc(0.08, 0.12, 0.08, 0.03, x, y, 0), toon(0x5faa52), p, { outline: false }); const q = new THREE.Group(); q.position.set(0.36, 0, 0); p.add(q); petals(q, [0xffa94d], 0.46, 0.8); } // 問號花
+        else if (type === 'yingchen') { stem(p, 0.7); petals(p, [0x2f2a36, 0xffffff], 0.74); } // 黑白花
+        p.scale.setScalar(0.01); b.pop = 1; };
+      for (const f of GAMES.gameState().flowers) { const b = beds.find(x => x.k === f.slot); if (b) { grow(b, f.type); b.pop = 0; b.plant.scale.setScalar(1); } }
+      fx.push((dt, time) => { for (const b of beds) { if (b.pop) { b.pop = Math.max(0, b.pop - dt * 1.2); b.plant.scale.setScalar(1 + Math.sin((1 - b.pop) * Math.PI) * 0.15 - b.pop * 0.99 + 0.0); } if (b.type) b.plant.rotation.z = Math.sin(time * 1.4 + b.x) * 0.05; } });
+      floatLab('🌷 修辭花圃', -9.2, 12.5, 1.8, { bg: '#ffe3ec', h: 0.6 }); floatLab('🌷 修辭花圃', 9.2, 12.5, 1.8, { bg: '#ffe3ec', h: 0.6 });
+      for (const b of beds) items.push({ x: b.x, z: b.z, r: 1.4, text: () => b.type ? `🌸 ${FL[b.type].name}（${nodeById(b.type).name}）：${FL[b.type].tip}` : '🌱 按空白鍵種一朵修辭花（答對修辭題就會開花）', act: () => { if (!b.type) GAMES.flower(b.k, type => grow(b, type)); } });
+    }
+    if (R.theme === 'city') { // 石碑典故＋城門
+      const gates = GAMES.games().stories.gates, spots = [[-13, 7], [13, 4], [-12, -11]];
+      gates.forEach((gt, k) => { const [gx, gz] = spot(spots[k % spots.length], 2.2), yaw = Math.atan2(-gx, -gz), a = arch(gx, gz, H(gx, gz), yaw, 0xb8a07a, `🏯 ${gt.title}門`); colliders.push({ x: gx - Math.cos(yaw) * 1.3, z: gz + Math.sin(yaw) * 1.3, r: 0.35 }, { x: gx + Math.cos(yaw) * 1.3, z: gz - Math.sin(yaw) * 1.3, r: 0.35 });
+        a.bars.visible = false; const doors = [-1, 1].map(sx => { const d = new THREE.Group(); d.position.set(sx * 1.15, 0, 0); a.g.add(d); addMesh(Gc(1.1, 2.0, 0.14, 0.04, -sx * 0.55, 1.0, 0), toon(0x9a3b2a), d); addMesh(Gc(0.12, 0.12, 0.05, 0.03, -sx * 0.95, 1.0, 0.1), toon(0xf2c14e), d, { outline: false }); return d; });
+        const chest = new THREE.Group(); chest.position.set(0, 0, -1.4); a.g.add(chest); addMesh(Gc(0.7, 0.45, 0.5, 0.06, 0, 0.23, 0), toon(0xb07a3a), chest); addMesh(Gc(0.74, 0.16, 0.54, 0.05, 0, 0.5, 0), toon(0xd99a3a), chest); addMesh(Gc(0.12, 0.14, 0.04, 0.02, 0, 0.36, 0.26), toon(0xf2c14e), chest, { outline: false });
+        const block = { x: gx, z: gz, r: 1.0 }; const [tx, tz] = [gx + Math.cos(yaw) * 2.6, gz - Math.sin(yaw) * 2.6]; const tab = new THREE.Group(); tab.position.set(tx, H(tx, tz), tz); tab.rotation.y = yaw; group.add(tab); addMesh(Gc(0.9, 1.2, 0.25, 0.06, 0, 0.6, 0), toon(0xc9c2d6), tab); addMesh(Gc(1.1, 0.18, 0.4, 0.05, 0, 0.09, 0), toon(0xb0a8c0), tab);
+        colliders.push({ x: tx, z: tz, r: 0.5 }); floatLab(`📜 ${gt.title}`, tx, tz, 1.75, { h: 0.5 });
+        const st = { open: !!GAMES.gameState().gates[gt.id], k: GAMES.gameState().gates[gt.id] ? 1 : 0 }; if (!st.open) colliders.push(block);
+        fx.push(dt => { const want = st.open ? 1 : 0; if (st.k !== want) st.k = Math.min(1, st.k + dt * 0.8); doors.forEach((d, i) => { d.rotation.y = (i ? -1 : 1) * st.k * 1.6; }); chest.visible = st.k > 0.5; });
+        items.push({ x: tx, z: tz, r: 1.8, text: () => st.open ? `🏯 ${gt.title}門已經打開了，按空白鍵可以再讀一次故事` : `📜 按空白鍵閱讀石碑「${gt.title}」，答對問題打開城門`, act: () => GAMES.story(gt, () => { if (!st.open) { st.open = true; const i = colliders.indexOf(block); if (i >= 0) colliders.splice(i, 1); ctx.banner(`🏯 ${gt.title}門打開了！`); } }) }); });
+    }
+    if (R.theme === 'tower') { // 鄰居信箱＋字精靈
+      const [mx, mz] = spot([6, 15.5], 1.0), mb = new THREE.Group(); mb.position.set(mx, H(mx, mz), mz); mb.rotation.y = -0.6; group.add(mb); addMesh(Gc(0.14, 1.1, 0.14, 0.03, 0, 0.55, 0), toon(0x9a6b48), mb); addMesh(Gc(0.5, 0.42, 0.7, 0.12, 0, 1.25, 0), toon(0xe8705c), mb); const flag = addMesh(Gc(0.05, 0.3, 0.16, 0.02, 0.28, 1.45, 0.1), toon(0xffd166), mb, { outline: false });
+      colliders.push({ x: mx, z: mz, r: 0.45 }); floatLab('💌 鄰居信箱', mx, mz, 2.0, { h: 0.5 });
+      const [sx, sz] = spot([-3.5, 13], 1.0), sp = new THREE.Group(); group.add(sp); const body = addMesh(G(0.6, 0.6, 0.6, 0.2), toon(0xd8c2ff, { emissive: 0xa080ff, emissiveIntensity: 0.45 }), sp); for (const ex of [-0.12, 0.12]) addMesh(Gc(0.08, 0.1, 0.03, 0.02, ex, 0.04, 0.3), toon(0x3b2c44), body, { outline: false }); addMesh(Gc(0.12, 0.03, 0.03, 0.01, 0, -0.1, 0.3), toon(0xe8705c), body, { outline: false });
+      for (const wx of [-1, 1]) { const w = addMesh(Gc(0.4, 0.04, 0.25, 0.02, wx * 0.45, 0.1, -0.05), toon(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.3 }), sp, { outline: false }); w.userData.wx = wx; }
+      const slab = floatLab('🧚 字精靈', sx, sz, 2.4, { bg: '#efe4ff', h: 0.5 }); colliders.push({ x: sx, z: sz, r: 0.4 });
+      fx.push((dt, time) => { const unread = GAMES.games().letters.list.some(l => !GAMES.gameState().letters[l.id]); flag.rotation.z = unread ? 0 : -1.4; sp.position.set(sx, H(sx, sz) + 1.2 + Math.sin(time * 2) * 0.15 - curveDrop(sx, sz), sz); sp.rotation.y = time * 0.7; sp.children.forEach(c => { if (c.userData.wx) c.rotation.z = c.userData.wx * Math.sin(time * 12) * 0.4; }); });
+      items.push({ x: mx, z: mz, r: 1.7, text: () => { const n = GAMES.games().letters.list.filter(l => !GAMES.gameState().letters[l.id]).length; return n ? `💌 有 ${n} 封鄰居的來信！按空白鍵讀信、回信` : '💌 信都回完了，按空白鍵再讀一封'; }, act: () => GAMES.letter() });
+      items.push({ x: sx, z: sz, r: 1.8, text: () => '🧚 字精靈：「我會依句子換衣服，猜猜我怎麼念？」按空白鍵玩多音字', act: () => GAMES.spirit() });
+    }
     const tl = []; for (let k = 0; k < T.trees * 30 && tl.length < T.trees; k++) { const edge = k % 3 === 0, a = r() * Math.PI * 2, d = edge ? RAD + 0.5 + r() * 9 : 4 + r() * 21, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!edge && !free(x, z, 0.3)) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < T.pineK ? 'pine' : 'broad' }); if (d < RAD + 1) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, T.leaf, T.pine);
     setRoot(null);
@@ -145,11 +237,11 @@ export function createForest(ctx) {
         if (n.sign.visible) { n.sign.position.y = 0.08 + Math.sin(time * 2.4 + n.z) * 0.08; n.signMat.emissiveIntensity = 0.45 + Math.sin(time * 4 + n.x) * 0.25; } // 可挑戰：路標發光、上下浮動
         n.starG.rotation.y = time * 0.8; n.starG.position.y = 2.75 + Math.sin(time * 1.6 + n.x) * 0.06;
         n.lab.position.y = n.lab.userData.base - curveDrop(n.x, n.z) + Math.sin(time * 1.2 + n.z) * 0.04; }
-      title.position.y = title.userData.base - curveDrop(0, 15); }
+      title.position.y = title.userData.base - curveDrop(0, 15); for (const f of fx) f(dt, time); }
     const spawns = { entry: { x: ENTRY[0], z: ENTRY[1] - 0.5, yaw: Math.PI } };
     const portals = [{ x: ENTRY[0], z: ENTRY[1] + 1.4, r: 1.7, to: 'trunk', spawn: 'from-' + rid, text: () => '🚪 按空白鍵回到森林主幹道', locked: () => false }];
     refresh(); group.visible = false;
-    return { id: rid, name: R.name, group, colliders, groundY, blocked, spawns, portals, nodes, refresh, update, spawn: 'entry' };
+    return { id: rid, name: R.name, group, colliders, groundY, blocked, spawns, portals, nodes, items, refresh, update, spawn: 'entry' };
   }
 
   // ── 森林主幹道：南邊接新手村，往北爬坡；兩旁是各區域的入口 ──
@@ -181,7 +273,7 @@ export function createForest(ctx) {
     const portals = [{ x: roadX(32), z: 31.8, r: 1.7, to: 'village', spawn: 'forest', text: () => '🚪 按空白鍵回到新手村', locked: () => false },
       ...gateObjs.map(g => ({ x: g.x + g.side * 0.6, z: g.z, r: 1.6, to: g.R.id, spawn: 'entry', locked: () => !regionOpen(g.R.id), text: () => regionOpen(g.R.id) ? `🚪 按空白鍵進入${g.R.name}（${g.R.grades}）` : `🔒 ${g.R.name}還沒打開：先通過${regionNeeds(g.R.id).map(n => `「${n.name}」`).join('、')}的挑戰` }))];
     refresh(); group.visible = false;
-    return { id: 'trunk', name: '森林主幹道', group, colliders, groundY, blocked, spawns, portals, nodes: [], refresh, update, spawn: 'south' };
+    return { id: 'trunk', name: '森林主幹道', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, spawn: 'south' };
   }
   return { buildRegion, buildTrunk, label, arch };
 }

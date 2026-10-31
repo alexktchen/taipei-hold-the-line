@@ -43,6 +43,7 @@ export async function loadData() { if (D) return D;
   const homoPool = [...'青清輕晴情請睛同童銅工公功弓宮今金斤巾京經精晶紅洪虹花華化畫話汽氣器期旗奇騎棋知之汁枝支'].filter(one);
   const groups = {}; for (const c of homoPool) (groups[ch(c).b[0]] ||= []).push(c);
   D = { ch, w, syl, one, sym: M.sym, homoPool, homo: Object.values(groups) }; return D; }
+export const dataNow = () => D; // 已經載入的辭典資料（地圖、小遊戲用）
 
 // ── 發音 ──
 let voice = null; const pickVoice = () => { const vs = speechSynthesis.getVoices(); voice = vs.find(v => /zh[-_]TW|cmn.*TW|Hant/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; };
@@ -108,6 +109,15 @@ let ov = null, onDone = null, keyFn = null;
 export const isOpen = () => !!ov;
 export function close() { if (!ov) return; ov.remove(); ov = null; if ('speechSynthesis' in window) speechSynthesis.cancel(); removeEventListener('keydown', keyFn, true); }
 // 打開一個知識點：學習卡片＋練習；onLearned(id) 在第一次學會時呼叫
+// 小遊戲用的視窗：和學習畫面同一套樣式，開著的時候角色不能走；回傳 { body, close }
+export function modal({ title, sub = '', icon = null }) { style(); close(); ov = el('div', 'lf-ov'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', title);
+  const box = el('div', 'lf-box'); ov.appendChild(box); const top = el('div', 'lf-top', `${icon ? `<img src="${ICONS}${icon}.svg" alt="">` : ''}<h2>${esc(title)}</h2><small>${esc(sub)}</small>`); const x = el('button', 'lf-x', '✕'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x);
+  const body = el('div', 'lf-body'); box.append(top, body);
+  keyFn = e => { if (!ov) return; if (e.key === 'Escape') { close(); e.stopPropagation(); return; } const k = +e.key; if (k >= 1 && k <= 4) { const bs = ov.querySelectorAll('.lf-ch button'); if (bs[k - 1] && !bs[k - 1].disabled) { bs[k - 1].click(); e.stopPropagation(); } } };
+  addEventListener('keydown', keyFn, true); document.body.appendChild(ov); x.focus(); return { body, close, box }; }
+// 小遊戲過關也算練習：知識點沒被封鎖才記（答對 right／total 題）
+export const recordPass = (id, right, total) => nodeById(id) && nodeState(id) !== 'locked' ? record(id, right, total) : null;
+export { el, esc, ruby, toast };
 export async function open(id, onLearned) { style(); close(); await loadData(); onDone = onLearned; const n = nodeById(id), R = regionById(n.region), L = lessonOf(id, D);
   ov = el('div', 'lf-ov'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', n.name);
   const box = el('div', 'lf-box'); ov.appendChild(box);
@@ -150,7 +160,8 @@ function detail(body, L, c) { body.innerHTML = ''; const wrap = el('div', 'lf-de
 function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date.now() & 0xffffff); let i = 0, right = 0;
   const show = () => { body.innerHTML = ''; const bar = el('div', 'lf-bar', `<i style="width:${i / qs.length * 100}%"></i>`); body.appendChild(bar);
     if (i >= qs.length) return finish(); const q = qs[i];
-    body.appendChild(el('div', 'lf-q', `第 ${i + 1} 題　${esc(q.q)}`));
+    const qrow = el('div', 'lf-q', `第 ${i + 1} 題　${esc(q.q)} `); body.appendChild(qrow);
+    if (!q.listen && !q.noRead) { const rd = el('button', 'lf-btn alt', '🔊 讀題'); rd.style.cssText = 'padding:4px 12px;font-size:14px;vertical-align:middle'; rd.onclick = () => speak(q.q.replace(/＿+/g, '什麼'), 0.75); qrow.appendChild(rd); } // 朗讀題目（會洩漏答案的題目不念）
     if (q.listen) { const b = el('button', 'lf-btn go', '🔊 再聽一次'); b.onclick = () => speak(q.say, q.slow ? SLOW : 0.75); body.appendChild(b); speak(q.say, q.slow ? SLOW : 0.75); }
     else if (q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
     const ch = el('div', 'lf-ch'); body.appendChild(ch);
@@ -166,4 +177,4 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
     const again = el('button', 'lf-btn alt', '再練一次'); again.onclick = () => renderQuiz(body, id); const done = el('button', 'lf-btn go', '回到森林'); done.onclick = close; const bs = el('div', 'lf-btns'); bs.style.justifyContent = 'center'; bs.append(again, done); d.appendChild(bs);
     body.appendChild(d); if (pass && onDone) onDone(id, first, res.up); };
   show(); }
-export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone };
+export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone, quizOf };
