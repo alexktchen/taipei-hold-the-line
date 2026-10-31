@@ -2,7 +2,6 @@
    角色：solo（單人＋NPC 同學）與 host（房主）在這台跑模擬；client（房客）只收快照畫畫面、自己走路，把位置與指令送給房主。
    畫面特效一律走「事件」：模擬端產生事件時自己先播一次，再放進快照送給房客播，兩邊看到的一樣。事件只帶代碼與數字，文字由各自的 config 組出來。 */
 import * as THREE from 'three';
-import { toonMat } from './toon.js';
 import { CONFIG as C } from './config.js';
 import { TOP, R, H, makeRoute, sampleRoute } from './islands.js';
 const SH = C.shift, EG = SH.egg, PL = SH.player, ML = C.melee, CH = C.chant, NP = C.npc, MC = C.mayor, RS = C.residents;
@@ -366,13 +365,13 @@ export function createGame(ctx) {
     } }
 
   // ═══════════════ 畫面 ═══════════════
-  const eggGeo = new THREE.SphereGeometry(0.5, 14, 10), eggMat = toonMat({ color: 0xf2c14e, metalness: 0.45, roughness: 0.28, emissive: 0x8a6400, emissiveIntensity: 0.35 });
+  const eggGeo = new THREE.SphereGeometry(0.5, 14, 10), eggMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.45, roughness: 0.28, emissive: 0x8a6400, emissiveIntensity: 0.35 });
   const mkEgg = () => { const m = new THREE.Mesh(eggGeo, eggMat); m.scale.set(0.12, 0.155, 0.12); m.castShadow = true; scene.add(m); return m; };
   let basketObj = null, spawnFx = [], focusRing = null, rushRing = null, goalMark = null;
-  function buildBasket() { removeBasket(); const g = new THREE.Group(); const wick = toonMat({ color: 0xc9a27c, roughness: 0.85 }), dark = toonMat({ color: 0x9a7454, roughness: 0.9 });
+  function buildBasket() { removeBasket(); const g = new THREE.Group(); const wick = new THREE.MeshStandardMaterial({ color: 0xc9a27c, roughness: 0.85 }), dark = new THREE.MeshStandardMaterial({ color: 0x9a7454, roughness: 0.9 });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.26, 0.3, 16, 1, true), wick); base.position.y = 0.15; base.material.side = THREE.DoubleSide; g.add(base);
     const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 16), dark); bottom.position.y = 0.02; g.add(bottom);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 24), toonMat({ color: 0xf2c14e, metalness: 0.4, roughness: 0.3 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.3; g.add(rim);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 24), new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.4, roughness: 0.3 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.3; g.add(rim);
     for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2, s = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.3, 0.02), dark); s.position.set(Math.cos(a) * 0.3, 0.15, Math.sin(a) * 0.3); s.rotation.y = -a; g.add(s); }
     g.userData.eggs = []; for (let k = 0; k < 10; k++) { const m = new THREE.Mesh(eggGeo, eggMat); m.scale.set(0.1, 0.13, 0.1); const a = k * 2.4, r = 0.08 + (k % 3) * 0.06; m.position.set(Math.cos(a) * r, 0.22 + Math.floor(k / 4) * 0.06, Math.sin(a) * r); m.visible = false; g.add(m); g.userData.eggs.push(m); }
     const zone = new THREE.Mesh(new THREE.RingGeometry(EG.basketR - 0.05, EG.basketR, 48), new THREE.MeshBasicMaterial({ color: 0xf2c14e, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide })); zone.rotation.x = -Math.PI / 2; zone.position.y = 0.02; g.add(zone);
@@ -406,7 +405,7 @@ export function createGame(ctx) {
   function laserFx(x, z, x2, z2) { const L = Math.hypot(x2 - x, z2 - z), m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, L), new THREE.MeshBasicMaterial({ color: 0x4ad6c8, transparent: true, opacity: 0.95 })); m.position.set((x + x2) / 2, Y + 0.35, (z + z2) / 2); m.rotation.y = Math.atan2(x2 - x, z2 - z); scene.add(m); G.fx.push({ obj: m, ttl: 0.35, fade: 3 }); }
   function lobFx(x, z, x2, z2, t) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.04), new THREE.MeshBasicMaterial({ color: 0xfff8f4 })); scene.add(m); G.fx.push({ obj: m, ttl: t, lob: { x, z, x2, z2, t: 0, dur: Math.max(0.3, t * 0.6) } }); }
   function spitFx(x, z, dx, dz, sp, t) { const m = new THREE.Mesh(projGeo, new THREE.MeshBasicMaterial({ color: 0x8bd35a })); m.scale.setScalar(1.8); m.position.set(x, Y + 0.45, z); scene.add(m); G.fx.push({ obj: m, ttl: t, vel: [dx * sp, dz * sp] }); }
-  const playerExtras = P => { if (!P.eggObj) { P.eggObj = mkEgg(); P.eggObj.visible = false; } if (!P.buoy) { P.buoy = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 8, 20), toonMat({ color: 0xff7a3d, roughness: 0.5 })); P.buoy.rotation.x = Math.PI / 2; P.buoy.visible = false; scene.add(P.buoy); } };
+  const playerExtras = P => { if (!P.eggObj) { P.eggObj = mkEgg(); P.eggObj.visible = false; } if (!P.buoy) { P.buoy = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 8, 20), new THREE.MeshStandardMaterial({ color: 0xff7a3d, roughness: 0.5 })); P.buoy.rotation.x = Math.PI / 2; P.buoy.visible = false; scene.add(P.buoy); } };
   // 每幀：房客把位置往快照的目標平滑靠過去；兩邊都在這裡擺網格、播特效
   function view(raw, time, zoom = 1) { if (G.phase === 'lobby') { updateFx(raw); return; } const client = G.role === 'client', k = Math.min(1, raw * C.net.smooth);
     for (const e of G.enemies) { if (e.dead) continue; if (!e.obj) makeEnemyMesh(e); const A = e.A;

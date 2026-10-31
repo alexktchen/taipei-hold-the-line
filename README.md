@@ -27,11 +27,7 @@
 ## 彎曲地平線（動森滾木效果）
 - `js/curve.js`：用 `onBeforeCompile` 改內建材質（`MeshStandardMaterial` 等）的頂點著色器，頂點離相機越遠就往下彎：`y −= k × d²`。有兩種模式：滾木（只沿相機水平前方彎，左右不彎）和球（四面八方都彎）；腳邊一段距離保持平的。彎曲在世界座標裡做，相機俯仰角怎麼變都是往世界的下方彎；法線一起轉，遠處的光影跟著地面彎；支援 InstancedMesh；陰影用彎過的深度材質（`curveObject()` 會自動設好）。曲率和等效半徑的關係是 R = 1 / (2k)。
 - 用法：`applyCurve(material)` 或 `curveObject(root)`，每幀 render 前呼叫 `updateCurve(camera)`，調 `CURVE.uCurve`、`uCurveFlat`、`uCurveMode`、`uCurveOn`。要把 DOM 名牌或點擊判定對齊彎過的畫面，用 `curvedY(x, y, z)` 算彎完的高度。
-- 遊戲本體已經套上：以鏡頭看的那一點為中心，前景不彎、後面往下彎；拉遠鳥瞰時自動變平。曲率在 `js/main.js` 的 `CURVE_K`（預設 0.0075）與 `CURVE.uCurveFlat`。主迴圈每隔幾幀用 `curveSweep(scene)` 把新加進場景的材質補上彎曲；遠山稜線、天空、雲、換世界的雲海標 `userData.noCurve` 不彎。地面幾何用 `tessellate()` 切細，疊在一起的地面層才會一起彎。
 - 測試頁 `curve-test.html`：600×600 的平面草地、泥土路、行道樹與上千棵樹（InstancedMesh）、路邊房子、圍欄柱與一個方塊人，可以調曲率、平坦區、鏡頭俯角，切換滾木／球，並和「真的大圓柱／球」地面對照（半徑 R = 1/(2k)，人往前走時跟著滾）。目前只在測試頁，還沒套進遊戲本體。
-
-## 卡通畫風（`js/toon.js`、`js/grass.js`）
-小鎮和 `cozy-farm/` 同一套療癒系畫風：所有物件用 `MeshToonMaterial`＋4 階 gradientMap（`toonMat()`，最暗那階越亮越粉彩）；零件庫、方塊人、動物、山上的樹有反向外殼描邊（`TOON.uOutline` 粗細、`OUTLINE_COLOR` 顏色，越遠越粗、不超過物件最細邊的 18%，會跟著建築透視切面一起挖掉）；陰影與背光面靠半球光偏紫的地面色（`env.js` 的 `KEYS` 第 7 欄）；小河有兩岸的白色泡沫邊與流動波紋；區塊外圈和野地有會隨風擺動、自己走過會倒向兩邊的草叢（`js/grass.js`）。
 
 ## 療癒系田園小場景（`cozy-farm/`）
 獨立的單一 HTML 範例（`cozy-farm/index.html`，從 CDN 載入 three@0.160），和遊戲本體無關：卡通著色（4 階 gradientMap）、反向外殼描邊、彎曲地平線、偏暖紫的柔和陰影、蜿蜒小河與木橋、會隨風擺動的草、6×4 農田（E 澆水、作物三階段）、日夜循環（晚上窗戶與路燈亮起、螢火蟲）、飄落花瓣；手機有虛擬搖桿與澆水鈕。所有模型都是程式產生的原創造型。配色改檔案開頭的 `CFG.pal` 與 `DN`（日夜關鍵影格），地平線彎曲改 `CFG.curve`／`CFG.curveSide`。

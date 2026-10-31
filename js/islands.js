@@ -3,7 +3,6 @@
    小鎮外圍：野地與樹林，再遠是盆地的山。可走範圍由 nav.js 依區塊與門判斷；這裡只負責畫面、路網與門的位置。
    檔名沿用 islands.js（其他模組照舊 import），「島」在程式裡就是「區塊」。 */
 import * as THREE from 'three';
-import { toonMat } from './toon.js';
 import { mulberry } from './env.js';
 import { CONFIG } from './config.js';
 const W = CONFIG.world;
@@ -41,22 +40,13 @@ function groundTexture(type) {
 }
 const MATS = { tex: new Map() };
 const texOf = type => { if (!MATS.tex.has(type)) MATS.tex.set(type, groundTexture(type)); return MATS.tex.get(type); };
-const matOf = (type, extra = {}) => toonMat({ map: texOf(type), roughness: 0.96, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, ...extra });
+const matOf = (type, extra = {}) => new THREE.MeshStandardMaterial({ map: texOf(type), roughness: 0.96, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, ...extra });
 function polyShape(pts) { const s = new THREE.Shape(); pts.forEach(([x, z], k) => k ? s.lineTo(x, -z) : s.moveTo(x, -z)); s.closePath(); return s; }
 function sqPts(h, rc, n = 72) { const out = []; for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2, r = sqR(a, h, rc); out.push([Math.cos(a) * r, Math.sin(a) * r]); } return out; }
 function ringGeo(outer, inner) { const s = polyShape(outer); const h = new THREE.Path(); inner.forEach(([x, z], k) => k ? h.lineTo(x, -z) : h.moveTo(x, -z)); h.closePath(); s.holes.push(h); const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); return g; }
 // 世界座標貼圖：所有地面接起來看不出接縫
 function worldUV(geo, ox, oz, k = 2.2) { const uv = geo.attributes.uv, p = geo.attributes.position; for (let n = 0; n < p.count; n++) uv.setXY(n, (p.getX(n) + ox) / k, (p.getZ(n) + oz) / k); return geo; }
-const plane = (w, d) => { const g = new THREE.PlaneGeometry(w, d); g.rotateX(-Math.PI / 2); return tessellate(g); };
-// 細分三角形（最長邊切一半，直到每邊都短於 maxLen）：彎曲地平線是逐頂點彎的，地面的大三角形要切細，疊在一起的地面層（草地、步道、河）才會一起彎、不打架
-export function tessellate(geo, maxLen = 0.9) { const g = geo.index ? geo.toNonIndexed() : geo; const attrs = Object.entries(g.attributes).map(([n, a]) => ({ n, k: a.itemSize, v: [] }));
-  const P = g.attributes.position; for (let i = 0; i < P.count; i++) attrs.forEach(({ n, k, v }) => { const a = g.attributes[n].array; v.push(Array.from(a.subarray(i * k, i * k + k))); });
-  const pos = attrs[0].n === 'position' ? attrs[0].v : attrs.find(a => a.n === 'position').v, len = (a, b) => Math.hypot(pos[a][0] - pos[b][0], pos[a][1] - pos[b][1], pos[a][2] - pos[b][2]);
-  const mids = new Map(), midOf = (a, b) => { const key = a < b ? a + '_' + b : b + '_' + a; if (!mids.has(key)) { attrs.forEach(({ v }) => v.push(v[a].map((x, t) => (x + v[b][t]) / 2))); mids.set(key, pos.length - 1); } return mids.get(key); }; // 共用中點，相鄰三角形不會出現裂縫
-  const stack = []; for (let i = 0; i < P.count; i += 3) stack.push([i, i + 1, i + 2]); const done = [];
-  while (stack.length) { const t = stack.pop(), e = [len(t[0], t[1]), len(t[1], t[2]), len(t[2], t[0])], m = e.indexOf(Math.max(...e)); if (e[m] <= maxLen) { done.push(t); continue; }
-    const a = t[m], b = t[(m + 1) % 3], c = t[(m + 2) % 3], d = midOf(a, b); stack.push([a, d, c], [d, b, c]); }
-  const r = new THREE.BufferGeometry(); attrs.forEach(({ n, k, v }) => { const arr = new Float32Array(done.length * 3 * k); let o = 0; for (const t of done) for (const i of t) { arr.set(v[i], o); o += k; } r.setAttribute(n, new THREE.BufferAttribute(arr, k)); }); return r; }
+const plane = (w, d) => { const g = new THREE.PlaneGeometry(w, d); g.rotateX(-Math.PI / 2); return g; };
 // ── 木圍欄：柱子＋兩條橫桿；gap＝中間留門的寬度（0＝不留）──
 const WOOD = 0x8a6a4a, RAIL = 0xb48560;
 function fenceLine(kit, ax, az, bx, bz, gap = 0, style = 'wood') { const len = Math.hypot(bx - ax, bz - az), yaw = Math.atan2(bx - ax, bz - az); const n = Math.max(2, Math.round(len / 0.42));
@@ -69,8 +59,7 @@ function fenceLine(kit, ax, az, bx, bz, gap = 0, style = 'wood') { const len = M
   if (gap) for (const sg of [-1, 1]) { const t = 0.5 + sg * gap / 2 / len, x = ax + (bx - ax) * t, z = az + (bz - az) * t; kit.hbox(x, TOP + 0.21, z, 0.1, 0.42, 0.1, 0x7a5a3e); kit.part('hip', [x, TOP + 0.46, z], [0.15, 0.08, 0.15], 0x6a4e36); kit.bulb(x, TOP + 0.36, z, 0.06); } }
 // ── 河：水面＋兩岸的土坡與石頭（水面用 main.js 換成 env 的會動的水材質）──
 function buildRiver(scene, kit, rv, rnd) { const S = SPACING; const along0 = rv.from * S, along1 = rv.to * S; const len = along1 - along0, mid = (along0 + along1) / 2, at = rv.at * S;
-  const geo = rv.axis === 'z' ? plane(len, RIVER_HW * 2) : plane(RIVER_HW * 2, len); { const p = geo.attributes.position, ac = new Float32Array(p.count); for (let i = 0; i < p.count; i++) ac[i] = (rv.axis === 'z' ? p.getZ(i) : p.getX(i)) / RIVER_HW; geo.setAttribute('aAcross', new THREE.BufferAttribute(ac, 1)); } // 水面材質用來畫兩岸的泡沫邊
-  const mesh = new THREE.Mesh(geo, toonMat({ color: 0x8fc9d6, roughness: 0.3 }));
+  const geo = rv.axis === 'z' ? plane(len, RIVER_HW * 2) : plane(RIVER_HW * 2, len); const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x8fc9d6, roughness: 0.3 }));
   if (rv.axis === 'z') mesh.position.set(mid, TOP + 0.012, at); else mesh.position.set(at, TOP + 0.012, mid); mesh.receiveShadow = true; scene.add(mesh);
   for (const sg of [-1, 1]) { const off = sg * (RIVER_HW + 0.05); const n = Math.round(len / 0.5);
     if (rv.axis === 'z') kit.hbox(mid, TOP + 0.03, at + off, len, 0.06, 0.14, 0xc9a77c); else kit.hbox(at + off, TOP + 0.03, mid, 0.14, 0.06, len, 0xc9a77c);
@@ -88,9 +77,9 @@ function buildBridge(kit, g) { const vertical = g.axis === 'z'; const L = RIVER_
     for (const t of [-0.5, -0.25, 0, 0.25, 0.5]) { const [x, z] = at(t, off), big = Math.abs(t) === 0.5; kit.hbox(x, TOP + 0.2 + rise(t) + (big ? 0.05 : 0), z, big ? 0.16 : 0.1, big ? 0.5 : 0.38, big ? 0.16 : 0.1, 0x8a6a4a); kit.cyl(x, TOP + 0.41 + rise(t) + (big ? 0.1 : 0), z, big ? 0.2 : 0.13, 0.05, 0x6a4e36); if (big) kit.part('sphere', [x, TOP + 0.47 + rise(t) + 0.1, z], [0.12, 0.08, 0.12], 0x6a4e36); } }
   for (const t of [-0.28, 0, 0.28]) for (const sd of [-1, 1]) { const [x, z] = at(t, sd * W * 0.36); kit.cyl(x, TOP - 0.12, z, 0.1, 0.24, 0x7a5a3e); } }
 // ── 一個區塊的地面：區塊色塊、方形步道環、往每道門的小路、廣場 ──
-function buildZone(scene, kit, i, c, gateSides, plazaZ) { let g0 = new THREE.ShapeGeometry(polyShape(sqPts(H - 0.04, 0.6))); g0.rotateX(-Math.PI / 2); g0 = tessellate(g0); worldUV(g0, c.x, c.z);
+function buildZone(scene, kit, i, c, gateSides, plazaZ) { const g0 = new THREE.ShapeGeometry(polyShape(sqPts(H - 0.04, 0.6))); g0.rotateX(-Math.PI / 2); worldUV(g0, c.x, c.z);
   const patch = new THREE.Mesh(g0, matOf(i.ground || 'lawn')); patch.position.set(c.x, TOP + 0.002, c.z); patch.receiveShadow = true; patch.userData = { island: i.id }; scene.add(patch);
-  const pm = matOf('ringtile', { polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); const add = (geo, x, z) => { geo = tessellate(geo); worldUV(geo, x, z); const m = new THREE.Mesh(geo, pm); m.position.set(x, TOP + 0.006, z); m.receiveShadow = true; scene.add(m); return m; };
+  const pm = matOf('ringtile', { polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); const add = (geo, x, z) => { worldUV(geo, x, z); const m = new THREE.Mesh(geo, pm); m.position.set(x, TOP + 0.006, z); m.receiveShadow = true; scene.add(m); return m; };
   add(ringGeo(sqPts(RING_H + 0.22, 0.7), sqPts(RING_H - 0.22, 0.5)), c.x, c.z);
   for (let k = 0; k < 4; k++) { const g = gateSides[k]; if (!g) continue; const [dx, dz] = NEIGHBORS[k], L = H - RING_H + 0.06, m = RING_H + L / 2 - 0.02, w = g.river ? 1.45 : 0.6; add(dx ? plane(L, w) : plane(w, L), c.x + dx * m, c.z + dz * m); }
   if (plazaZ != null) { const pg = new THREE.CircleGeometry(1.0, 28); pg.rotateX(-Math.PI / 2); add(pg, c.x, c.z + plazaZ); add(plane(0.6, RING_H - plazaZ - 0.9), c.x, c.z + (RING_H + plazaZ + 0.9) / 2); }
@@ -120,7 +109,7 @@ export function buildIslands(scene, islands, kit, colors, campus = [], makeKit =
   const gateSidesOf = Z => NEIGHBORS.map(([dq, dr]) => { const O = cells.get(cellKey(Z.grid[0] + dq, Z.grid[1] + dr)); return (O && gateOf.get([Z.id, O.id].sort().join('|'))) || null; });
   // 大地：一整片草地（往外延伸到遠山腳下）
   const all = [...cells.values()]; const cx0 = Math.min(...all.map(z => z.c.x)), cx1 = Math.max(...all.map(z => z.c.x)), cz0 = Math.min(...all.map(z => z.c.z)), cz1 = Math.max(...all.map(z => z.c.z)); const mx = (cx0 + cx1) / 2, mz = (cz0 + cz1) / 2;
-  const gg = new THREE.PlaneGeometry(180, 180, 150, 150).rotateX(-Math.PI / 2); worldUV(gg, mx, mz); const ground = new THREE.Mesh(gg, toonMat({ map: texOf('wild'), roughness: 1 })); ground.position.set(mx, TOP, mz); ground.receiveShadow = true; scene.add(ground);
+  const gg = plane(180, 180); worldUV(gg, mx, mz); const ground = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: texOf('wild'), roughness: 1 })); ground.position.set(mx, TOP, mz); ground.receiveShadow = true; scene.add(ground);
   // 各區塊
   for (const Z of cells.values()) { if (!Z.zone) continue; const i = Z.isl; const top = buildZone(scene, kit, i, Z.c, gateSidesOf(Z), i.plaza ? CONFIG.plaza.basketZ : null); views.set(i.id, { top, cliff: top, outline: new THREE.Object3D(), center: Z.c }); }
   // 圍欄：每條區塊邊界畫一次（兩邊都是區塊、或一邊是區塊一邊是野地）；有門的留缺口；河的那條不畫圍欄
