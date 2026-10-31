@@ -13,3 +13,13 @@
   - 流程：`game-jam`、`prototype-fast`、`itch-publish`、`steam-publish`
 - 本專案注意：three.js 放在 `vendor/three`（r160），沒有 `package.json`，router 的自動偵測認不出來；`threejs-*` 技能以 r186 為基準，這裡照 r160 的 API 寫（不升級）。
 - 更新：重新 clone 上游，刪掉這裡同名的技能資料夾後照上游 `docs/INSTALLATION.md` 的「Claude Code (manual copy)」再複製一次，並更新上面的 commit。
+
+## three.js 技能（threejs-skills）
+
+- 來源：<https://github.com/cloudai-x/threejs-skills>，commit `0e18186（2026-10-19）`。
+- 授權：MIT，原文在 `threejs-skills.LICENSE`。
+- 內容：13 個技能，照上游 README 的手動安裝方式（`cp -r skills/* .claude/skills/`）放在這一層：`threejs-fundamentals`、`threejs-geometry`、`threejs-materials`、`threejs-lighting`、`threejs-textures`、`threejs-animation`、`threejs-loaders`、`threejs-shaders`、`threejs-postprocessing`、`threejs-interaction`、`threejs-performance`、`threejs-react-three-fiber`、`threejs-asset-pipeline`。只有 SKILL.md 文件，沒有腳本。
+- 和上面合集的 `threejs-scene-setup`、`threejs-materials-lighting`、`threejs-gltf-loading` 名稱不重複，主題有重疊，兩邊都會依描述觸發。
+- 本專案注意：這套技能以 three.js r186 為基準（`HDRLoader`、`Timer`、`RenderPipeline`、WebGPU／TSL 等），本專案是 `vendor/three` 的 r160、用 WebGLRenderer 和 GLSL；照這些技能寫程式時要用 r160 有的 API（不升級）。
+- 更新：重新 clone 上游，刪掉這裡 13 個 `threejs-*` 同名資料夾後再複製一次，並更新上面的 commit。
+
