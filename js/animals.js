@@ -1,10 +1,11 @@
 /* 攻擊方動物（Q 版，和行人同一個比例尺）。每隻一個 Group，零件用圓角方塊與球體。
    闖關版多了：洗版塔（tower）、鐵粉龍的護盾、錯字大嘴鳥頭上的懶人包、飛彈鸚鵡的飛彈莢、金色會發光、被定住時頭上轉星星。 */
 import * as THREE from 'three';
+import { toonMat, meshOutline } from './toon.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 export function createAnimals(scene, ANIMALS, opts = {}) { const chantSize = opts.chantSize || 0.5;
   const geo = { rbox: new RoundedBoxGeometry(1, 1, 1, 2, 0.3), sphere: new THREE.SphereGeometry(0.5, 12, 10), cone: new THREE.ConeGeometry(0.5, 1, 8), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 8), torus: new THREE.TorusGeometry(0.5, 0.1, 6, 16), shadow: new THREE.CircleGeometry(0.5, 16).rotateX(-Math.PI / 2), hit: new THREE.SphereGeometry(0.5, 8, 8) };
-  const mats = new Map(); const mat = (c, glow) => { const k = c + (glow ? 'g' : ''); if (!mats.has(k)) mats.set(k, new THREE.MeshStandardMaterial({ color: c, roughness: glow ? 0.35 : 0.7, metalness: glow ? 0.3 : 0, emissive: glow ? c : 0x000000, emissiveIntensity: glow ? 0.35 : 0 })); return mats.get(k); };
+  const mats = new Map(); const mat = (c, glow) => { const k = c + (glow ? 'g' : ''); if (!mats.has(k)) mats.set(k, toonMat({ color: c, roughness: glow ? 0.35 : 0.7, metalness: glow ? 0.3 : 0, emissive: glow ? c : 0x000000, emissiveIntensity: glow ? 0.35 : 0 })); return mats.get(k); };
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x2a2018, transparent: true, opacity: 0.22, depthWrite: false }); const hitMat = new THREE.MeshBasicMaterial({ visible: false });
   const hpBg = new THREE.SpriteMaterial({ color: 0x211d1d, depthTest: false }), hpFg = new THREE.SpriteMaterial({ color: 0x4f8a3f, depthTest: false }), hpMid = new THREE.SpriteMaterial({ color: 0xe8c547, depthTest: false }), hpLow = new THREE.SpriteMaterial({ color: 0xc23b2a, depthTest: false });
   const texCache = new Map();
@@ -12,7 +13,7 @@ export function createAnimals(scene, ANIMALS, opts = {}) { const chantSize = opt
     g.beginPath(); g.roundRect(3, 3, cv.width - 6, cv.height - 14, 16); g.fillStyle = '#fff8f4'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#211d1d'; g.stroke(); g.beginPath(); g.moveTo(cv.width / 2 - 8, cv.height - 12); g.lineTo(cv.width / 2 + 8, cv.height - 12); g.lineTo(cv.width / 2, cv.height - 2); g.closePath(); g.fillStyle = '#211d1d'; g.fill();
     g.fillStyle = '#211d1d'; g.fillText(txt, cv.width / 2, cv.height / 2 - 4); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.userData = { w: cv.width, h: cv.height }; texCache.set(txt, t); return t; }
   const U = 0.34; // 一隻 size=1 的動物約 0.34 單位寬（和 0.8 倍 Q 版行人差不多）
-  let glowing = false; function mesh(kind, c, pos, scale, rot) { const m = new THREE.Mesh(geo[kind], mat(c, glowing)); m.position.set(...pos); m.scale.set(...(Array.isArray(scale) ? scale : [scale, scale, scale])); if (rot) m.rotation.set(...rot); m.castShadow = true; return m; }
+  let glowing = false; function mesh(kind, c, pos, scale, rot) { const m = new THREE.Mesh(geo[kind], mat(c, glowing)); m.position.set(...pos); m.scale.set(...(Array.isArray(scale) ? scale : [scale, scale, scale])); if (rot) m.rotation.set(...rot); m.castShadow = true; if (kind !== 'shadow' && kind !== 'hit') meshOutline(m); return m; }
   function spawn(typeId) {
     const A = ANIMALS[typeId]; const s = A.size * U; const g = new THREE.Group(); const inner = new THREE.Group(); g.add(inner); const parts = { inner }; glowing = !!A.glow;
     if (A.model === 'bird') {

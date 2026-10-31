@@ -1,5 +1,6 @@
 /* 實例化零件庫 + 象徵性課程迷你模型。所有靜態零件按幾何種類收進同一個 InstancedMesh。做法參考原站 kit.js / scene-models.js，模型重新設計。 */
 import * as THREE from 'three';
+import { toonMat, outlineMat, instancedOutline } from './toon.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mulberry } from './env.js';
 // 擋在鏡頭與自己中間的建築變透明（main.js 每幀更新 A＝鏡頭、B＝自己的位置、Y＝從多高開始切；on=0 時關閉）：
@@ -15,9 +16,10 @@ function cutaway(mat, ghost) { mat.onBeforeCompile = sh => { Object.assign(sh.un
   mat.customProgramCacheKey = () => ghost ? 'cutaway-ghost' : 'cutaway'; return mat; }
 const ghostOf = m => { const g = cutaway(m.clone(), true); g.transparent = true; g.opacity = 0.22; g.depthWrite = false; return g; };
 // 會發光的零件（亮著的窗、燈泡、招牌字）共用一個材質：白天是一般顏色，晚上 emissive #ffc777 的強度 = 夜晚程度 × 3.2（main.js 每幀更新，ghost 也要跟著）
-export const GLOW = cutaway(new THREE.MeshStandardMaterial({ roughness: 0.6, emissive: 0xffc777, emissiveIntensity: 0 }));
-const SOLID = cutaway(new THREE.MeshStandardMaterial({ roughness: 0.78 })); // 黏土感霧面
+export const GLOW = cutaway(toonMat({ roughness: 0.6, emissive: 0xffc777, emissiveIntensity: 0 }));
+const SOLID = cutaway(toonMat({ roughness: 0.78 })); // 黏土感霧面
 export const GLOW_GHOST = ghostOf(GLOW); const SOLID_GHOST = ghostOf(SOLID);
+const KIT_OUTLINE = outlineMat(cutaway(new THREE.MeshBasicMaterial())); // 描邊也要被透視切面挖掉，不然擋住自己的建築會剩一圈線
 // ghost 那一份只在透明效果開著時才畫
 const GHOSTS = new Set(); export function setCutVisible(on) { for (const g of GHOSTS) g.visible = !!on; }
 export function createKit(top) {
@@ -51,6 +53,7 @@ export function createKit(top) {
       for (const [kind, items] of batches) { const base = glowKinds.has(kind) ? glow : solid; const mesh = new THREE.InstancedMesh(geo[kind], base, items.length); mesh.castShadow = !glowKinds.has(kind); mesh.receiveShadow = true;
         mesh.userData.owners = []; items.forEach((p, n) => { dummy.position.copy(p.pos); dummy.scale.copy(p.scale).multiplyScalar(1 + (((n * 7) % 9) - 4) * 0.0018); dummy.rotation.set(...p.rotation); dummy.updateMatrix(); mesh.setMatrixAt(n, dummy.matrix); mesh.setColorAt(n, p.color); mesh.userData.owners[n] = p.owner; });
         scene.add(mesh); meshes.push(mesh); built.push(mesh);
+        if (!glowKinds.has(kind)) { const ol = instancedOutline(mesh, KIT_OUTLINE); scene.add(ol); built.push(ol); } // 卡通描邊（發光的窗戶、燈泡不描）
         const gh = new THREE.InstancedMesh(geo[kind], base === glow ? GLOW_GHOST : SOLID_GHOST, items.length); gh.instanceMatrix = mesh.instanceMatrix; gh.instanceColor = mesh.instanceColor; gh.castShadow = false; gh.receiveShadow = false; gh.renderOrder = 5; gh.visible = CUT.uCutOn.value > 0.5;
         gh.raycast = () => {}; GHOSTS.add(gh); scene.add(gh); built.push(gh); } return meshes; } };
   return k;

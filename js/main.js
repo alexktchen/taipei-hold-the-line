@@ -14,6 +14,8 @@ import { createNav } from './nav.js';
 import { ICONS } from './icons.js';
 import { createUI } from './ui.js';
 import { mulberry } from './env.js';
+import { CURVE, updateCurve, curveSweep, curvedY } from './curve.js';
+import { createGrass } from './grass.js';
 const stage = document.getElementById('stage');
 const quality = (navigator.hardwareConcurrency || 4) >= 6 && !/Mobi|Android/i.test(navigator.userAgent) ? 'high' : 'medium';
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -59,6 +61,7 @@ const NEW_ISLES = new Map(CAMPUS.map(p => [p.id, { p, c: axialToWorld(...p.grid)
 for (const k of world.wildKits.values()) k.build(scene);
 kit.build(scene);
 const env = createEnvironment(scene, { center, quality }); env.setTime(720); for (const m of world.rivers) m.material = env.waterMat;
+const grass = createGrass(scene, world, { quality, rivers: C.world.rivers || [] }); // 會隨風擺動的草叢
 const graph = buildGraph(C.islands, centers, neighbors, links, gates);
 const nav = createNav({ islands: C.islands, centers, gates, graph, cells }); nav.setObstacles(STATIC_OBST, []);
 // ── 場景解鎖：鎖住的學期，門關著、門口掛「🔒」牌子寫要在哪裡答對幾題；解鎖後門打開（進度記在裝置上，progress.js）──
@@ -124,7 +127,7 @@ function placeCity(list) { for (const p of list) if (p.kind === 'island') { if (
     if (!L) { L = addLabel(txt, new THREE.Vector3(at.x, TOP + 0.95, at.z), 'policy city', '建設', 1.5); cityLabels.set(p.id, L); }
     if (L.txt !== txt) { L.txt = txt; L.el.lastChild.textContent = txt; L.el.classList.toggle('now', p.st === 'now'); L.w = 0; } } }
 function updateLabels() { const w = stage.clientWidth, h = stage.clientHeight; const boxes = [];
-  for (const L of labels) { const f = L.follow; if (f) L.pos.set(f.pos.x, f.pos.y + (f.down ? 0.3 : 0.66 * f.plan.scale * 0.8 + (f.onBox ? 0.07 : 0)) * lastZoom + 0.03, f.pos.z); L.v.copy(L.pos).project(camera); L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
+  for (const L of labels) { const f = L.follow; if (f) L.pos.set(f.pos.x, f.pos.y + (f.down ? 0.3 : 0.66 * f.plan.scale * 0.8 + (f.onBox ? 0.07 : 0)) * lastZoom + 0.03, f.pos.z); L.v.copy(L.pos); L.v.y = curvedY(L.pos.x, L.pos.y, L.pos.z); L.v.project(camera); /* 名牌跟著彎過的地平線 */ L.sx = (L.v.x + 1) / 2 * w; L.sy = (1 - L.v.y) / 2 * h; L.vis = L.v.z < 1 && Math.abs(L.v.x) < 1.15 && Math.abs(L.v.y) < 1.15; }
   const order = labels.filter(L => L.vis).sort((a, b) => b.prio - a.prio || a.v.z - b.v.z);
   for (const L of labels) if (!L.vis) L.el.style.display = 'none';
   for (const L of order) { L.el.style.display = ''; if (!L.w) { L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; } const bx = { x0: L.sx - L.w / 2 - 2, x1: L.sx + L.w / 2 + 2, y0: L.sy - L.h - 2, y1: L.sy + 2 };
@@ -197,7 +200,7 @@ const clouds = (() => { let g = null, matF = null; const mats = [], puffs = [];
     for (let i = 0; i < 10; i++) blob(x, 46 + rnd() * 164, 100 + rnd() * 16, 30 + rnd() * 16, '150,172,194', 0.55);
     for (let i = 0; i < 16; i++) { const u = rnd(), cx = 40 + u * 176, cy = 84 - Math.sin(u * Math.PI) * 36 + rnd() * 10, r = 24 + Math.sin(u * Math.PI) * 26 + rnd() * 10; blob(x, cx + r * 0.2, cy + r * 0.3, r, '170,190,210', 0.45); blob(x, cx, cy, r, '255,255,255', 0.97); }
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; }
-  function make() { g = new THREE.Group(); g.visible = false;
+  function make() { g = new THREE.Group(); g.visible = false; g.userData.noCurve = true; // 換世界的雲海不跟著地平線彎
     matF = new THREE.MeshBasicMaterial({ map: floorTex(), transparent: true, opacity: 0, fog: false }); // 地板寫深度：從上面看時雲層下面的 sprite 會被擋住
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(360, 360), matF); floor.rotation.x = -Math.PI / 2; floor.renderOrder = 20; g.add(floor);
     const tp = puffTex(); for (let k = 0; k < 3; k++) mats.push(new THREE.SpriteMaterial({ map: tp, transparent: true, opacity: 0, depthWrite: false, fog: false }));
@@ -279,6 +282,7 @@ const policyPos = id => { const st = policyStops.find(x => x.pol.id === id); ret
 const ui = createUI({ game, explore, xCallbacks, placeCity, bird, policyPos, warp, frameStage, liveSigns, progress, refreshGates, islName, stageCenter: sid => { const st = C.stages.find(s => s.id === sid); const c = st && centers.get(st.basket); return c && { x: c.x, z: c.z + C.plaza.basketZ }; }, callbacks, overview: () => { stopFollow(); overview(false); }, stageView, flyTo: (id) => { stopFollow(); flyTo(id); }, placePolicies, islandOf: id => policyIsland.get(id), setDistrictRanks, renderer,
   follow: { start: startFollow, stop: stopFollow, get kind() { return FOLLOW.kind; } }, input: { stick, clear: () => { keys.clear(); stick.x = stick.y = 0; }, aim: () => { fwd.copy(controls.target).sub(camera.position).setY(0).normalize(); return [fwd.x, fwd.z]; } } });
 // 迴圈：天色與霧跟著波次（一般波早→午→下午、搗蛋夜是晚上、起大霧時霧拉近）
+const CURVE_K = 0.0075; let sweepT = 0; CURVE.uCurveFlat.value = 2.0; // 曲率（越大越像站在大圓木上）、鏡頭看的點前面多遠開始彎
 let last = performance.now(), acc = 0, lastZoom = 1, dayMin = 720, fogNear = scene.fog.near, fogFar = scene.fog.far; const G = game.G; const FOG0 = [scene.fog.near, scene.fog.far];
 function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
   applyInput(); if (!G.paused) { const sub = Math.ceil(raw / 0.025); for (let i = 0; i < sub; i++) game.step(raw / sub); }
@@ -289,7 +293,11 @@ function frame(now) { const raw = Math.min(0.05, (now - last) / 1000); last = no
   if (fly) { fly.t = Math.min(1, fly.t + raw * 1.2); const k = fly.t * fly.t * (3 - 2 * fly.t); camera.position.lerpVectors(fly.from, fly.to, k); if (fly.t >= 1) fly = null; }
   if (flight) stepFlight(); else if (!warping) { updateFollow(raw); controls.update(); } clouds.update(camera.position.y, env.night, t); // 換世界時鏡頭歸飛行管（兩段之間停著不動）
   { const me = G.phase !== 'lobby' && FOLLOW.kind === 'hero' ? game.me() : FOLLOW.kind === 'xme' ? explore.G.me : null, on = me ? 1 : 0; // 擋住自己的建築變半透明（腰部以上、鏡頭到自己的圓錐裡）
-    if (CUT.uCutOn.value !== on) { CUT.uCutOn.value = on; setCutVisible(on); } if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.3, me.pos.z); CUT.uCutY.value = me.pos.y + 0.32; } }
+    if (CUT.uCutOn.value !== on) { CUT.uCutOn.value = on; setCutVisible(on); } if (me) { CUT.uCutA.value.copy(camera.position); CUT.uCutB.value.set(me.pos.x, me.pos.y + 0.3, me.pos.z); CUT.uCutY.value = me.pos.y + 0.32; }
+    grass.update(t, me ? me.pos : null, env.night, env.sun.color); }
+  // 彎曲地平線（動森滾木）：以鏡頭看的那一點為中心，前景不彎、後面往下彎；拉遠鳥瞰時慢慢變平（不然整個小鎮都彎下去）
+  { const dist = camera.position.distanceTo(controls.target); CURVE.uCurve.value = CURVE_K * (1 - THREE.MathUtils.smoothstep(dist, 16, 42) * 0.85); updateCurve(camera, controls.target);
+    if (sweepT-- <= 0) { sweepT = 15; curveSweep(scene); } } // 新加進場景的東西（課程建築、同學、特效）隔幾幀補上彎曲
   renderer.render(scene, camera); if (!warping) updateLabels(); // 換世界途中名牌藏著不用排
   acc += raw; if (acc > 0.2) { acc = 0; ui.tick(); }
   requestAnimationFrame(frame); }

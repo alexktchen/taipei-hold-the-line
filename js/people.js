@@ -1,5 +1,6 @@
 /* Roblox 風的方塊人（同學與角色）：方頭、方身體、方手腳。零件按幾何種類實例化，每幀合成矩陣做走路擺動。比例與做法參考原站 people.js，重新實作。 */
 import * as THREE from 'three';
+import { toonMat, instancedOutline } from './toon.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mulberry } from './env.js';
 export const ROLE_LABEL = { mayor: '校長', citizen: '同學', elder: '長者', child: '學童', parent: '家長', cyclist: '通勤族', officeworker: '上班族', youth: '年輕人', servant: '老師', researcher: '研究員', farmer: '農夫', traveler: '旅客', worker: '工地人員', hiker: '登山客', hero: '同學' };
@@ -16,7 +17,7 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
     pumpbus: { vest: 0xe8781e }, skeleton: { vest: 0x1d1a1a, pants: 0x1d1a1a, skin: 0xf4f1ea, hair: 0x1d1a1a }, alien: { skin: 0x9cd67a, vest: 0xc9d1d8, hair: 0x9cd67a }, lantern: { vest: 0xc23b2a } };
   const G = { blk: new THREE.BoxGeometry(1, 1, 1), rhead: new RoundedBoxGeometry(1, 1, 1, 3, 0.1), rcap: new RoundedBoxGeometry(1, 1, 1, 2, 0.14), leg: new RoundedBoxGeometry(1, 1, 1, 2, 0.3), body: new THREE.CapsuleGeometry(0.5, 0.6, 4, 10), arm: new RoundedBoxGeometry(1, 1, 1, 2, 0.35), head: new THREE.SphereGeometry(0.5, 16, 12), cap: new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), eye: new THREE.SphereGeometry(0.5, 8, 6), box: new RoundedBoxGeometry(1, 1, 1, 2, 0.2), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 10), cone: new THREE.ConeGeometry(0.5, 1, 14), torus: new THREE.TorusGeometry(0.5, 0.09, 6, 18), shadow: new THREE.CircleGeometry(0.5, 20) };
   G.shadow.rotateX(-Math.PI / 2);
-  const mat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+  const mat = toonMat({ roughness: 0.7 });
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x2a2018, transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 });
   let rnd = mulberry(41);
   function plan(role, heroCls, fit) {
@@ -190,11 +191,11 @@ export function createPeople(scene, colors, heroCfgs, outfits = null) {
   // ── 實例化 ──
   let meshes = {}, shadowMesh = null, people = [];
   function build(list) { dispose(); people = list; const counts = {}; for (const w of people) for (const pt of w.plan.parts) counts[pt.g] = (counts[pt.g] || 0) + 1;
-    for (const [g, n] of Object.entries(counts)) { const m = new THREE.InstancedMesh(G[g], mat, n); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.castShadow = g !== 'eye'; m.frustumCulled = false; scene.add(m); meshes[g] = { mesh: m, n: 0 }; }
+    for (const [g, n] of Object.entries(counts)) { const m = new THREE.InstancedMesh(G[g], mat, n); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.castShadow = g !== 'eye'; m.frustumCulled = false; scene.add(m); meshes[g] = { mesh: m, n: 0 }; if (g !== 'eye') { meshes[g].ol = instancedOutline(m); scene.add(meshes[g].ol); } }
     shadowMesh = new THREE.InstancedMesh(G.shadow, shadowMat, people.length); shadowMesh.frustumCulled = false; shadowMesh.renderOrder = 1; scene.add(shadowMesh);
     for (const w of people) for (const pt of w.plan.parts) { const slot = meshes[pt.g]; pt.idx = slot.n++; slot.mesh.setColorAt(pt.idx, new THREE.Color(pt.c)); pt.L0 = null; }
     for (const s of Object.values(meshes)) s.mesh.instanceColor.needsUpdate = true; }
-  function dispose() { for (const s of Object.values(meshes)) scene.remove(s.mesh); if (shadowMesh) scene.remove(shadowMesh); meshes = {}; shadowMesh = null; people = []; }
+  function dispose() { for (const s of Object.values(meshes)) { scene.remove(s.mesh); if (s.ol) scene.remove(s.ol); } if (shadowMesh) scene.remove(shadowMesh); meshes = {}; shadowMesh = null; people = []; }
   const dummy = new THREE.Object3D(), base = new THREE.Matrix4(), local = new THREE.Matrix4(), tmp = new THREE.Matrix4(), piv = new THREE.Matrix4(), unpiv = new THREE.Matrix4(), rot = new THREE.Matrix4();
   const pivots = { legL: 0.17, legR: 0.17, armL: 0.33, armR: 0.33, head: 0.33 };
   function update(dt, time, zoom = 1) {
