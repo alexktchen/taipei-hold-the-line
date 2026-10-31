@@ -3,6 +3,7 @@
    - 筆順：data/strokes/XXXX.json（教育部《常用國字標準字體筆順學習網》，經 g0v/zh-stroke-data 整理），
      每一筆用輪廓當遮罩、沿著運筆軌跡畫粗線，就是一筆一筆寫出來的動畫。
    - 進度記在這台裝置（localStorage），學會一個知識點，通往下一個知識點的石板路就會打通。 */
+import * as ICON from './icons.js';
 import { NODES, REGIONS, GRAPH, initGraph, passOf, nodeById, regionById, lessonOf, quizOf, stripTone } from './content.js';
 const BASE = new URL('.', import.meta.url).href;
 // ── 進度：每個知識點的熟練度（1～3 星）、上次練習時間、最佳成績，存在這台裝置 ──
@@ -21,9 +22,9 @@ export const regionOpen = rid => (regionById(rid).requires || []).every(r => isL
 export const regionNeeds = rid => (regionById(rid).requires || []).filter(r => !isLearned('guard-' + r)).map(r => nodeById('guard-' + r)).filter(Boolean);
 // 狀態：mastered（已精通）、review（需要澆水）、open（可挑戰）、locked（迷霧封鎖）
 export const nodeState = id => isLearned(id) ? (isDue(id) ? 'review' : 'mastered') : regionOpen(nodeById(id).region) && nodeById(id).pre.every(isLearned) ? 'open' : 'locked';
-// 圖示（forest/icons）：區域與狀態
-export const ICONS = BASE + 'icons/';
-export const STATE_ICON = { mastered: 'state-mastered', review: 'state-needs-review', open: 'state-available', locked: 'state-locked', guardian: 'state-guardian' };
+// 圖示（icons.js 程式畫的）：知識點狀態
+export const STATE_ICON = { mastered: 'st-mastered', review: 'st-review', open: 'st-available', locked: 'st-locked', guardian: 'st-guardian' };
+export { ICON };
 export const regionCount = rid => { const ns = NODES.filter(n => n.region === rid && !n.guardian); return [ns.filter(n => isLearned(n.id)).length, ns.length]; };
 export const missingFor = id => nodeById(id).pre.filter(p => !isLearned(p)).map(p => nodeById(p));
 // 練習通過：第一次＝1 星；到了複習時間再通過、或當天第一次全對，熟練度 +1（最多 3 星）
@@ -77,7 +78,7 @@ const CSS = `
 .lf-ov{touch-action:pan-y;position:fixed;inset:0;z-index:50;background:#4a3b5266;display:flex;align-items:center;justify-content:center;padding:16px;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:#4a3b52}
 .lf-box{background:#fffaf3;border-radius:22px;box-shadow:0 14px 40px #4a3b5255;width:min(760px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden}
 .lf-top{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid #4a3b5214}
-.lf-top h2{margin:0;font-size:20px;font-weight:900;flex:1;display:flex;align-items:center;gap:8px}.lf-top img{width:40px;height:40px;flex:none}.lf-top h2 img{width:28px;height:28px}.lf-top small{color:#8a7a92;font-weight:700}
+.lf-top h2{margin:0;font-size:20px;font-weight:900;flex:1;display:flex;align-items:center;gap:8px}.ic{vertical-align:middle;flex:none;display:inline-block}.lf-top>.ic{width:40px;height:40px}.lf-top small{color:#8a7a92;font-weight:700}
 .lf-x{border:0;background:#fff;border-radius:50%;width:34px;height:34px;font-size:18px;box-shadow:0 2px 6px #6a4f7a22;cursor:pointer}
 .lf-tabs{display:flex;gap:6px;padding:10px 16px 0}.lf-tabs button{border:0;border-radius:999px;padding:7px 16px;font:inherit;font-weight:800;background:#f3ebe4;color:#8a7a92;cursor:pointer}.lf-tabs button[aria-selected=true]{background:#f09a8a;color:#fff}
 .lf-body{padding:14px 16px 18px;overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}
@@ -111,7 +112,7 @@ export function close() { if (!ov) return; ov.remove(); ov = null; if ('speechSy
 // 打開一個知識點：學習卡片＋練習；onLearned(id) 在第一次學會時呼叫
 // 小遊戲用的視窗：和學習畫面同一套樣式，開著的時候角色不能走；回傳 { body, close }
 export function modal({ title, sub = '', icon = null }) { style(); close(); ov = el('div', 'lf-ov'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', title);
-  const box = el('div', 'lf-box'); ov.appendChild(box); const top = el('div', 'lf-top', `${icon ? `<img src="${ICONS}${icon}.svg" alt="">` : ''}<h2>${esc(title)}</h2><small>${esc(sub)}</small>`); const x = el('button', 'lf-x', '✕'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x);
+  const box = el('div', 'lf-box'); ov.appendChild(box); const top = el('div', 'lf-top', `${icon ? ICON.svg(icon, 40) : ''}<h2>${esc(title)}</h2><small>${esc(sub)}</small>`); const x = el('button', 'lf-x', '×'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x);
   const body = el('div', 'lf-body'); box.append(top, body);
   keyFn = e => { if (!ov) return; if (e.key === 'Escape') { close(); e.stopPropagation(); return; } const k = +e.key; if (k >= 1 && k <= 4) { const bs = ov.querySelectorAll('.lf-ch button'); if (bs[k - 1] && !bs[k - 1].disabled) { bs[k - 1].click(); e.stopPropagation(); } } };
   addEventListener('keydown', keyFn, true); document.body.appendChild(ov); x.focus(); return { body, close, box }; }
@@ -122,11 +123,11 @@ export async function open(id, onLearned) { style(); close(); await loadData(); 
   ov = el('div', 'lf-ov'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', n.name);
   const box = el('div', 'lf-box'); ov.appendChild(box);
   const PASS = passOf(id), st = nodeState(id), stIcon = n.guardian ? STATE_ICON.guardian : STATE_ICON[st], lv = levelOf(id);
-  const top = el('div', 'lf-top', `<img src="${ICONS}${R.img}.svg" alt=""><h2>${esc(n.name)}<img src="${ICONS}${stIcon}.svg" alt="${{ mastered: '已精通', review: '需要澆水', open: '可挑戰', locked: '迷霧封鎖' }[st]}">${lv ? `<span style="color:#f2b84a;font-size:18px">${stars(lv)}</span>` : ''}</h2><small>${esc(R.name)}・${esc(R.grades)}</small>`); const x = el('button', 'lf-x', '✕'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x); box.appendChild(top);
+  const top = el('div', 'lf-top', `${ICON.svg(R.img, 40)}<h2>${esc(n.name)}${ICON.svg(stIcon, 28, { mastered: '已精通', review: '需要澆水', open: '可挑戰', locked: '迷霧封鎖' }[st])}${lv ? `<span style="color:#f2b84a;font-size:18px">${stars(lv)}</span>` : ''}</h2><small>${esc(R.name)}・${esc(R.grades)}</small>`); const x = el('button', 'lf-x', '×'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x); box.appendChild(top);
   const tabs = el('div', 'lf-tabs'); tabs.setAttribute('role', 'tablist'); const body = el('div', 'lf-body'); box.append(tabs, body);
   box.appendChild(el('div', 'lf-credit', '注音、部首、筆畫：教育部《重編國語辭典修訂本》（CC BY-ND 3.0 TW）；筆順：教育部《常用國字標準字體筆順學習網》（g0v/zh-stroke-data 整理）；發音：裝置內建語音。'));
   const tab = (label, fn) => { const b = el('button', null, label); b.setAttribute('role', 'tab'); b.onclick = () => { [...tabs.children].forEach(t => t.setAttribute('aria-selected', String(t === b))); body.innerHTML = ''; fn(); }; tabs.appendChild(b); return b; };
-  const learnTab = tab('📖 學習', () => renderLearn(body, L)); tab(`✏️ 練習（答對 ${PASS.need}／${PASS.total} 題就通過）`, () => renderQuiz(body, id));
+  const learnTab = tab(`${ICON.svg('book', 20)} 學習`, () => renderLearn(body, L)); tab(`${ICON.svg('pencil', 20)} 練習（答對 ${PASS.need}／${PASS.total} 題就通過）`, () => renderQuiz(body, id));
   keyFn = e => { if (!ov) return; if (e.key === 'Escape') { close(); e.stopPropagation(); return; } const k = +e.key; if (k >= 1 && k <= 4) { const bs = ov.querySelectorAll('.lf-ch button'); if (bs[k - 1] && !bs[k - 1].disabled) { bs[k - 1].click(); e.stopPropagation(); } } };
   addEventListener('keydown', keyFn, true); document.body.appendChild(ov); learnTab.click(); x.focus(); }
 
@@ -134,26 +135,26 @@ function renderLearn(body, L) { body.appendChild(el('div', 'lf-intro', esc(L.int
   if (L.cards[0] && L.cards[0].kind === 'text') { for (const c of L.cards) body.appendChild(el('div', 'lf-text', `${esc(c.q)}<br>答案：<b>${esc(c.a)}</b>　${esc(c.why)}`)); body.appendChild(el('div', 'lf-intro', '看完例子，就到「練習」試試看吧！')); return; }
   const grid = el('div', 'lf-grid'); body.appendChild(grid);
   for (const c of L.cards) { const b = el('button', 'lf-card');
-    if (c.kind === 'zhuyin') b.innerHTML = `<span class="big">${c.sym}</span><span class="zy">${c.emoji} ${esc(c.word)}</span><span class="tag">${esc(c.wordB)}</span>`;
+    if (c.kind === 'zhuyin') b.innerHTML = `<span class="big">${c.sym}</span><span class="zy">${ICON.svg(c.emoji, 22)} ${esc(c.word)}</span><span class="tag">${esc(c.wordB)}</span>`;
     else if (c.kind === 'tone') b.innerHTML = `<span class="big">${c.ex}</span><span class="zy">${esc(c.b)}</span><span class="tag">${c.name} ${c.mark}</span>`;
-    else if (c.kind === 'word') b.innerHTML = `<span class="big" style="font-size:26px">${c.emoji ? c.emoji + '<br>' : ''}${esc(c.w)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : ''}`;
-    else b.innerHTML = `<span class="big">${esc(c.c)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : c.strokes ? `<span class="tag">${c.strokes} 畫</span>` : ''}`;
+    else if (c.kind === 'word') b.innerHTML = `<span class="big" style="font-size:26px">${c.emoji ? ICON.svg(c.emoji, 40) + '<br>' : ''}${esc(c.w)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : ''}`;
+    else b.innerHTML = `${c.pic ? ICON.svg(c.pic, 34) : ''}<span class="big">${esc(c.c)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : c.strokes ? `<span class="tag">${c.strokes} 畫</span>` : ''}`;
     b.onclick = () => detail(body, L, c); grid.appendChild(b); } }
 
 // 卡片細節：大字、注音、發音、筆順動畫
 function detail(body, L, c) { body.innerHTML = ''; const wrap = el('div', 'lf-detail'); body.appendChild(wrap);
   const glyph = c.kind === 'zhuyin' ? c.sym : c.kind === 'tone' ? c.ex : c.kind === 'word' ? c.w : c.c, slow = c.kind === 'zhuyin' || c.kind === 'tone', sayText = c.kind === 'zhuyin' ? `${c.word}，${c.word}` : slow ? `${glyph}，${glyph}` : glyph, rate = slow ? SLOW : 0.75;
   const side = el('div', 'lf-side');
-  side.innerHTML = c.kind === 'zhuyin' ? `<div class="huge">${c.sym}</div><div style="font-size:30px">${c.emoji} ${ruby(c.word, c.wordB)}</div><div style="color:#8a7a92">「${esc(c.word)}」裡有「${c.sym}」的音；單獨念像「${esc(c.ex)}」</div>`
+  side.innerHTML = c.kind === 'zhuyin' ? `<div class="huge">${c.sym}</div><div style="font-size:30px">${ICON.svg(c.emoji, 44)} ${ruby(c.word, c.wordB)}</div><div style="color:#8a7a92">「${esc(c.word)}」裡有「${c.sym}」的音；單獨念像「${esc(c.ex)}」</div>`
     : c.kind === 'tone' ? `<div class="huge">${c.ex}</div><div class="zy">${esc(c.b)}</div><div><b>${c.name}</b>　${esc(c.tip)}</div>`
-    : c.kind === 'word' ? `<div class="huge" style="font-size:44px">${c.emoji || ''} ${ruby(c.w, c.b)}</div>${c.tag ? `<div>${esc(c.tag)}</div>` : ''}`
-    : `<div class="huge">${esc(c.c)}</div><div class="zy">${esc(c.b)}</div>${c.tag ? `<div>${esc(c.tag)}</div>` : ''}`;
-  const btns = el('div', 'lf-btns'); const say = el('button', 'lf-btn', slow ? '🔊 慢慢念' : '🔊 聽發音'); say.onclick = () => speak(sayText, rate); btns.appendChild(say);
-  if (c.kind === 'tone') { const all = el('button', 'lf-btn alt', '🔊 媽麻馬罵嗎'); all.onclick = () => speak('媽，麻，馬，罵，嗎', SLOW); btns.appendChild(all); }
+    : c.kind === 'word' ? `<div class="huge" style="font-size:44px">${c.emoji ? ICON.svg(c.emoji, 52) : ''} ${ruby(c.w, c.b)}</div>${c.tag ? `<div>${esc(c.tag)}</div>` : ''}`
+    : `<div class="huge">${c.pic ? ICON.svg(c.pic, 56) + ' ' : ''}${esc(c.c)}</div><div class="zy">${esc(c.b)}</div>${c.tag ? `<div>${esc(c.tag)}</div>` : ''}`;
+  const btns = el('div', 'lf-btns'); const say = el('button', 'lf-btn', `${ICON.svg('speaker', 20)} ${slow ? '慢慢念' : '聽發音'}`); say.onclick = () => speak(sayText, rate); btns.appendChild(say);
+  if (c.kind === 'tone') { const all = el('button', 'lf-btn alt', `${ICON.svg('speaker', 20)} 媽麻馬罵嗎`); all.onclick = () => speak('媽，麻，馬，罵，嗎', SLOW); btns.appendChild(all); }
   side.appendChild(btns);
   const strokeChar = [...glyph].length === 1 ? glyph : null;
   if (strokeChar) { const cv = el('canvas'); cv.width = cv.height = 440; cv.setAttribute('aria-label', `「${strokeChar}」的筆順動畫`); wrap.appendChild(cv); const cnt = el('div', null, ''); const pl = strokePlayer(cv, strokeChar, { onCount: (i, n) => { cnt.textContent = `第 ${i}／${n} 筆`; } });
-    const sb = el('div', 'lf-btns'); const play = el('button', 'lf-btn go', '▶ 播放筆順'), step = el('button', 'lf-btn alt', '下一筆'); play.onclick = () => pl.play(); step.onclick = () => pl.step(); sb.append(play, step); side.append(sb, cnt);
+    const sb = el('div', 'lf-btns'); const play = el('button', 'lf-btn go', `${ICON.svg('pencil', 20)} 播放筆順`), step = el('button', 'lf-btn alt', '下一筆'); play.onclick = () => pl.play(); step.onclick = () => pl.step(); sb.append(play, step); side.append(sb, cnt);
     pl.load().then(ok => { if (ok) pl.play(); else { play.disabled = step.disabled = true; } }); }
   wrap.appendChild(side); const back = el('button', 'lf-btn alt', '← 回到卡片'); back.style.marginTop = '14px'; back.onclick = () => { body.innerHTML = ''; renderLearn(body, L); }; body.appendChild(back); speak(sayText, rate); }
 
@@ -161,19 +162,21 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
   const show = () => { body.innerHTML = ''; const bar = el('div', 'lf-bar', `<i style="width:${i / qs.length * 100}%"></i>`); body.appendChild(bar);
     if (i >= qs.length) return finish(); const q = qs[i];
     const qrow = el('div', 'lf-q', `第 ${i + 1} 題　${esc(q.q)} `); body.appendChild(qrow);
-    if (!q.listen && !q.noRead) { const rd = el('button', 'lf-btn alt', '🔊 讀題'); rd.style.cssText = 'padding:4px 12px;font-size:14px;vertical-align:middle'; rd.onclick = () => speak(q.q.replace(/＿+/g, '什麼'), 0.75); qrow.appendChild(rd); } // 朗讀題目（會洩漏答案的題目不念）
-    if (q.listen) { const b = el('button', 'lf-btn go', '🔊 再聽一次'); b.onclick = () => speak(q.say, q.slow ? SLOW : 0.75); body.appendChild(b); speak(q.say, q.slow ? SLOW : 0.75); }
-    else if (q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
+    if (!q.listen && !q.noRead) { const rd = el('button', 'lf-btn alt', `${ICON.svg('speaker', 18)} 讀題`); rd.style.cssText = 'padding:4px 12px;font-size:14px;vertical-align:middle'; rd.onclick = () => speak(q.q.replace(/＿+/g, '什麼'), 0.75); qrow.appendChild(rd); } // 朗讀題目（會洩漏答案的題目不念）
+    if (q.listen) { const b = el('button', 'lf-btn go', `${ICON.svg('speaker', 20)} 再聽一次`); b.onclick = () => speak(q.say, q.slow ? SLOW : 0.75); body.appendChild(b); speak(q.say, q.slow ? SLOW : 0.75); }
+    if (q.pic && !q.listen) body.appendChild(el('div', 'lf-qbig', ICON.svg(q.pic, 96))); // 看圖題：程式畫的圖
+    if (!q.listen && q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
     const ch = el('div', 'lf-ch'); body.appendChild(ch);
-    q.choices.forEach((c, k) => { const b = el('button', null, `${k + 1}. ${esc(c)}`); b.onclick = () => { [...ch.children].forEach(x => x.disabled = true); const ok = k === q.a; if (ok) right++; b.classList.add(ok ? 'ok' : 'no'); ch.children[q.a].classList.add('ok');
-        const why = el('div', 'lf-why', `${ok ? '答對了！🎉' : `答案是「${esc(q.choices[q.a])}」`}${q.after ? '　剛剛念的是：' + esc(q.after) : ''}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
+    const show1 = c => q.choiceIcons ? ICON.svg(c, 48) : esc(c);
+    q.choices.forEach((c, k) => { const b = el('button', null, `${k + 1}. ${show1(c)}`); b.onclick = () => { [...ch.children].forEach(x => x.disabled = true); const ok = k === q.a; if (ok) right++; b.classList.add(ok ? 'ok' : 'no'); ch.children[q.a].classList.add('ok');
+        const why = el('div', 'lf-why', `${ok ? `${ICON.svg('star', 20)} 答對了！` : `答案是「${show1(q.choices[q.a])}」`}${q.after ? '　剛剛念的是：' + (q.afterPic ? ICON.svg(q.afterPic, 22) + ' ' : '') + esc(q.after) : ''}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
         if (q.say && !q.listen) speak(q.say, q.slow ? SLOW : 0.75);
         const nx = el('button', 'lf-btn go', i + 1 < qs.length ? '下一題 →' : '看結果'); nx.style.marginTop = '10px'; nx.onclick = () => { i++; show(); }; body.appendChild(nx); nx.focus(); }; ch.appendChild(b); }); };
   const finish = () => { const wasDue = isDue(id), pass = right >= PASS.need, res = pass ? record(id, right, qs.length) : null, first = res && res.first, g = nodeById(id).guardian;
     const nx = pass && nextReview(id), when = nx ? `${nx.getMonth() + 1}/${nx.getDate()}` : '';
-    const d = el('div', 'lf-done', `<div class="em">${pass ? (g ? '👑' : '🌸') : '💪'}</div><h3>${pass ? (first ? (g ? '征服了這個區域！' : '精通了！') : res.up ? '熟練度提升！' : '複習完成！') : '再試一次！'}</h3>${pass ? `<p style="font-size:30px;color:#f2b84a;margin:4px 0">${stars(res.level)}</p>` : ''}<p>答對 ${right}／${qs.length} 題${pass ? `。${when} 以後記得回來澆水（複習）` : `，要答對 ${PASS.need} 題才算通過喔`}</p>`);
-    if (first && g) { const opened = REGIONS.filter(R => (R.requires || []).includes(nodeById(id).region) && regionOpen(R.id)); if (opened.length) d.appendChild(el('p', null, `🗺️ 新地圖打開了：${opened.map(R => esc(R.name)).join('、')}`)); }
-    if (first) { const nexts = NODES.filter(n => n.pre.includes(id) && nodeState(n.id) === 'open'); d.appendChild(el('p', null, nexts.length ? `🪨 石板路打通了：${nexts.map(n => `${esc(regionById(n.region).name)}「${esc(n.name)}」`).join('、')}` : '')); }
+    const d = el('div', 'lf-done', `<div class="em">${ICON.svg(pass ? (g ? 'st-guardian' : 'st-mastered') : 'sprout', 72)}</div><h3>${pass ? (first ? (g ? '征服了這個區域！' : '精通了！') : res.up ? '熟練度提升！' : '複習完成！') : '再試一次！'}</h3>${pass ? `<p style="font-size:30px;color:#f2b84a;margin:4px 0">${stars(res.level)}</p>` : ''}<p>答對 ${right}／${qs.length} 題${pass ? `。${when} 以後記得回來澆水（複習）` : `，要答對 ${PASS.need} 題才算通過喔`}</p>`);
+    if (first && g) { const opened = REGIONS.filter(R => (R.requires || []).includes(nodeById(id).region) && regionOpen(R.id)); if (opened.length) d.appendChild(el('p', null, `${ICON.svg('door', 22)} 新地圖打開了：${opened.map(R => esc(R.name)).join('、')}`)); }
+    if (first) { const nexts = NODES.filter(n => n.pre.includes(id) && nodeState(n.id) === 'open'); d.appendChild(el('p', null, nexts.length ? `${ICON.svg('st-available', 22)} 石板路打通了：${nexts.map(n => `${esc(regionById(n.region).name)}「${esc(n.name)}」`).join('、')}` : '')); }
     const again = el('button', 'lf-btn alt', '再練一次'); again.onclick = () => renderQuiz(body, id); const done = el('button', 'lf-btn go', '回到森林'); done.onclick = close; const bs = el('div', 'lf-btns'); bs.style.justifyContent = 'center'; bs.append(again, done); d.appendChild(bs);
     body.appendChild(d); dispatchEvent(new CustomEvent('forest', { detail: { type: 'practice', id, pass, wasDue } })); if (pass && onDone) onDone(id, first, res.up); }; // 練習（不論對錯）都算每日任務；答錯只是沒有這次的熟練度
   show(); }

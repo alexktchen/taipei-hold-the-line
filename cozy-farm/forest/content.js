@@ -17,18 +17,18 @@ export const passOf = id => nodeById(id).pass || GRAPH.pass;
 // ── 注音符號：說明用的例字（念出這個字就是這個符號的音）與例詞；建置時會用教育部辭典檢查例字讀音 ──
 // 聽的時候念例詞（名詞，大多是疊字，兩個字都有這個音，念得慢、聽得清楚）；例字是說明這個符號本身的音
 export const SHENGMU = [
-  ['ㄅ', '玻', '爸爸', '👨'], ['ㄆ', '坡', '婆婆', '👵'], ['ㄇ', '摸', '媽媽', '👩'], ['ㄈ', '佛', '飛機', '✈️'],
-  ['ㄉ', '得', '弟弟', '👦'], ['ㄊ', '特', '兔子', '🐰'], ['ㄋ', '訥', '奶奶', '🧓'], ['ㄌ', '勒', '老虎', '🐯'],
-  ['ㄍ', '哥', '哥哥', '🧑'], ['ㄎ', '科', '恐龍', '🦖'], ['ㄏ', '喝', '蝴蝶', '🦋'],
-  ['ㄐ', '基', '金魚', '🐠'], ['ㄑ', '欺', '氣球', '🎈'], ['ㄒ', '希', '星星', '⭐'],
-  ['ㄓ', '知', '蜘蛛', '🕷️'], ['ㄔ', '吃', '車子', '🚙'], ['ㄕ', '詩', '叔叔', '🧔'], ['ㄖ', '日', '日曆', '📅'],
-  ['ㄗ', '資', '嘴巴', '👄'], ['ㄘ', '雌', '草莓', '🍓'], ['ㄙ', '思', '松鼠', '🐿️'],
+  ['ㄅ', '玻', '爸爸', 'dad'], ['ㄆ', '坡', '婆婆', 'grandma'], ['ㄇ', '摸', '媽媽', 'mom'], ['ㄈ', '佛', '飛機', 'plane'],
+  ['ㄉ', '得', '弟弟', 'brother'], ['ㄊ', '特', '兔子', 'rabbit'], ['ㄋ', '訥', '奶奶', 'grandma2'], ['ㄌ', '勒', '老虎', 'tiger'],
+  ['ㄍ', '哥', '哥哥', 'bigbrother'], ['ㄎ', '科', '恐龍', 'dinosaur'], ['ㄏ', '喝', '蝴蝶', 'butterfly'],
+  ['ㄐ', '基', '金魚', 'goldfish'], ['ㄑ', '欺', '氣球', 'balloon'], ['ㄒ', '希', '星星', 'starry'],
+  ['ㄓ', '知', '蜘蛛', 'spider'], ['ㄔ', '吃', '車子', 'car'], ['ㄕ', '詩', '叔叔', 'uncle'], ['ㄖ', '日', '日曆', 'calendar'],
+  ['ㄗ', '資', '嘴巴', 'mouth'], ['ㄘ', '雌', '草莓', 'strawberry'], ['ㄙ', '思', '松鼠', 'squirrel'],
 ];
 export const YUNMU = [
-  ['ㄧ', '衣', '衣服', '👕'], ['ㄨ', '烏', '烏龜', '🐢'], ['ㄩ', '迂', '玉米', '🌽'],
-  ['ㄚ', '啊', '沙發', '🛋️'], ['ㄛ', '喔', '婆婆', '👵'], ['ㄜ', '鵝', '哥哥', '🧑'], ['ㄝ', null, '爺爺', '👴'],
-  ['ㄞ', '哀', '白菜', '🥬'], ['ㄟ', null, '妹妹', '👧'], ['ㄠ', '凹', '寶寶', '👶'], ['ㄡ', '歐', '猴子', '🐒'],
-  ['ㄢ', '安', '盤子', '🍽️'], ['ㄣ', '恩', '森林', '🌲'], ['ㄤ', '骯', '糖果', '🍬'], ['ㄥ', null, '風箏', '🪁'], ['ㄦ', '兒', '耳朵', '👂'],
+  ['ㄧ', '衣', '衣服', 'shirt'], ['ㄨ', '烏', '烏龜', 'turtle'], ['ㄩ', '迂', '玉米', 'corn'],
+  ['ㄚ', '啊', '沙發', 'sofa'], ['ㄛ', '喔', '婆婆', 'grandma'], ['ㄜ', '鵝', '哥哥', 'bigbrother'], ['ㄝ', null, '爺爺', 'grandpa'],
+  ['ㄞ', '哀', '白菜', 'cabbage'], ['ㄟ', null, '妹妹', 'sister'], ['ㄠ', '凹', '寶寶', 'baby'], ['ㄡ', '歐', '猴子', 'monkey'],
+  ['ㄢ', '安', '盤子', 'plate'], ['ㄣ', '恩', '森林', 'forest'], ['ㄤ', '骯', '糖果', 'candy'], ['ㄥ', null, '風箏', 'kite'], ['ㄦ', '兒', '耳朵', 'ear'],
 ]; // 例字是 null 的，建置時從辭典裡找一個讀音剛好只有這個符號的字
 export const TONES = [
   { n: 1, name: '一聲', mark: '（不標）', ex: '媽', tip: '高高平平，像一條直直的路' },
@@ -44,16 +44,16 @@ export const STROKE_CHARS = '一二三十人大口日月木水火山田小中上
 export const DUTI = '日月山水火木人口大小手目女子牛羊馬魚鳥田王心力刀禾竹米石耳';
 export const HETI = [['明', '日＋月'], ['好', '女＋子'], ['林', '木＋木'], ['休', '人＋木'], ['男', '田＋力'], ['尖', '小＋大'], ['鳴', '口＋鳥'], ['炎', '火＋火'], ['岩', '山＋石'], ['森', '木＋木＋木'], ['品', '口＋口＋口'], ['間', '門＋日']];
 export const WORDS = [
-  ['蘋果', '🍎'], ['香蕉', '🍌'], ['西瓜', '🍉'], ['太陽', '☀️'], ['月亮', '🌙'], ['星星', '⭐'], ['下雨', '🌧️'], ['彩虹', '🌈'],
-  ['老師', '🧑‍🏫'], ['學校', '🏫'], ['書包', '🎒'], ['鉛筆', '✏️'], ['猴子', '🐒'], ['兔子', '🐰'], ['老虎', '🐯'], ['大象', '🐘'],
-  ['花朵', '🌸'], ['樹木', '🌳'], ['汽車', '🚗'], ['飛機', '✈️'], ['雨傘', '☂️'], ['眼睛', '👀'], ['耳朵', '👂'], ['生日', '🎂'],
+  ['蘋果', 'apple'], ['香蕉', 'banana'], ['西瓜', 'watermelon'], ['太陽', 'sun'], ['月亮', 'moon'], ['星星', 'starry'], ['下雨', 'rain'], ['彩虹', 'rainbow2'],
+  ['老師', 'teacher'], ['學校', 'school'], ['書包', 'schoolbag'], ['鉛筆', 'pencil'], ['猴子', 'monkey'], ['兔子', 'rabbit'], ['老虎', 'tiger'], ['大象', 'elephant'],
+  ['花朵', 'flower'], ['樹木', 'tree'], ['汽車', 'car'], ['飛機', 'plane'], ['雨傘', 'umbrella'], ['眼睛', 'eyes2'], ['耳朵', 'ear'], ['生日', 'cake'],
 ];
 export const POOL_RADICAL = '媽姐妹好河湖海洗打拍推拉想快情忙你他們住花草茶菜送這道說話語錢鐵狗貓猴跑跳路眼睛吃唱叫樹林校晴明時燈熱雲雪電';
 export const RADICAL_LABEL = { 水: '水（氵）', 手: '手（扌）', 心: '心（忄）', 人: '人（亻）', 艸: '艸（艹）', 辵: '辵（辶）', 犬: '犬（犭）', 火: '火（灬）', 足: '足（⻊）', 言: '言', 金: '金', 豸: '豸' };
 export const POOL_HOMO = '青清輕晴情請睛同童銅工公功弓宮今金斤巾京經精晶紅洪虹花華化畫話汽氣器期旗奇騎棋知之汁枝支';
 export const DUOYIN = [['長', '長短'], ['長', '長大'], ['行', '行走'], ['行', '銀行'], ['重', '重要'], ['重', '重新'], ['樂', '快樂'], ['樂', '音樂'], ['好', '好人'], ['好', '好奇'],
   ['還', '還有'], ['還', '還錢'], ['覺', '覺得'], ['覺', '睡覺'], ['種', '種子'], ['種', '種花'], ['為', '認為'], ['為', '為什麼'], ['背', '背包'], ['背', '背書'], ['教', '教書'], ['教', '教室']];
-export const PICS = [['日', '☀️'], ['月', '🌙'], ['山', '⛰️'], ['水', '💧'], ['火', '🔥'], ['木', '🌳'], ['魚', '🐟'], ['鳥', '🐦'], ['牛', '🐮'], ['羊', '🐑'], ['馬', '🐴'], ['雨', '🌧️'], ['口', '👄'], ['手', '✋'], ['目', '👁️'], ['耳', '👂'], ['花', '🌸'], ['米', '🍚'], ['田', '🌾'], ['門', '🚪'], ['雲', '☁️'], ['星', '⭐'], ['石', '🪨'], ['竹', '🎋']]; // 認字：看圖認字
+export const PICS = [['日', 'sun'], ['月', 'moon'], ['山', 'mountain'], ['水', 'water'], ['火', 'fire'], ['木', 'tree'], ['魚', 'fish'], ['鳥', 'bird'], ['牛', 'cow'], ['羊', 'sheep'], ['馬', 'horse'], ['雨', 'rain'], ['口', 'mouth'], ['手', 'hand'], ['目', 'eye'], ['耳', 'ear'], ['花', 'flower'], ['米', 'rice'], ['田', 'field'], ['門', 'door'], ['雲', 'cloudy'], ['星', 'starry'], ['石', 'rock'], ['竹', 'bamboo']]; // 認字：看圖認字
 
 // ── 工具 ──
 export function rng(seed = Date.now()) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
@@ -75,7 +75,7 @@ export function lessonOf(id, D) {
   if (n.guardian) return { intro, cards: NODES.filter(x => x.region === n.region && !x.guardian).map(x => ({ kind: 'text', q: `知識點：${x.name}`, a: `${x.grade} 年級`, why: (x.intro || '').slice(0, 42) + '…' })) };
   if (L.type === 'zhuyin') return { intro, cards: (L.set === 'yunmu' ? YUNMU : SHENGMU).map(([s, c, w, e]) => ({ kind: 'zhuyin', sym: s, say: w, ex: D.sym[s] || c, word: w, emoji: e, wordB: D.w(w) })) };
   if (L.type === 'tones') return { intro, cards: TONES.map(t => ({ kind: 'tone', ...t, b: D.ch(t.ex).b[0] })) };
-  if (L.type === 'pics') return { intro, cards: PICS.map(([c, e]) => ({ kind: 'char', c, b: D.ch(c).b[0], tag: e })) };
+  if (L.type === 'pics') return { intro, cards: PICS.map(([c, e]) => ({ kind: 'char', c, b: D.ch(c).b[0], pic: e })) };
   if (L.type === 'chars') return { intro, cards: chars(L.chars || '').map(c => { const e = D.ch(c); return { kind: 'char', c, b: e.b[0], strokes: L.show === 'strokes' ? e.s : 0, tag: L.show === 'radical' ? `${RADICAL_LABEL[e.r] || e.r}部・去部首 ${e.n} 畫` : '' }; }) };
   if (L.type === 'duti') return { intro, cards: [...chars(DUTI).slice(0, 12).map(c => ({ kind: 'char', c, b: D.ch(c).b[0], tag: '獨體字' })), ...HETI.slice(0, 6).map(([c, p]) => ({ kind: 'char', c, b: D.ch(c).b[0], tag: p }))] };
   if (L.type === 'words' && L.set === 'duoyin') return { intro, cards: DUOYIN.slice(0, 10).map(([c, w]) => ({ kind: 'word', w, b: D.w(w), tag: `「${c}」念 ${D.syl(w, c)}` })) };
@@ -86,19 +86,19 @@ export function lessonOf(id, D) {
 // ── 題型：節點的 questionTypes 從這裡挑（每一題隨機挑一種）；bank＝節點自己的 questions、mix＝守護者綜合題 ──
 export const QUESTION_TYPES = {
   // 注音小村的聽力題：念名詞例詞、慢慢念兩次（slow）；干擾選項避開詞裡出現過的其他聲母／韻母
-  'listen-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r), b = D.w(w); return mk('聽聽看，開頭是哪一個聲母？', s, INITIALS.filter(x => !initialsIn(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${e} ${w}（${b}）` }); },
-  'word-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r), b = D.w(w); return mk(`「${w}」${e} 開頭的聲音是？`, s, INITIALS.filter(x => !initialsIn(b).includes(x)), r, { big: w, bigB: b, say: twice(w), slow: true }); },
-  'listen-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk('聽聽看，這個詞的注音裡有哪一個韻母？', s, FINALS.filter(x => !stripTone(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${e} ${w}（${b}）` }); },
-  'word-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk(`「${w}」${e} 的注音裡有哪一個韻母？`, s, FINALS.filter(x => !stripTone(b).includes(x)), r, { big: w, bigB: b, say: twice(w), slow: true }); },
+  'listen-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r), b = D.w(w); return mk('聽聽看，開頭是哪一個聲母？', s, INITIALS.filter(x => !initialsIn(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${w}（${b}）`, afterPic: e }); },
+  'word-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r), b = D.w(w); return mk(`「${w}」開頭的聲音是？`, s, INITIALS.filter(x => !initialsIn(b).includes(x)), r, { big: w, bigB: b, pic: e, say: twice(w), slow: true }); },
+  'listen-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk('聽聽看，這個詞的注音裡有哪一個韻母？', s, FINALS.filter(x => !stripTone(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${w}（${b}）`, afterPic: e }); },
+  'word-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk(`「${w}」的注音裡有哪一個韻母？`, s, FINALS.filter(x => !stripTone(b).includes(x)), r, { big: w, bigB: b, pic: e, say: twice(w), slow: true }); },
   tone: (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], t = toneOf(b); return mk(r() < 0.5 ? '聽聽看，這個字是第幾聲？' : `「${c}」（${stripTone(b)}）是第幾聲？`, TONES[t - 1].name, TONES.map(x => x.name), r, { say: twice(c), slow: true, listen: true, big: c, after: `「${c}」念 ${b}` }); },
   'zhuyin-to-char': (r, n, D) => { const pool = chars(POOL_BASIC).filter(D.one), c = pick(pool, r), b = D.ch(c).b[0]; return mk(`哪一個字念「${b}」？`, c, shuffle(pool.filter(x => x !== c && D.ch(x).b[0] !== b), r).slice(0, 8), r, { say: twice(c), slow: true, noRead: true }); },
   'char-to-zhuyin': (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], base = stripTone(b), t = toneOf(b); return mk(`「${c}」的注音是？`, b, [1, 2, 3, 4].filter(k => k !== t).map(k => withTone(base, k)), r, { big: c, say: twice(c), slow: true, noRead: true }); },
-  'pic-char': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`${e} 是哪一個字？`, c, PICS.map(x => x[0]), r, { big: e, say: c }); },
-  'char-to-pic': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`「${c}」（${D.ch(c).b[0]}）是哪一個圖？`, e, PICS.map(x => x[1]), r, { big: c, say: c }); },
+  'pic-char': (r, n, D) => { const [c, e] = pick(PICS, r); return mk('這張圖是哪一個字？', c, PICS.map(x => x[0]), r, { pic: e, say: c }); },
+  'char-to-pic': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`「${c}」（${D.ch(c).b[0]}）是哪一張圖？`, e, PICS.map(x => x[1]), r, { big: c, say: c, choiceIcons: true }); }, // 選項是圖示名稱，畫面畫成圖
   'stroke-count': (r, n, D) => { const c = pick(chars(STROKE_CHARS + DUTI), r), s = D.ch(c).s; return mk(`「${c}」一共有幾畫？`, s + ' 畫', [s - 1, s + 1, s + 2, s - 2].filter(x => x > 0).map(x => x + ' 畫'), r, { big: c, stroke: c }); },
   'duti-pick': (r) => mk('哪一個是獨體字？', pick(chars(DUTI), r), HETI.map(h => h[0]), r),
   'heti-split': (r) => { const [c, p] = pick(HETI, r); return mk(`「${c}」可以拆成哪幾個字？`, p, HETI.map(h => h[1]), r, { big: c }); },
-  'word-emoji': (r) => { const [w, e] = pick(WORDS, r); return mk(`${e} 是哪一個詞？`, w, WORDS.map(x => x[0]), r, { big: e }); },
+  'word-emoji': (r) => { const [w, e] = pick(WORDS, r); return mk('這張圖是哪一個詞？', w, WORDS.map(x => x[0]), r, { pic: e }); },
   'word-zhuyin': (r, n, D) => { const [w] = pick(WORDS, r); return mk(`注音「${D.w(w)}」是哪一個詞？`, w, WORDS.map(x => x[0]), r, { say: w }); },
   radical: (r, n, D) => { const c = pick(chars(POOL_RADICAL), r), rad = D.ch(c).r, lab = x => RADICAL_LABEL[x] || x, rads = [...new Set(chars(POOL_RADICAL).map(x => D.ch(x).r))]; return mk(`「${c}」的部首是？`, lab(rad), rads.filter(x => x !== rad).map(lab), r, { big: c }); },
   dictionary: (r, n, D) => { const c = pick(chars(POOL_RADICAL), r), e = D.ch(c), lab = x => (RADICAL_LABEL[x] || x) + '部', rads = [...new Set(chars(POOL_RADICAL).map(x => D.ch(x).r))].filter(x => x !== e.r);

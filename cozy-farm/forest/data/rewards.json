@@ -83,6 +83,6 @@
       {"id": "harvest", "text": "在新手村的田裡收成 2 次", "event": "harvest", "n": 2},
       {"id": "talk", "text": "和鄰居聊聊天", "event": "talk", "n": 1}
     ],
-    "stickers": [{"days": 3, "name": "小芽貼紙", "emoji": "🌱"}, {"days": 7, "name": "彩虹貼紙", "emoji": "🌈"}, {"days": 14, "name": "大樹貼紙", "emoji": "🌳"}, {"days": 30, "name": "森林之心貼紙", "emoji": "💚"}]
+    "stickers": [{"days": 3, "name": "小芽貼紙", "icon": "sprout"}, {"days": 7, "name": "彩虹貼紙", "icon": "rainbow"}, {"days": 14, "name": "大樹貼紙", "icon": "tree"}, {"days": 30, "name": "森林之心貼紙", "icon": "heart"}]
   }
 }
