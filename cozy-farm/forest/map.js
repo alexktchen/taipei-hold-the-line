@@ -3,7 +3,7 @@
    - 每個區域一張獨立地圖：知識點是石碑，石板路照「先學會哪個才能學下一個」連起來；
      還沒打通的路沒有石板、石碑被樹叢圍住，學會前置知識點後石板一塊塊冒出來、樹叢消失。
    每張地圖回傳 { group, colliders, groundY, blocked, spawns, portals, nodes, update, refresh }，由 index.html 切換。 */
-import { REGIONS, NODES, regionById, nodeById } from './content.js';
+import { REGIONS, NODES, regionById, nodeById, subjectOf } from './content.js';
 import { nodeState, regionOpen, regionNeeds, regionCount, levelOf, stars, STATE_ICON, dataNow, recordPass, speak, SLOW, nodeStats, regionStats, heatColor, pct } from './learn.js';
 import * as ICON from './icons.js';
 import * as GAMES from './games.js';
@@ -90,6 +90,11 @@ export function createForest(ctx) {
     bed(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = r; ctx.ROOT().add(g); addMesh(Gc(2.0, 0.25, 1.1, 0.06, 0, 0.12, 0), toon(0x9a6b48), g); const fl = [0xffb3c7, 0xfff3a8, 0xd8c2ff, 0xffc9a0, 0xffffff]; for (let k = 0; k < 8; k++) addMesh(Gc(0.2, 0.2, 0.2, 0.05, -0.75 + (k % 4) * 0.5, 0.36, k < 4 ? -0.25 : 0.25), toon(fl[(k + Math.round(r * 3)) % 5]), g, { outline: false }); return 1.1; },
     wall(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = r; ctx.ROOT().add(g); addMesh(Gc(3.2, 1.6, 0.7, 0.06, 0, 0.8, 0), toon(col), g); for (let k = -1; k <= 1; k++) addMesh(Gc(0.6, 0.4, 0.72, 0.05, k * 1.2, 1.8, 0), toon(col), g); return 1.7; },
     lantern(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); ctx.ROOT().add(g); addMesh(Gc(0.14, 1.6, 0.14, 0.03, 0, 0.8, 0), toon(0x6a4e36), g); addMesh(Gc(0.42, 0.5, 0.42, 0.1, 0, 1.75, 0), toon(0xe8705c, { emissive: 0xff8a5c, emissiveIntensity: 0.4 }), g); return 0.3; },
+    cubes(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = r; ctx.ROOT().add(g); const cs = [0xf28ca0, 0xf5b731, 0x8cc77e, 0x7cc3e3, 0x9c8be0]; let k = Math.round(r * 7);
+      for (const [cx, cy, cz] of [[-0.5, 0.4, 0], [0.4, 0.4, 0.1], [-0.05, 1.2, 0.05], [0.9, 0.4, -0.7]]) addMesh(Gc(0.8, 0.8, 0.8, 0.12, cx, cy, cz), toon(cs[k++ % 5]), g); return 1.2; }, // 數學森林：彩色積木
+    solids(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = r; ctx.ROOT().add(g); const k = Math.floor(r * 10) % 3;
+      if (k === 0) addMesh(new THREE.ConeGeometry(0.7, 1.4, 4).rotateY(Math.PI / 4).translate(0, 0.7, 0), toon(0xf5b731), g); else if (k === 1) addMesh(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 16).translate(0, 0.55, 0), toon(0x7cc3e3), g); else addMesh(new THREE.ConeGeometry(0.6, 1.3, 16).translate(0, 0.65, 0), toon(0xf28ca0), g);
+      addMesh(Gc(1.4, 0.12, 1.4, 0.05, 0, 0.0, 0), toon(0xd9cfc0), g); return 0.8; }, // 數學森林：立體圖形（角錐、圓柱、圓錐）
     books(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = r; ctx.ROOT().add(g); const cs = [0xe8705c, 0x8fb6ec, 0xf2d27a, 0x8fd3a0, 0xc9b8f0]; for (let k = 0; k < 4; k++) addMesh(Gc(1.0 - k * 0.06, 0.22, 0.75, 0.04, (k % 2) * 0.06, 0.11 + k * 0.22, 0, k * 0.2), toon(cs[k % 5]), g); return 0.7; },
   };
   const THEMES = {
@@ -99,6 +104,13 @@ export function createForest(ctx) {
     river: { grass: [0x9fd87a, 0x8fcf6e], leaf: [0x8fd36f, 0x9ccf6a], pine: [0x5fae84], props: ['rock', 'bed'], slope: 0.02, trees: 35, pineK: 0.3, river: true },
     garden: { grass: [0xaee68a, 0x9ad97c], leaf: [0xf2b5c6, 0x9ccf6a, 0xf6c9d4], pine: [0x6fbf8f], props: ['bed', 'bed', 'bed', 'bed', 'lantern'], slope: 0.02, trees: 30, pineK: 0.15 },
     city: { grass: [0xc9d69a, 0xb7cc8a], leaf: [0x9ccf6a], pine: [0x5fae84, 0x4f9e7a], props: ['wall', 'wall', 'lantern', 'lantern', 'hut'], slope: 0.02, trees: 25, pineK: 0.6 },
+    mcount: { grass: [0xb2e08a, 0x9fd37a], leaf: [0x8fd36f, 0xa8de7e], pine: [0x6fbf8f], props: ['cubes', 'cubes', 'hut', 'bed'], slope: 0.02, trees: 30, pineK: 0.25 }, // 數學森林的區域
+    mcalc: { grass: [0x9fd88a, 0x8cc77e], leaf: [0x7cc76a, 0x8fd36f], pine: [0x5fae84], props: ['cubes', 'rock', 'books'], slope: 0.03, trees: 50, pineK: 0.5 },
+    mmul: { grass: [0xc3dc8e, 0xb5d089], leaf: [0x9ccf6a, 0xb5d77a], pine: [0x6fae84], props: ['cubes', 'rock', 'rock', 'solids'], slope: 0.02, trees: 30, pineK: 0.4, bowl: true },
+    mshape: { grass: [0xb6e696, 0xa2da84], leaf: [0xf2b5c6, 0x9ccf6a], pine: [0x6fbf8f], props: ['solids', 'solids', 'solids', 'bed'], slope: 0.02, trees: 30, pineK: 0.2 },
+    mfrac: { grass: [0xa6dc84, 0x95d078], leaf: [0x8fd36f, 0x9ccf6a], pine: [0x5fae84], props: ['cubes', 'bed', 'rock'], slope: 0.02, trees: 35, pineK: 0.3, river: true },
+    mbig: { grass: [0xcbd89c, 0xbccf8e], leaf: [0x9ccf6a], pine: [0x5fae84, 0x4f9e7a], props: ['wall', 'lantern', 'cubes', 'hut'], slope: 0.02, trees: 25, pineK: 0.6 },
+    mratio: { grass: [0xaed6a0, 0xbfdcab], leaf: [0x8fd36f], pine: [0x5fae84, 0x6fbf8f], props: ['solids', 'books', 'cubes'], slope: 0.06, trees: 40, pineK: 0.7 },
     tower: { grass: [0xa9d09a, 0xbad6a6], leaf: [0x8fd36f], pine: [0x5fae84, 0x6fbf8f, 0x4f9e7a], props: ['books', 'books', 'rock'], slope: 0.07, trees: 40, pineK: 0.7 },
   };
 
@@ -112,7 +124,7 @@ export function createForest(ctx) {
 
   // ── 區域地圖 ──
   function buildRegion(rid) {
-    const R = regionById(rid), T = THEMES[R.theme], r = rng(rid.length * 7919 + rid.charCodeAt(0)), group = new THREE.Group(); setRoot(group);
+    const R = regionById(rid), CH = subjectOf(rid) === 'chinese', TRUNK = CH ? 'trunk' : 'mtrunk', T = THEMES[R.theme], r = rng(rid.length * 7919 + rid.charCodeAt(0)), group = new THREE.Group(); setRoot(group);
     const colliders = [], RAD = 25, ENTRY = [0, 19];
     // 知識點位置：graph.json 的 position；沒寫的照前後關係自動分層（越後面越北、越高）
     const ns = NODES.filter(n => n.region === rid), depth = {}; const dep = n => depth[n.id] ??= Math.max(0, ...n.pre.map(p => { const pn = ns.find(x => x.id === p); return pn ? dep(pn) + 1 : 0; }));
@@ -142,7 +154,7 @@ export function createForest(ctx) {
     // ── 知識點：石座＋石碑＋頂上一株小植物；四種狀態各有樣子 ──
     // 迷霧封鎖＝霧氣團＋纏在石碑上的藤蔓；可挑戰＝旁邊一支發光、上下浮動的路標；已精通＝植物開花、頭上 1～3 顆星；需要澆水＝葉子轉黃、花謝了
     const starGeo = (() => { const s = new THREE.Shape(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? 0.07 : 0.17; k ? s.lineTo(Math.cos(a) * rr, -Math.sin(a) * rr) : s.moveTo(Math.cos(a) * rr, -Math.sin(a) * rr); } s.closePath(); return new THREE.ExtrudeGeometry(s, { depth: 0.06, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 1 }).translate(0, 0, -0.03); })();
-    const ACCENT = { village: 0xf2928a, woods: 0xffd27a, valley: 0xc9b8f0, river: 0x8fd3f0, garden: 0xffb3c7, city: 0xf6c06a, tower: 0xd8c2ff }[R.theme];
+    const ACCENT = { village: 0xf2928a, woods: 0xffd27a, valley: 0xc9b8f0, river: 0x8fd3f0, garden: 0xffb3c7, city: 0xf6c06a, tower: 0xd8c2ff, mcount: 0xf28ca0, mcalc: 0xf5b731, mmul: 0x9c8be0, mshape: 0x8cc77e, mfrac: 0x7cc3e3, mbig: 0xf6c06a, mratio: 0xd8c2ff }[R.theme] || 0xffd27a;
     const nodes = ns.map(n => { const [x, z] = pos[n.id], y = H(x, z), g = new THREE.Group(); g.position.set(x, y, z); group.add(g);
       addMesh(Gc(1.5, 0.3, 1.5, 0.08, 0, 0.15, 0), toon(0xc9c2d6), g); addMesh(Gc(1.05, 1.35, 0.36, 0.08, 0, 0.95, 0), toon(0xf3eee6), g);
       const leafMat = ctx.curvify(new THREE.MeshToonMaterial({ color: 0x7cc76a, gradientMap: ctx.GRADIENT })), plant = new THREE.Group(); plant.position.y = 1.62; g.add(plant);
@@ -165,7 +177,7 @@ export function createForest(ctx) {
     const stones = edges.flatMap(e => stepStones(e.curve.getSpacedPoints(Math.max(2, Math.round(e.len / 0.82))), H, { extra: { to: e.to }, skip: (x, z) => near(x, z, e.to) || (e.from && near(x, z, e.from)) || (river && inRiver(x, z)) }));
     const st = pathDeco(stones);
     // 入口拱門（回主幹道）
-    const ent = arch(ENTRY[0], ENTRY[1] + 2.2, H(ENTRY[0], ENTRY[1] + 2.2), 0, 0xc99a6a, '森林主幹道', 'back'); colliders.push({ x: ENTRY[0] - 1.3, z: ENTRY[1] + 2.2, r: 0.35 }, { x: ENTRY[0] + 1.3, z: ENTRY[1] + 2.2, r: 0.35 }); ent.bars.visible = false;
+    const ent = arch(ENTRY[0], ENTRY[1] + 2.2, H(ENTRY[0], ENTRY[1] + 2.2), 0, 0xc99a6a, CH ? '森林主幹道' : '數學主幹道', 'back'); colliders.push({ x: ENTRY[0] - 1.3, z: ENTRY[1] + 2.2, r: 0.35 }, { x: ENTRY[0] + 1.3, z: ENTRY[1] + 2.2, r: 0.35 }); ent.bars.visible = false;
     const title = label(`${R.name}（${R.grades}）`, { bg: '#f09a8a', fg: '#fff', h: 0.7, icon: R.img }); title.userData.base = H(0, 15) + 3.2; title.position.set(0, title.userData.base, 15); group.add(title);
     // 樹與主題擺設（避開石板路、石碑、河）
     const free = (x, z, pad) => pathD(x, z) > 1.8 + pad && !(river && Math.abs(z - riverZ - Math.sin(x * 0.25) * 1.2) < 2.2 + pad) && Object.values(pos).every(([px, pz]) => Math.hypot(x - px, z - pz) > 3.4 + pad) && Math.hypot(x - ENTRY[0], z - ENTRY[1]) > 3 + pad && !colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + pad + 0.5);
@@ -175,7 +187,7 @@ export function createForest(ctx) {
     const items = [], fx = []; // fx：每幀要動的東西
     const spot = ([x0, z0], pad = 1) => { for (let k = 0; k < 200; k++) { const a = r() * Math.PI * 2, d = k * 0.08, x = x0 + Math.cos(a) * d, z = z0 + Math.sin(a) * d; if (Math.hypot(x, z) < RAD - 2 && free(x, z, pad - 1.8 + 0.6)) return [x, z]; } return [x0, z0]; };
     const floatLab = (text, x, z, h, opt) => { const l = label(text, opt); l.userData.base = H(x, z) + h; l.userData.x = x; l.userData.z = z; l.position.set(x, l.userData.base, z); group.add(l); fx.push(() => { l.position.y = l.userData.base - curveDrop(l.userData.x, l.userData.z); }); return l; };
-    if (R.theme === 'village') { // 拼音煮湯鍋
+    if (CH && R.theme === 'village') { // 拼音煮湯鍋
       const [px, pz] = spot([7.5, 14.5], 1.6), g = new THREE.Group(); g.position.set(px, H(px, pz), pz); group.add(g);
       for (const [lx, lz] of [[-0.45, -0.35], [0.45, -0.35], [0, 0.5]]) addMesh(Gc(0.13, 0.5, 0.13, 0.03, lx, 0.25, lz), toon(0x4a3b52), g);
       addMesh(Gc(1.35, 0.85, 1.35, 0.32, 0, 0.88, 0), toon(0x5a4a66), g); addMesh(Gc(1.12, 0.08, 1.12, 0.03, 0, 1.3, 0), toon(0xf2c46a), g, { outline: false });
@@ -185,7 +197,7 @@ export function createForest(ctx) {
       colliders.push({ x: px, z: pz, r: 0.95 }); floatLab('拼音煮湯鍋', px, pz, 2.6, { icon: 'pot' });
       items.push({ x: px, z: pz, r: 2.1, text: () => `pot|按空白鍵煮注音湯（拼出食材的注音）・收集了 ${GAMES.itemCount()} 樣`, act: () => GAMES.soup() });
     }
-    if (R.theme === 'woods') { // 招牌＋夜晚的錯字小怪
+    if (CH && R.theme === 'woods') { // 招牌＋夜晚的錯字小怪
       const signs = GAMES.games().typo.signs, boards = [];
       edges.slice(0, 5).forEach((e, k) => { if (boards.length >= 4) return; const p = e.curve.getPointAt(0.5), t = e.curve.getTangentAt(0.5), side = k % 2 ? 1 : -1, [bx, bz] = spot([p.x - t.z * 2.4 * side, p.z + t.x * 2.4 * side], 0.8);
         const g = new THREE.Group(); g.position.set(bx, H(bx, bz), bz); g.rotation.y = Math.atan2(-bx, 19 - bz); // 招牌面向入口 group.add(g); for (const sx of [-0.7, 0.7]) addMesh(Gc(0.12, 1.4, 0.12, 0.03, sx, 0.7, 0), toon(0x9a6b48), g); addMesh(Gc(1.9, 0.75, 0.12, 0.05, 0, 1.25, 0), toon(0xd9b58a), g);
@@ -198,7 +210,7 @@ export function createForest(ctx) {
       for (const b of boards) items.push({ x: b.x, z: b.z, r: 2.2, text: () => ctx.night() > 0.55 ? (b.fixed ? 'sparkle|這塊招牌已經修好了' : `monster|錯字小怪把招牌改錯了！按空白鍵收服牠（已收服 ${GAMES.gameState().monsters} 隻）`) : `moon|招牌：「${b.sign.right}」・錯字小怪晚上才會出現（可以把左上的時間調到晚上）`,
         act: () => { if (ctx.night() > 0.55 && !b.fixed) GAMES.typo(b.sign, () => { b.fixed = true; }); } });
     }
-    if (R.theme === 'valley') { // 部首部落：族長是鄰居，幫迷路的字找到自己的部落
+    if (CH && R.theme === 'valley') { // 部首部落：族長是鄰居，幫迷路的字找到自己的部落
       const T2 = GAMES.games().tribes, D = dataNow(), chiefs = [], N = T2.radicals.length;
       T2.radicals.forEach(([rad, variant, name], k) => { const th = -2.5 + 5 * k / (N - 1), [cx, cz] = spot([Math.sin(th) * 15, -Math.cos(th) * 15], 1.4);
         const ch = ctx.makeChar({ colors: { shirt: [0xf2928a, 0x8fb6ec, 0xf2d27a, 0x8fd3a0, 0xc9b8f0, 0xffb347, 0x7fc6d6, 0xd8b07a][k], pants: 0x5d6f9e, hat: [0xe8705c, 0x6f8fc8, 0xd9a83a, 0x5faa7a, 0x9a7ad0, 0xe08a2a, 0x4fa6b8, 0xb08a4a][k], hair: [0x3a2a24, 0x5a3b2e, 0x2a2a2a, 0xb5653a][k % 4] }, accessories: [['hairShort', 'cap'], ['hairBob', 'beret'], ['hairSpiky', 'headband'], ['hairBun', 'strawhat'], ['hairShort', 'scarf'], ['hairBob', 'earsBear'], ['hairSpiky', 'cap'], ['hairShort', 'glasses']][k], face: 'happy' });
@@ -221,7 +233,7 @@ export function createForest(ctx) {
               else ctx.talk(`flag|${c.name}族長：「嗯⋯⋯「${l.c}」不是我們部落的字喔。看看它的部首是什麼？」`); } }); }
         return out; } });
     }
-    if (R.theme === 'garden') { // 修辭花圃：答對種出對應的花
+    if (CH && R.theme === 'garden') { // 修辭花圃：答對種出對應的花
       const FL = GAMES.games().flowers, beds = [];
       for (let k = 0; k < 12; k++) { const side = k < 6 ? -1 : 1, j = k % 6, [bx, bz] = spot([side * (7 + (j % 3) * 2.2), 13 + Math.floor(j / 3) * 2.4], 0.4);
         const g = new THREE.Group(); g.position.set(bx, H(bx, bz), bz); group.add(g); addMesh(Gc(1.3, 0.22, 1.3, 0.06, 0, 0.11, 0), toon(0x9a6b48), g, { outline: false }); addMesh(Gc(1.1, 0.06, 1.1, 0.03, 0, 0.24, 0), toon(0x6a4a34), g, { outline: false });
@@ -241,7 +253,7 @@ export function createForest(ctx) {
       floatLab('修辭花圃', -9.2, 12.5, 1.8, { bg: '#ffe3ec', h: 0.6, icon: 'rg-xiuci' }); floatLab('修辭花圃', 9.2, 12.5, 1.8, { bg: '#ffe3ec', h: 0.6, icon: 'rg-xiuci' });
       for (const b of beds) items.push({ x: b.x, z: b.z, r: 1.4, text: () => b.type ? `flower|${FL[b.type].name}（${nodeById(b.type).name}）：${FL[b.type].tip}` : 'seed|按空白鍵種一朵修辭花（答對修辭題就會開花）', act: () => { if (!b.type) GAMES.flower(b.k, type => grow(b, type)); } });
     }
-    if (R.theme === 'city') { // 石碑典故＋城門
+    if (CH && R.theme === 'city') { // 石碑典故＋城門
       const gates = GAMES.games().stories.gates, spots = [[-13, 7], [13, 4], [-12, -11]];
       gates.forEach((gt, k) => { const [gx, gz] = spot(spots[k % spots.length], 2.2), yaw = Math.atan2(-gx, -gz), a = arch(gx, gz, H(gx, gz), yaw, 0xb8a07a, `${gt.title}門`, 'rg-chengyu'); colliders.push({ x: gx - Math.cos(yaw) * 1.3, z: gz + Math.sin(yaw) * 1.3, r: 0.35 }, { x: gx + Math.cos(yaw) * 1.3, z: gz - Math.sin(yaw) * 1.3, r: 0.35 });
         a.bars.visible = false; const doors = [-1, 1].map(sx => { const d = new THREE.Group(); d.position.set(sx * 1.15, 0, 0); a.g.add(d); addMesh(Gc(1.1, 2.0, 0.14, 0.04, -sx * 0.55, 1.0, 0), toon(0x9a3b2a), d); addMesh(Gc(0.12, 0.12, 0.05, 0.03, -sx * 0.95, 1.0, 0.1), toon(0xf2c14e), d, { outline: false }); return d; });
@@ -252,7 +264,7 @@ export function createForest(ctx) {
         fx.push(dt => { const want = st.open ? 1 : 0; if (st.k !== want) st.k = Math.min(1, st.k + dt * 0.8); doors.forEach((d, i) => { d.rotation.y = (i ? -1 : 1) * st.k * 1.6; }); chest.visible = st.k > 0.5; });
         items.push({ x: tx, z: tz, r: 1.8, text: () => st.open ? `rg-chengyu|${gt.title}門已經打開了，按空白鍵可以再讀一次故事` : `scroll|按空白鍵閱讀石碑「${gt.title}」，答對問題打開城門`, act: () => GAMES.story(gt, () => { if (!st.open) { st.open = true; const i = colliders.indexOf(block); if (i >= 0) colliders.splice(i, 1); ctx.banner(`key|${gt.title}門打開了！`); } }) }); });
     }
-    if (R.theme === 'tower') { // 鄰居信箱＋字精靈
+    if (CH && R.theme === 'tower') { // 鄰居信箱＋字精靈
       const [mx, mz] = spot([6, 15.5], 1.0), mb = new THREE.Group(); mb.position.set(mx, H(mx, mz), mz); mb.rotation.y = -0.6; group.add(mb); addMesh(Gc(0.14, 1.1, 0.14, 0.03, 0, 0.55, 0), toon(0x9a6b48), mb); addMesh(Gc(0.5, 0.42, 0.7, 0.12, 0, 1.25, 0), toon(0xe8705c), mb); const flag = addMesh(Gc(0.05, 0.3, 0.16, 0.02, 0.28, 1.45, 0.1), toon(0xffd166), mb, { outline: false });
       colliders.push({ x: mx, z: mz, r: 0.45 }); floatLab('鄰居信箱', mx, mz, 2.0, { h: 0.5, icon: 'letter' });
       const [sx, sz] = spot([-3.5, 13], 1.0), sp = new THREE.Group(); group.add(sp); const body = addMesh(G(0.6, 0.6, 0.6, 0.2), toon(0xd8c2ff, { emissive: 0xa080ff, emissiveIntensity: 0.45 }), sp); for (const ex of [-0.12, 0.12]) addMesh(Gc(0.08, 0.1, 0.03, 0.02, ex, 0.04, 0.3), toon(0x3b2c44), body, { outline: false }); addMesh(Gc(0.12, 0.03, 0.03, 0.01, 0, -0.1, 0.3), toon(0xe8705c), body, { outline: false });
@@ -302,7 +314,7 @@ export function createForest(ctx) {
         if (parentOn) { n.plab.position.y = n.lab.position.y; if (n.heat.ring.visible) { const k = 0.5 + Math.sin(time * 3 + n.x) * 0.5; n.heat.ring.material.opacity = 0.45 + k * 0.45; n.heat.ring.scale.setScalar(1 + k * 0.04); } } }
       title.position.y = title.userData.base - curveDrop(0, 15); for (const f of fx) f(dt, time); bloom.update(dt); }
     const spawns = { entry: { x: ENTRY[0], z: ENTRY[1] - 0.5, yaw: Math.PI } };
-    const portals = [{ x: ENTRY[0], z: ENTRY[1] + 1.6, r: 1.5, to: 'trunk', spawn: 'from-' + rid, icon: 'forest', name: '森林主幹道', text: () => 'door|走進拱門回到森林主幹道', locked: () => false }];
+    const trunkName = CH ? '森林主幹道' : '數學主幹道', portals = [{ x: ENTRY[0], z: ENTRY[1] + 1.6, r: 1.5, to: TRUNK, spawn: 'from-' + rid, icon: CH ? 'forest' : 'math', name: trunkName, text: () => `door|走進拱門回到${trunkName}`, locked: () => false }];
     // 小地圖用：邊界、石板路（通往哪個知識點）、河
     const mini = { shape: 'circle', cx: 0, cz: 0, R: RAD, grass: '#' + new THREE.Color(T.grass[0]).getHexString(), paths: edges.map(e => ({ to: e.to, pts: e.pts.map(p => [p.x, p.z]) })), river: river ? Array.from({ length: 81 }, (_, i) => [i - 40, riverZ + Math.sin((i - 40) * 0.25) * 1.2]) : null };
     refresh(); group.visible = false;
@@ -310,9 +322,9 @@ export function createForest(ctx) {
   }
 
   // ── 森林主幹道：南邊接新手村，往北爬坡；兩旁是各區域的入口 ──
-  function buildTrunk() {
-    const group = new THREE.Group(); setRoot(group); const colliders = [], r = rng(20241101), SLOPE = 0.09, roadX = z => Math.sin(z * 0.12) * 1.5;
-    const gates = REGIONS.map(R => ({ R, x: R.gate[0] * 1.2, z: R.gate[1] * 1.05 }));
+  function buildTrunk(subject = 'chinese') { const MATH = subject === 'math', SUB = REGIONS.filter(R => subjectOf(R.id) === subject), ID = MATH ? 'mtrunk' : 'trunk';
+    const group = new THREE.Group(); setRoot(group); const colliders = [], r = rng(MATH ? 31415926 : 20241101), SLOPE = 0.09, roadX = z => Math.sin(z * 0.12 + (MATH ? 1.3 : 0)) * 1.5;
+    const gates = SUB.map(R => ({ R, x: R.gate[0] * 1.2, z: R.gate[1] * 1.05 }));
     const roadD = (x, z) => Math.min(Math.abs(x - roadX(z)) - 1.3, ...gates.map(g => distSeg(x, z, roadX(g.z), g.z, g.x, g.z) - 0.9));
     const H = (x, z) => { const base = -z * SLOPE + 1.2; let h = base + 0.3 * noise(x * 0.5, z * 0.5) + smooth(9, 16, Math.abs(x)) * 2.5; return THREE.MathUtils.lerp(h, base, 1 - smooth(0.2, 2.2, roadD(x, z))); };
     ground(90, 100, H, (x, z, c) => { const n = noise(x * 1.2, z * 1.2) * 0.5 + 0.5; c.setHex(0x9fd87a).lerp(new THREE.Color(0x86c46a), n); const d = roadD(x, z); if (d < 0.6) c.lerp(new THREE.Color(0xd9cbb4), 1 - smooth(-0.2, 0.6, d)); });
@@ -325,19 +337,19 @@ export function createForest(ctx) {
     for (const g of gates) { const sx = roadX(g.z) + Math.sign(g.x - roadX(g.z)) * 1.4, ex = g.x + Math.sign(g.x) * 0.6, n = Math.max(2, Math.round(Math.abs(ex - sx) / 0.8)); deco.push(...stepStones(Array.from({ length: n + 2 }, (_, k) => ({ x: sx + (ex - sx) * (k - 0.5) / n, z: g.z })), H, { width: 1.3 })); }
     pathDeco(deco);
     // 各區域入口（拱門＋招牌），門口一塊進度牌
-    const gateObjs = gates.map(g => { const side = Math.sign(g.x) || 1, ax = g.x + side * 1.2, a = arch(ax, g.z, H(ax, g.z), side > 0 ? -Math.PI / 2 : Math.PI / 2, [0xf2928a, 0x8fb6ec, 0xb9a0d8, 0x7fc6d6, 0xf2b5c6, 0xd8b07a, 0xe8c56a][REGIONS.indexOf(g.R)], g.R.name, g.R.img);
+    const gateObjs = gates.map(g => { const side = Math.sign(g.x) || 1, ax = g.x + side * 1.2, a = arch(ax, g.z, H(ax, g.z), side > 0 ? -Math.PI / 2 : Math.PI / 2, [0xf2928a, 0x8fb6ec, 0xb9a0d8, 0x7fc6d6, 0xf2b5c6, 0xd8b07a, 0xe8c56a][SUB.indexOf(g.R) % 7], g.R.name, g.R.img);
       colliders.push({ x: ax, z: g.z - 1.3, r: 0.35 }, { x: ax, z: g.z + 1.3, r: 0.35 }); const info = label(''); info.userData.base = H(g.x, g.z) + 1.1; info.position.set(g.x - side * 0.2, info.userData.base, g.z); group.add(info);
       return { ...g, side, ax, a, info, open: null }; });
     // 入口牌坊（南邊，回新手村）與北邊山頂
     const home = arch(roadX(32), 32.5, H(roadX(32), 32.5), 0, 0xc99a6a, '新手村', 'back'); home.bars.visible = false; colliders.push({ x: roadX(32) - 1.3, z: 32.5, r: 0.35 }, { x: roadX(32) + 1.3, z: 32.5, r: 0.35 });
-    const title = label('學習森林・識字與詞語主幹道', { bg: '#f09a8a', fg: '#fff', h: 0.85, icon: 'forest' }); title.userData.base = H(0, 27) + 3.4; title.position.set(0, title.userData.base, 27); group.add(title);
+    const title = label(MATH ? '數學森林・數與計算主幹道' : '學習森林・識字與詞語主幹道', { bg: MATH ? '#7cb8d8' : '#f09a8a', fg: '#fff', h: 0.85, icon: MATH ? 'math' : 'forest' }); title.userData.base = H(0, 27) + 3.4; title.position.set(0, title.userData.base, 27); group.add(title);
     const tl = []; for (let k = 0; k < 6000 && tl.length < 70; k++) { const x = (r() - 0.5) * 60, z = 36 - r() * 74; if (z > 30.5 || roadD(x, z) < 1.6 || gates.some(g => Math.hypot(x - g.x - g.side * 1.2, z - g.z) < 3.4) || Math.hypot(x - roadX(32), z - 32.5) < 3) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < 0.45 ? 'pine' : 'broad' }); if (Math.abs(x) < 13) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, [0x8fd36f, 0x7cc76a, 0xa8de7e], [0x5fae84, 0x4f9e7a, 0x6fbf8f]);
     { const bp = []; for (let z = 34.2; z > -34.6; z -= 1.0) for (const sd of [-1, 1]) bp.push({ x: sd * 13.1, z, nx: sd, nz: 0 }); for (let x = -12.6; x <= 12.6; x += 1.0) { bp.push({ x, z: 34.3, nx: 0, nz: 1 }); bp.push({ x, z: -34.7, nx: 0, nz: -1 }); }
       border(bp, H, { leaf: [0x8fd36f, 0x7cc76a, 0xa8de7e], pine: [0x5fae84, 0x4f9e7a, 0x6fbf8f], pineK: 0.5, seed: 4242, low: p => p.nz > 0.5 || p.z > 28 }); } // 邊界：兩旁與南北兩端都是樹籬＋大樹
     const bpts = []; for (let k = 0; k < 3000 && bpts.length < 220; k++) { const x = (r() - 0.5) * 24, z = 33 - r() * 66; if (roadD(x, z) < 0.6 || Math.abs(x) > 12 || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.3)) continue; bpts.push({ x, y: H(x, z), z, r: r() * 6.28, s: 0.8 + r() * 0.6 }); }
     const bloom = bloomField(bpts, [0xffb3c7, 0xfff3a8, 0xffffff, 0xd8c2ff, 0xffc9a0, 0x8fd3f0]);
-    const lushNow = () => { const ns = NODES.filter(n => !n.guardian); return ns.filter(n => levelOf(n.id) > 0).length / ns.length; }; // 主幹道：整座森林學會了多少
+    const lushNow = () => { const ns = NODES.filter(n => !n.guardian && subjectOf(n.region) === subject); return ns.filter(n => levelOf(n.id) > 0).length / ns.length; }; // 主幹道：整座森林學會了多少
     setRoot(null);
     const groundY = H, blocked = (x, z) => Math.abs(x) > 12.4 || z > 33.6 || z < -34.1;
     let heat = null, parentOn = false; // 家長檢視：每個區域門口一圈熱力色（整區的正確率），進度牌改成「正確率・待複習」
@@ -349,11 +361,11 @@ export function createForest(ctx) {
     function setParent(on) { parentOn = !!on; if (parentOn && !heat) { heat = new THREE.Group(); group.add(heat); for (const g of gateObjs) g.heat = heatDisc(g.x, g.z, 2.2, H, heat); } if (heat) heat.visible = parentOn; refresh(); }
     function update(dt, time) { bloom.update(dt); for (const g of gateObjs) { g.info.position.y = g.info.userData.base - curveDrop(g.x, g.z); if (parentOn && g.heat.ring.visible) { const k = 0.5 + Math.sin(time * 3 + g.z) * 0.5; g.heat.ring.material.opacity = 0.45 + k * 0.45; } } title.position.y = title.userData.base - curveDrop(0, 27); }
     const spawns = { south: { x: roadX(30), z: 30, yaw: Math.PI } }; for (const g of gateObjs) spawns['from-' + g.R.id] = { x: g.x - g.side * 0.8, z: g.z, yaw: g.side > 0 ? -Math.PI / 2 : Math.PI / 2 };
-    const portals = [{ x: roadX(32), z: 32.2, r: 1.4, to: 'village', spawn: 'forest', icon: 'sprout', name: '新手村', text: () => 'door|走進拱門回到新手村', locked: () => false },
+    const portals = [{ x: roadX(32), z: 32.2, r: 1.4, to: 'village', spawn: MATH ? 'math' : 'forest', icon: 'sprout', name: '新手村', text: () => 'door|走進拱門回到新手村', locked: () => false },
       ...gateObjs.map(g => ({ x: g.ax, z: g.z, r: 1.3, to: g.R.id, spawn: 'entry', icon: g.R.img, name: g.R.name, locked: () => !regionOpen(g.R.id), text: () => regionOpen(g.R.id) ? `${g.R.img}|走進拱門就會進入${g.R.name}（${g.R.grades}）` : `st-locked|${g.R.name}還沒打開：先通過${regionNeeds(g.R.id).map(n => `「${n.name}」`).join('、')}的挑戰` }))];
     const mini = { shape: 'rect', x0: -12.4, x1: 12.4, z0: -34.1, z1: 33.6, grass: '#9fd87a', paths: [{ pts: Array.from({ length: 66 }, (_, i) => [roadX(31.5 - i), 31.5 - i]), w: 2.6 }, ...gates.map(g => ({ pts: [[roadX(g.z), g.z], [g.x + Math.sign(g.x || 1) * 0.6, g.z]] }))] };
     refresh(); group.visible = false;
-    return { id: 'trunk', name: '森林主幹道', icon: 'forest', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, setParent, mini, lush: lushNow, spawn: 'south' };
+    return { id: ID, name: MATH ? '數學主幹道' : '森林主幹道', icon: MATH ? 'math' : 'forest', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, setParent, mini, lush: lushNow, spawn: 'south' };
   }
   return { buildRegion, buildTrunk, label, arch, border, ringPts, pathDeco, stepStones };
 }

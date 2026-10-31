@@ -19,7 +19,15 @@
     "juzi": { "lv": 2, "n": 6, "types": ["drop", "moth"] },
     "xiuci": { "lv": 3, "n": 6, "types": ["moth", "drop"] },
     "chengyu": { "lv": 3, "n": 6, "types": ["rock", "ink"] },
-    "shuta": { "lv": 4, "n": 6, "types": ["ghost", "ink"] }
+    "shuta": { "lv": 4, "n": 6, "types": ["ghost", "ink"] },
+    "mtrunk": { "lv": 1, "n": 6, "types": ["shroom", "chest"] },
+    "m-count": { "lv": 1, "n": 5, "types": ["shroom", "ink"] },
+    "m-calc": { "lv": 1, "n": 6, "types": ["chest", "shroom"] },
+    "m-mul": { "lv": 2, "n": 6, "types": ["rock", "moth"] },
+    "m-shape": { "lv": 2, "n": 6, "types": ["moth", "drop"] },
+    "m-frac": { "lv": 3, "n": 6, "types": ["drop", "ink"] },
+    "m-big": { "lv": 3, "n": 6, "types": ["rock", "chest"] },
+    "m-ratio": { "lv": 4, "n": 6, "types": ["ghost", "moth"] }
   },
   "slots": { "weapon": "近攻武器", "ranged": "遠攻武器", "shield": "盾牌", "shoes": "鞋子" },
   "items": [

@@ -3,6 +3,7 @@
    - 手寫題庫（標點、修辭、成語⋯⋯）直接寫在這裡；
    - 純資料與出題函式，不碰畫面，3D 與介面在 forest/map.js、forest/learn.js。 */
 
+import { MATH_TYPES, mathLesson } from './math.js';
 // ── 知識圖譜（DAG）：區域與知識點都定義在 data/graph.json，這裡只放載入後的陣列（initGraph 填進來）──
 // 節點：{ id, name, grade, region, prerequisites[], questionTypes[], position:[x,z], intro?, lesson?, questions?, guardian?, pass? }
 // 區域：{ id, name, grades, theme, gate:[x,z], img, requires:[區域 id]（那些區域的守護者通過才打開）}
@@ -13,6 +14,7 @@ export function initGraph(g) { REGIONS.length = NODES.length = 0; REGIONS.push(.
 export const nodeById = id => NODES.find(n => n.id === id);
 export const regionById = id => REGIONS.find(r => r.id === id);
 export const passOf = id => nodeById(id).pass || GRAPH.pass;
+export const subjectOf = rid => (regionById(rid) || {}).subject || 'chinese'; // 'chinese'＝國語森林、'math'＝數學森林
 
 // ── 注音符號：說明用的例字（念出這個字就是這個符號的音）與例詞；建置時會用教育部辭典檢查例字讀音 ──
 // 聽的時候念例詞（名詞，大多是疊字，兩個字都有這個音，念得慢、聽得清楚）；例字是說明這個符號本身的音
@@ -73,6 +75,7 @@ const twice = w => `${w}，${w}`; // 念兩次
 export function lessonOf(id, D) {
   const n = nodeById(id), intro = n.intro || '', L = n.lesson || {};
   if (n.guardian) return { intro, cards: NODES.filter(x => x.region === n.region && !x.guardian).map(x => ({ kind: 'text', q: `知識點：${x.name}`, a: `${x.grade} 年級`, why: (x.intro || '').slice(0, 42) + '…' })) };
+  if (L.type === 'math') return { intro, cards: mathLesson(L.key) };
   if (L.type === 'zhuyin') return { intro, cards: (L.set === 'yunmu' ? YUNMU : SHENGMU).map(([s, c, w, e]) => ({ kind: 'zhuyin', sym: s, say: w, ex: D.sym[s] || c, word: w, emoji: e, wordB: D.w(w) })) };
   if (L.type === 'tones') return { intro, cards: TONES.map(t => ({ kind: 'tone', ...t, b: D.ch(t.ex).b[0] })) };
   if (L.type === 'pics') return { intro, cards: PICS.map(([c, e]) => ({ kind: 'char', c, b: D.ch(c).b[0], pic: e })) };
@@ -106,6 +109,7 @@ export const QUESTION_TYPES = {
   homophone: (r, n, D) => { const g = pick(D.homo.filter(g => g.length >= 2), r), [a, b] = shuffle(g, r); return mk(`哪一個字的讀音和「${a}」（${D.ch(a).b[0]}）完全一樣？`, b, shuffle(D.homoPool.filter(x => D.ch(x).b[0] !== D.ch(a).b[0]), r).slice(0, 6), r, { big: a, why: `「${a}」和「${b}」都念 ${D.ch(a).b[0]}。` }); },
   polyphone: (r, n, D) => { const [c, w] = pick(DUOYIN, r), s = D.syl(w, c), real = [...new Set([...DUOYIN.filter(x => x[0] === c).map(x => D.syl(x[1], c)), ...D.ch(c).b])].filter(x => x !== s), base = stripTone(s);
     return mk(`「${w}」的「${c}」怎麼念？`, s, real.concat([1, 2, 3, 4].map(k => withTone(base, k)).filter(x => x !== s)), r, { big: w, say: w, noRead: true, why: `「${w}」念 ${D.w(w)}。` }, Math.min(2, real.length)); },
+  ...MATH_TYPES, // 數學：題目由 math.js 隨機產生
   bank: (r, n) => { if (!n.questions || !n.questions.length) return null; const [q, a, ...rest] = pick(n.questions, r), why = rest.pop(); return mk(q, a, rest, r, { why }); },
 };
 export function quizOf(id, D, seed) {

@@ -4,7 +4,8 @@
      每一筆用輪廓當遮罩、沿著運筆軌跡畫粗線，就是一筆一筆寫出來的動畫。
    - 進度記在這台裝置（localStorage），學會一個知識點，通往下一個知識點的石板路就會打通。 */
 import * as ICON from './icons.js';
-import { NODES, REGIONS, GRAPH, initGraph, passOf, nodeById, regionById, lessonOf, quizOf, stripTone } from './content.js';
+import { NODES, REGIONS, GRAPH, initGraph, passOf, nodeById, regionById, lessonOf, quizOf, stripTone, subjectOf } from './content.js';
+import { speakText } from './math.js';
 const BASE = new URL('.', import.meta.url).href;
 // ── 進度：每個知識點的熟練度（1～3 星）、上次練習時間、最佳成績，存在這台裝置 ──
 const KEY = 'forest.progress.v2', OLD = 'forest.progress.v1';
@@ -109,7 +110,12 @@ const CSS = `
 .lf-done{text-align:center;padding:10px}.lf-done .em{font-size:64px}.lf-done h3{margin:6px 0;font-size:22px}
 .lf-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#4a3b52;color:#fff;border-radius:999px;padding:8px 16px;z-index:60;font-weight:700}
 .lf-credit{font-size:11px;color:#a597a8;padding:0 16px 10px;line-height:1.5}
-@media (max-width:520px){.lf-ch{grid-template-columns:1fr}.lf-card .big{font-size:32px}.lf-qbig{font-size:46px}}`;
+
+.lf-qsvg{text-align:center;margin:6px 0 10px}.lf-qsvg svg{max-width:100%;height:auto;max-height:240px}
+.lf-card.mcard{gap:4px}.lf-card.mcard svg{max-width:100%;height:auto;max-height:78px}.lf-card.mcard .tag{white-space:normal}
+.lf-mdetail{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}.lf-mdetail svg{max-width:100%;height:auto;max-height:260px}.lf-mdetail h3{margin:0;font-size:24px;font-weight:900}.lf-mdetail p{margin:0;font-size:19px;font-weight:700;line-height:1.7;max-width:560px}
+.lf-tabs{flex-wrap:wrap}.lf-tabs button{white-space:nowrap}
+@media (max-width:520px){.lf-top h2{font-size:17px}.lf-top small{font-size:11px;max-width:96px;text-align:right}.lf-tabs button{font-size:13px;padding:6px 11px}.lf-ch{grid-template-columns:1fr}.lf-card .big{font-size:32px}.lf-qbig{font-size:46px}}`;
 let styled = false; const style = () => { if (styled) return; styled = true; const s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s); };
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -135,7 +141,7 @@ export async function open(id, onLearned) { style(); close(); await loadData(); 
   const PASS = passOf(id), st = nodeState(id), stIcon = n.guardian ? STATE_ICON.guardian : STATE_ICON[st], lv = levelOf(id);
   const top = el('div', 'lf-top', `${ICON.svg(R.img, 40)}<h2>${esc(n.name)}${ICON.svg(stIcon, 28, { mastered: '已精通', review: '需要澆水', open: '可挑戰', locked: '迷霧封鎖' }[st])}${lv ? `<span style="color:#f2b84a;font-size:18px">${stars(lv)}</span>` : ''}</h2><small>${esc(R.name)}・${esc(R.grades)}</small>`); const x = el('button', 'lf-x', '×'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x); box.appendChild(top);
   const tabs = el('div', 'lf-tabs'); tabs.setAttribute('role', 'tablist'); const body = el('div', 'lf-body'); box.append(tabs, body);
-  box.appendChild(el('div', 'lf-credit', '注音、部首、筆畫：教育部《重編國語辭典修訂本》（CC BY-ND 3.0 TW）；筆順：教育部《常用國字標準字體筆順學習網》（g0v/zh-stroke-data 整理）；發音：裝置內建語音。'));
+  box.appendChild(el('div', 'lf-credit', subjectOf(n.region) === 'math' ? '題目依 108 課綱的單元由程式隨機產生，每次數字都不一樣；圖由程式畫出；發音：裝置內建語音。' : '注音、部首、筆畫：教育部《重編國語辭典修訂本》（CC BY-ND 3.0 TW）；筆順：教育部《常用國字標準字體筆順學習網》（g0v/zh-stroke-data 整理）；發音：裝置內建語音。'));
   const tab = (label, fn) => { const b = el('button', null, label); b.setAttribute('role', 'tab'); b.onclick = () => { [...tabs.children].forEach(t => t.setAttribute('aria-selected', String(t === b))); body.innerHTML = ''; fn(); }; tabs.appendChild(b); return b; };
   const learnTab = tab(`${ICON.svg('book', 20)} 學習`, () => renderLearn(body, L)); tab(`${ICON.svg('pencil', 20)} 練習（答對 ${PASS.need}／${PASS.total} 題就通過）`, () => renderQuiz(body, id));
   keyFn = e => { if (!ov) return; if (e.key === 'Escape') { close(); e.stopPropagation(); return; } const k = +e.key; if (k >= 1 && k <= 4) { const bs = ov.querySelectorAll('.lf-ch button'); if (bs[k - 1] && !bs[k - 1].disabled) { bs[k - 1].click(); e.stopPropagation(); } } };
@@ -144,15 +150,19 @@ export async function open(id, onLearned) { style(); close(); await loadData(); 
 function renderLearn(body, L) { body.appendChild(el('div', 'lf-intro', esc(L.intro)));
   if (L.cards[0] && L.cards[0].kind === 'text') { for (const c of L.cards) body.appendChild(el('div', 'lf-text', `${esc(c.q)}<br>答案：<b>${esc(c.a)}</b>　${esc(c.why)}`)); body.appendChild(el('div', 'lf-intro', '看完例子，就到「練習」試試看吧！')); return; }
   const grid = el('div', 'lf-grid'); body.appendChild(grid);
-  for (const c of L.cards) { const b = el('button', 'lf-card');
-    if (c.kind === 'zhuyin') b.innerHTML = `<span class="big">${c.sym}</span><span class="zy">${ICON.svg(c.emoji, 22)} ${esc(c.word)}</span><span class="tag">${esc(c.wordB)}</span>`;
+  for (const c of L.cards) { const b = el('button', 'lf-card' + (c.kind === 'math' ? ' mcard' : ''));
+    if (c.kind === 'math') b.innerHTML = `${c.svg || ''}<span class="big" style="font-size:22px">${esc(c.title)}</span><span class="tag">${esc(c.text.length > 26 ? c.text.slice(0, 26) + '⋯' : c.text)}</span>`;
+    else if (c.kind === 'zhuyin') b.innerHTML = `<span class="big">${c.sym}</span><span class="zy">${ICON.svg(c.emoji, 22)} ${esc(c.word)}</span><span class="tag">${esc(c.wordB)}</span>`;
     else if (c.kind === 'tone') b.innerHTML = `<span class="big">${c.ex}</span><span class="zy">${esc(c.b)}</span><span class="tag">${c.name} ${c.mark}</span>`;
     else if (c.kind === 'word') b.innerHTML = `<span class="big" style="font-size:26px">${c.emoji ? ICON.svg(c.emoji, 40) + '<br>' : ''}${esc(c.w)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : ''}`;
     else b.innerHTML = `${c.pic ? ICON.svg(c.pic, 34) : ''}<span class="big">${esc(c.c)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : c.strokes ? `<span class="tag">${c.strokes} 畫</span>` : ''}`;
     b.onclick = () => detail(body, L, c); grid.appendChild(b); } }
 
 // 卡片細節：大字、注音、發音、筆順動畫
-function detail(body, L, c) { body.innerHTML = ''; const wrap = el('div', 'lf-detail'); body.appendChild(wrap);
+function detail(body, L, c) { body.innerHTML = '';
+  if (c.kind === 'math') { const d = el('div', 'lf-mdetail', `<h3>${esc(c.title)}</h3>${c.svg || ''}<p>${esc(c.text)}</p>`); body.appendChild(d); const say = el('button', 'lf-btn', `${ICON.svg('speaker', 20)} 念給我聽`); say.onclick = () => speak(speakText(c.text), 0.8); d.appendChild(say);
+    const back = el('button', 'lf-btn alt', '← 回到卡片'); back.style.marginTop = '14px'; back.onclick = () => { body.innerHTML = ''; renderLearn(body, L); }; body.appendChild(back); speak(speakText(c.text), 0.8); return; }
+  const wrap = el('div', 'lf-detail'); body.appendChild(wrap);
   const glyph = c.kind === 'zhuyin' ? c.sym : c.kind === 'tone' ? c.ex : c.kind === 'word' ? c.w : c.c, slow = c.kind === 'zhuyin' || c.kind === 'tone', sayText = c.kind === 'zhuyin' ? `${c.word}，${c.word}` : slow ? `${glyph}，${glyph}` : glyph, rate = slow ? SLOW : 0.75;
   const side = el('div', 'lf-side');
   side.innerHTML = c.kind === 'zhuyin' ? `<div class="huge">${c.sym}</div><div style="font-size:30px">${ICON.svg(c.emoji, 44)} ${ruby(c.word, c.wordB)}</div><div style="color:#8a7a92">「${esc(c.word)}」裡有「${c.sym}」的音；單獨念像「${esc(c.ex)}」</div>`
@@ -172,10 +182,11 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
   const show = () => { body.innerHTML = ''; const bar = el('div', 'lf-bar', `<i style="width:${i / qs.length * 100}%"></i>`); body.appendChild(bar);
     if (i >= qs.length) return finish(); const q = qs[i];
     const qrow = el('div', 'lf-q', `第 ${i + 1} 題　${esc(q.q)} `); body.appendChild(qrow);
-    if (!q.listen && !q.noRead) { const rd = el('button', 'lf-btn alt', `${ICON.svg('speaker', 18)} 讀題`); rd.style.cssText = 'padding:4px 12px;font-size:14px;vertical-align:middle'; rd.onclick = () => speak(q.q.replace(/＿+/g, '什麼'), 0.75); qrow.appendChild(rd); } // 朗讀題目（會洩漏答案的題目不念）
+    if (!q.listen && !q.noRead) { const rd = el('button', 'lf-btn alt', `${ICON.svg('speaker', 18)} 讀題`); rd.style.cssText = 'padding:4px 12px;font-size:14px;vertical-align:middle'; rd.onclick = () => speak(q.math ? speakText(q.q) : q.q.replace(/＿+/g, '什麼'), 0.75); qrow.appendChild(rd); } // 朗讀題目（會洩漏答案的題目不念）
     if (q.listen) { const b = el('button', 'lf-btn go', `${ICON.svg('speaker', 20)} 再聽一次`); b.onclick = () => speak(q.say, q.slow ? SLOW : 0.75); body.appendChild(b); speak(q.say, q.slow ? SLOW : 0.75); }
     if (q.pic && !q.listen) body.appendChild(el('div', 'lf-qbig', ICON.svg(q.pic, 96))); // 看圖題：程式畫的圖
-    if (!q.listen && q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
+    if (q.svg) body.appendChild(el('div', 'lf-qsvg', q.svg)); // 數學題的圖（點點、積木、時鐘、分數條⋯⋯）
+    else if (!q.listen && q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
     const ch = el('div', 'lf-ch'); body.appendChild(ch);
     const show1 = c => q.choiceIcons ? ICON.svg(c, 48) : esc(c);
     q.choices.forEach((c, k) => { const b = el('button', null, `${k + 1}. ${show1(c)}`); b.onclick = () => { [...ch.children].forEach(x => x.disabled = true); const ok = k === q.a; if (ok) right++; addStats(id, ok ? 1 : 0, 1); b.classList.add(ok ? 'ok' : 'no'); ch.children[q.a].classList.add('ok');
@@ -190,4 +201,4 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
     const again = el('button', 'lf-btn alt', '再練一次'); again.onclick = () => renderQuiz(body, id); const done = el('button', 'lf-btn go', '回到森林'); done.onclick = close; const bs = el('div', 'lf-btns'); bs.style.justifyContent = 'center'; bs.append(again, done); d.appendChild(bs);
     body.appendChild(d); dispatchEvent(new CustomEvent('forest', { detail: { type: 'practice', id, pass, wasDue, right, total: qs.length } })); if (pass && onDone) onDone(id, first, res.up); }; // 練習（不論對錯）都算每日任務；答錯只是沒有這次的熟練度
   show(); }
-export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone, quizOf };
+export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone, quizOf, subjectOf };

@@ -222,7 +222,8 @@ const riverX = z => 13 + 3.2 * Math.sin(z * 0.085) + 1.6 * Math.sin(z * 0.21 + 1
 const BRIDGE_X = riverX(BRIDGE_Z), BRIDGE_L = 2 * (RIVER_W + 1.8);
 const PATH = [[HOUSE.x, HOUSE.z + 2.0], [-6.5, -2.6], [-2.5, -0.6], [FARM.x, 0.4], [6, 1.2], [BRIDGE_X - BRIDGE_L / 2, BRIDGE_Z], [BRIDGE_X + BRIDGE_L / 2, BRIDGE_Z], [22, 3.5], [30, 7]];
 function distSeg(px, pz, ax, az, bx, bz) { const vx = bx - ax, vz = bz - az, t = Math.max(0, Math.min(1, ((px - ax) * vx + (pz - az) * vz) / (vx * vx + vz * vz))); return Math.hypot(px - ax - vx * t, pz - az - vz * t); }
-const SHOP = { x: 3.9, z: -8.6 }; // 道具小舖（往學習森林的路旁）
+const SHOP = { x: 3.9, z: -8.6 };
+const MATH_GATE = { x: 28.4, z: 6.4, yaw: 1.16 }; // 數學森林入口：過橋後小路的盡頭 // 道具小舖（往學習森林的路旁）
 const VILLAGE_R = 33; // 新手村能走的範圍（以 (0,2) 為中心的圓），外面一圈樹籬和大樹
 const FOREST_GATE = { x: 1, z: -13.4 }, PATH2 = [[-2.5, -0.6], [-1.6, -6], [FOREST_GATE.x, FOREST_GATE.z + 0.6]]; // 往北通到學習森林入口的小路
 const pathDist = (x, z) => { let d = 1e9; for (const P of [PATH, PATH2]) for (let i = 0; i < P.length - 1; i++) d = Math.min(d, distSeg(x, z, ...P[i], ...P[i + 1])); return d; };
@@ -324,7 +325,7 @@ Object.assign(grassMat.uniforms, CURVE);
    3. props：樹、小木屋、農田、柵欄、花叢、石頭、蘑菇、路燈、粒子
    ════════════════════════════════════════════════════════════════ */
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), V = new THREE.Vector3(), E = new THREE.Euler(), COL = new THREE.Color();
-const freeSpot = (x, z, pad) => pathDist(x, z) > 1.5 + pad && rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) > 1.2 + pad && rectDist(x, z, HOUSE.x, HOUSE.z, 2.6, 2.4) > 1.6 + pad && Math.abs(x - riverX(z)) > RIVER_W + 1.2 + pad && Math.hypot(x - 0, z - 9) > 2.5 && Math.hypot(x - FOREST_GATE.x, z - FOREST_GATE.z) > 3.6 && Math.hypot(x - SHOP.x, z - SHOP.z) > 3.4 && !colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + pad + 0.4);
+const freeSpot = (x, z, pad) => pathDist(x, z) > 1.5 + pad && rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) > 1.2 + pad && rectDist(x, z, HOUSE.x, HOUSE.z, 2.6, 2.4) > 1.6 + pad && Math.abs(x - riverX(z)) > RIVER_W + 1.2 + pad && Math.hypot(x - 0, z - 9) > 2.5 && Math.hypot(x - FOREST_GATE.x, z - FOREST_GATE.z) > 3.6 && Math.hypot(x - SHOP.x, z - SHOP.z) > 3.4 && Math.hypot(x - MATH_GATE.x, z - MATH_GATE.z) > 3.8 && !colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + pad + 0.4);
 // 樹：積木風。闊葉樹＝幾顆圓角方塊疊成的樹冠，針葉樹＝一層層變小的方塊（每層轉 45 度）；樹幹、樹冠各一組 InstancedMesh。
 // 每個實例有自己的 aFade（擋住相機時淡出），TREES 記著每棵樹在各組裡的編號
 const TREES = [], treeParts = {};
@@ -640,8 +641,9 @@ todEl.addEventListener('input', () => { hour = +todEl.value; todDrag = true; });
 const blocked = (x, z) => Math.hypot(x, z - 2) > VILLAGE_R || (!onBridge(x, z) && terrainHeight(x, z) < -0.2); // 小河與水池不能走（橋上可以）
 // ── 地圖：新手村（田園）＋學習森林（主幹道與七個區域，用到才建）；換地圖用淡入淡出過場，相機重置 ──
 const VILLAGE_MAP = { id: 'village', name: '新手村', group: village, colliders, groundY, blocked, nodes: [], refresh() {}, update() {}, spawn: 'start',
-  spawns: { start: { x: 0, z: 9, yaw: Math.PI }, forest: { x: FOREST_GATE.x, z: FOREST_GATE.z + 2.5, yaw: 0 } },
-  portals: [{ x: FOREST_GATE.x, z: FOREST_GATE.z, r: 1.3, to: 'trunk', spawn: 'south', icon: 'forest', name: '學習森林', locked: () => false, text: () => 'forest|走進拱門就會進入學習森林（國小國語）' }] };
+  spawns: { start: { x: 0, z: 9, yaw: Math.PI }, forest: { x: FOREST_GATE.x, z: FOREST_GATE.z + 2.5, yaw: 0 }, math: { x: MATH_GATE.x - Math.sin(MATH_GATE.yaw) * 2.6, z: MATH_GATE.z - Math.cos(MATH_GATE.yaw) * 2.6, yaw: MATH_GATE.yaw + Math.PI } },
+  portals: [{ x: FOREST_GATE.x, z: FOREST_GATE.z, r: 1.3, to: 'trunk', spawn: 'south', icon: 'forest', name: '學習森林', locked: () => false, text: () => 'forest|走進拱門就會進入學習森林（國小國語）' },
+    { x: MATH_GATE.x, z: MATH_GATE.z, r: 1.3, to: 'mtrunk', spawn: 'south', icon: 'math', name: '數學森林', locked: () => false, text: () => 'math|走進拱門就會進入數學森林（國小數學）' }] };
 const FOREST = createForest({ THREE, G, Gc, Gl, merge, toon, addMesh, addInstanced, setRoot, ROOT: () => ROOT, curveDrop, curvify, GRADIENT, TREE_GEO, CFG,
   player: () => PL, night: () => night, makeChar: createBlockCharacter, talk: text => { talk.t = 3.5; talk.text = text; }, banner: text => banner(text) }); // 小遊戲要用到角色位置、夜晚程度、方塊人工廠、提示
 { const a = FOREST.arch(FOREST_GATE.x, FOREST_GATE.z, terrainHeight(FOREST_GATE.x, FOREST_GATE.z), 0, 0x8fbf6a, '學習森林', 'forest'); a.bars.visible = false; colliders.push({ x: FOREST_GATE.x - 1.3, z: FOREST_GATE.z, r: 0.35 }, { x: FOREST_GATE.x + 1.3, z: FOREST_GATE.z, r: 0.35 }); a.lab.userData.base = a.lab.position.y; VILLAGE_MAP.update = () => { a.lab.position.y = a.lab.userData.base - curveDrop(FOREST_GATE.x, FOREST_GATE.z); }; }
@@ -661,8 +663,10 @@ const shopLab = FOREST.label('道具小舖', { icon: 'coin' });
 VILLAGE_MAP.items = [{ x: SHOP.x - 1.6, z: SHOP.z, r: 1.9, text: () => 'coin|按空白鍵逛道具小舖（用金幣買裝備）', act: () => ADV.open('shop', { shop: true }) }];
 VILLAGE_MAP.icon = 'sprout'; VILLAGE_MAP.mini = { shape: 'circle', cx: 0, cz: 2, R: VILLAGE_R, grass: '#a6dc7a', paths: [{ pts: PATH }, { pts: PATH2 }], river: Array.from({ length: 90 }, (_, i) => [riverX(i - 43), i - 43]), riverW: RIVER_W * 2,
   rects: [{ x: FARM.x, z: FARM.z, hw: FARM_HW - 0.9, hd: FARM_HD - 0.9, col: '#c99a6a' }, { x: HOUSE.x, z: HOUSE.z, hw: 2.1, hd: 1.9, col: '#f2a07b', icon: 'house' }], dots: () => neighbors.map(n => [n.x, n.z]) };
+{ const a = FOREST.arch(MATH_GATE.x, MATH_GATE.z, terrainHeight(MATH_GATE.x, MATH_GATE.z), MATH_GATE.yaw, 0x7cc3e3, '數學森林', 'math'); a.bars.visible = false; const c = Math.cos(MATH_GATE.yaw), sn = Math.sin(MATH_GATE.yaw); colliders.push({ x: MATH_GATE.x - c * 1.3, z: MATH_GATE.z + sn * 1.3, r: 0.35 }, { x: MATH_GATE.x + c * 1.3, z: MATH_GATE.z - sn * 1.3, r: 0.35 });
+  a.lab.userData.base = a.lab.position.y; const up = VILLAGE_MAP.update; VILLAGE_MAP.update = (dt, t) => { up(dt, t); a.lab.position.y = a.lab.userData.base - curveDrop(MATH_GATE.x, MATH_GATE.z); }; } // 數學森林的拱門（藍色）
 const MAPS = { village: VILLAGE_MAP }; let MAP = VILLAGE_MAP, switching = false;
-const mapOf = id => { if (!MAPS[id]) { const m = id === 'trunk' ? FOREST.buildTrunk() : FOREST.buildRegion(id); scene.add(m.group); MAPS[id] = m; } return MAPS[id]; };
+const mapOf = id => { if (!MAPS[id]) { const m = id === 'trunk' ? FOREST.buildTrunk('chinese') : id === 'mtrunk' ? FOREST.buildTrunk('math') : FOREST.buildRegion(id); scene.add(m.group); MAPS[id] = m; } return MAPS[id]; };
 const wait = ms => new Promise(r => setTimeout(r, ms)), fadeEl = document.getElementById('fade'), bannerEl = document.getElementById('banner'), mapNameEl = document.getElementById('mapName'), learnCountEl = document.getElementById('learnCount');
 let bannerT = 0; function banner(text) { bannerEl.innerHTML = withIcon(text, 30); bannerEl.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => bannerEl.classList.remove('on'), 2200); }
 function refreshLearn() { const due = LEARN.NODES.filter(n => LEARN.nodeState(n.id) === 'review').length; learnCountEl.innerHTML = `${ICON.svg('flower', 20)}精通 ${LEARN.NODES.filter(n => LEARN.isLearned(n.id)).length}／${LEARN.NODES.length}${due ? `・${ICON.svg('drop', 18)}${due}` : ''}`; for (const m of Object.values(MAPS)) m.refresh(); }
@@ -688,7 +692,7 @@ const nodeHint = n => { if (PARENT) return parentHint(n); const st = LEARN.nodeS
   if (st === 'open') return n.guardian ? `st-guardian|按空白鍵挑戰${n.name}（綜合 ${LEARN.passOf(n.id).total} 題，通過打開下一張地圖）` : `st-available|按空白鍵挑戰「${n.name}」`;
   return n.guardian ? `st-guardian|已征服${R.name} ${LEARN.stars(lv)}，按空白鍵再挑戰` : `st-mastered|已精通「${n.name}」${LEARN.stars(lv)}，按空白鍵練習（${LEARN.nextReview(n.id).getMonth() + 1}/${LEARN.nextReview(n.id).getDate()} 要澆水）`; };
 await Promise.all([LEARN.loadData(), GAMES.loadGames(), ADV.load()]); refreshLearn();
-ADV.init({ THREE, G, Gc, addMesh, toon, curvify, GRADIENT, curveDrop, PL, label: (t, o) => FOREST.label(t, o), hero: () => hero, getMap: () => MAP, banner: t => banner(t), mapName: id => id === 'trunk' ? '森林主幹道' : LEARN.regionById(id)?.name || id,
+ADV.init({ THREE, G, Gc, addMesh, toon, curvify, GRADIENT, curveDrop, PL, label: (t, o) => FOREST.label(t, o), hero: () => hero, getMap: () => MAP, banner: t => banner(t), mapName: id => id === 'trunk' ? '森林主幹道' : id === 'mtrunk' ? '數學主幹道' : LEARN.regionById(id)?.name || id,
   faint: () => { banner('heart|累倒了⋯⋯回到入口休息一下，愛心補滿了'); gotoMap(MAP.id, MAP.spawn); } }); ADV.mountHUD(document.getElementById('advHud')); // 冒險：怪物、愛心、金幣、裝備 // 先載入知識圖譜（data/graph.json）與辭典資料
 // ── 獎勵：外觀（衣服、帽子）、頭上的稱號、跟隨的字精靈、院子家具、鄰居新故事、解鎖通知（森林本身變茂盛在 forest/map.js）──
 const notifyQ = []; let notifyT = 0; // 解鎖通知一個一個顯示
@@ -777,7 +781,7 @@ function openMap() { if (LEARN.isOpen() || switching) return; const m = LEARN.mo
   cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(), [x, z] = P.from(e.clientX - r.left, e.clientY - r.top); if (MAP.blocked(x, z)) return; LEARN.close(); PL.goal = { x, z, t: 0, best: Math.hypot(x - PL.x, z - PL.z) }; goalMark.userData.t = 0; });
   const legend = document.createElement('p'); legend.className = 'mp-note'; legend.innerHTML = `${ICON.svg('st-available', 18)}可以挑戰　${ICON.svg('st-mastered', 18)}已精通　${ICON.svg('st-review', 18)}需要澆水　${ICON.svg('st-locked', 18)}還沒打開　<span style="color:#F5B731">◆</span> 小遊戲　<span style="color:#F28CA0">▲</span> 你在這裡`; wrap.appendChild(legend);
   const h = document.createElement('div'); h.innerHTML = `<b style="display:flex;align-items:center;gap:6px">${ICON.svg('enter', 22)}快速前往</b>`; wrap.appendChild(h); const go = document.createElement('div'); go.className = 'mp-go'; wrap.appendChild(go);
-  const dests = [['village', '新手村', 'sprout', true], ['trunk', '森林主幹道', 'forest', true], ...LEARN.REGIONS.map(R => [R.id, R.name, R.img, LEARN.regionOpen(R.id)])];
+  const dests = [['village', '新手村', 'sprout', true], ['trunk', '森林主幹道（國語）', 'forest', true], ...LEARN.REGIONS.filter(R => LEARN.subjectOf(R.id) === 'chinese').map(R => [R.id, R.name, R.img, LEARN.regionOpen(R.id)]), ['mtrunk', '數學主幹道', 'math', true], ...LEARN.REGIONS.filter(R => LEARN.subjectOf(R.id) === 'math').map(R => [R.id, R.name, R.img, LEARN.regionOpen(R.id)])];
   for (const [id, name, icon, open] of dests) { const b = document.createElement('button'); b.innerHTML = ICON.svg(open ? icon : 'st-locked', 26) + escHTML(name); b.disabled = !open || MAP.id === id; if (MAP.id === id) b.className = 'here'; b.onclick = () => { LEARN.close(); gotoMap(id); }; go.appendChild(b); } }
 miniBtn.addEventListener('click', openMap); addEventListener('keydown', e => { if (/INPUT|TEXTAREA/.test(e.target.tagName) || LEARN.isOpen()) return; const k = e.key.toLowerCase(); if (k === 'm') openMap(); else if (k === 'g' && MAP !== VILLAGE_MAP) ADV.toggleMode(); });
 const clock = new THREE.Clock(); let time = 0, hintSig = '', fogLush = 1, clockKey = ''; const MIST = new THREE.Color(0xd9d2e6);

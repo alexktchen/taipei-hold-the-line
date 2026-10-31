@@ -64,7 +64,7 @@ export function report() { style(); const m = modal({ title: '學習報告', sub
   h += `<div class="pv-h">${ic('st-review', 26)} 待複習（${due.length}）</div><div class="pv-list">${due.length ? due.map(x => nodeRow(x.n.id, true)).join('') : '<div class="pv-empty">目前沒有需要複習的知識點。</div>'}</div>`;
   h += `<div class="pv-h">${ic('chart', 26)} 需要加強（作答 3 題以上、正確率低於 60%）</div><div class="pv-list">${weak.length ? weak.map(x => nodeRow(x.n.id, true)).join('') : '<div class="pv-empty">沒有正確率偏低的知識點。</div>'}</div>`;
   h += `<div class="pv-h">${ic('forest', 26)} 各區域</div>`;
-  for (const R of REGIONS) { const S = regionStats(R.id), ns = NODES.filter(n => n.region === R.id);
+  let lastSub = null; for (const R of REGIONS) { const S = regionStats(R.id), ns = NODES.filter(n => n.region === R.id), sub = R.subject || 'chinese'; if (sub !== lastSub) { lastSub = sub; h += `<div class="pv-h" style="font-size:14px;color:#8a7a92">${ic(sub === 'math' ? 'math' : 'forest', 22)} ${sub === 'math' ? '數學森林' : '國語森林'}</div>`; }
     h += `<details class="pv-reg"${S.a || S.due ? ' open' : ''}><summary>${ic(R.img, 36)}<div style="min-width:0"><b>${esc(R.name)}</b><small>${esc(R.grades || '')}・學會 ${S.mastered}／${S.total}${S.due ? `・待複習 ${S.due}` : ''}</small>${bar(S.rate)}</div><div class="rt" style="font-weight:900">${pct(S.rate)}</div></summary>
       <div class="pv-list">${ns.map(n => nodeRow(n.id)).join('')}</div></details>`; }
   h += `<p class="pv-note">正確率只計算這台裝置上的作答（學習石碑的練習題與各區小遊戲）。答錯只會讓那一次少拿獎勵，學會的知識點不會倒退。<br>圓點是最近 10 題（綠＝答對、粉紅＝答錯，左舊右新）。在地圖上也可以看到同樣的顏色：每個知識點腳下的圓圈就是它的正確率。</p>`;
