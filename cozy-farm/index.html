@@ -46,8 +46,8 @@
   <div class="row"><span class="chip" id="mapName">📍 新手村</span><span class="chip" id="learnCount">🌸 精通 0</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
   <label>現在時刻 <input type="range" id="tod" min="0" max="24" step="0.05" value="9" aria-label="一天中的時刻"></label>
-  <div class="keys">WASD 走路・空白鍵 澆水／收成／聊天・F 揮手・1～3 表情<br>Q／E 轉鏡頭・右鍵拖曳旋轉與俯仰・滾輪縮放・R 重置鏡頭</div>
-  <div class="tkeys">左邊拖曳走路・雙指左右滑轉鏡頭、上下滑調俯角、捏合縮放</div>
+  <div class="keys">WASD 或點地面走路・空白鍵 澆水／收成／聊天・F 揮手・1～3 表情<br>Q／E 轉鏡頭・右鍵拖曳旋轉與俯仰・滾輪縮放・R 重置鏡頭</div>
+  <div class="tkeys">點地面或左邊拖曳走路・雙指左右滑轉鏡頭、上下滑調俯角、捏合縮放</div>
 </section>
 <div id="hint"></div>
 <div id="fade" aria-hidden="true"></div>
@@ -528,20 +528,22 @@ addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (/INPUT|TEX
   if (k.startsWith('arrow') || k === ' ') e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase())); addEventListener('blur', () => keys.clear());
 if (MOBILE) document.body.classList.add('touch');
-{ const cv = renderer.domElement, joy = document.getElementById('joy'), knob = joy.firstElementChild, R = 50; let id = null, ox = 0, oy = 0, drag = null, gest = null; const touches = new Map();
+{ const cv = renderer.domElement, joy = document.getElementById('joy'), knob = joy.firstElementChild, R = 50; let id = null, ox = 0, oy = 0, drag = null, gest = null; const touches = new Map(), taps = new Map(); // taps：按下的位置與時間，放開時判斷是不是「點一下」
   const endJoy = () => { id = null; joyVec.set(0, 0); joy.style.display = 'none'; };
   const two = () => { const [a, b] = [...touches.values()]; return { mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
   cv.addEventListener('pointerdown', e => {
+    if (e.button === 0 || e.pointerType !== 'mouse') taps.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), multi: touches.size >= 1 && e.pointerType !== 'mouse' });
     if (e.pointerType === 'mouse') { if (e.button === 2) { drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); } return; } // 桌機：右鍵拖曳轉鏡頭
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (touches.size >= 2) { if (id !== null) endJoy(); gest = two(); return; } // 手機：第二根手指放下＝雙指手勢（搖桿放掉）
+    if (touches.size >= 2) { if (id !== null) endJoy(); gest = two(); taps.forEach(t => { t.multi = true; }); return; } // 手機：第二根手指放下＝雙指手勢（搖桿放掉）
     if (id !== null || e.clientX > innerWidth * 0.6) return; id = e.pointerId; ox = e.clientX; oy = e.clientY; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.style.display = 'block'; knob.style.transform = ''; });
   addEventListener('pointermove', e => {
     if (drag && e.pointerType === 'mouse') { CAM.tYaw -= (e.clientX - drag.x) * 0.006; CAM.tPitch = clampPitch(CAM.tPitch + (e.clientY - drag.y) * 0.004); drag.x = e.clientX; drag.y = e.clientY; return; }
     if (touches.has(e.pointerId)) { touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (gest && touches.size >= 2) { const g = two(); CAM.tYaw -= (g.mx - gest.mx) * 0.008; CAM.tPitch = clampPitch(CAM.tPitch + (g.my - gest.my) * 0.005); if (g.d > 20 && gest.d > 20) CAM.tDist = clampDist(CAM.tDist * gest.d / g.d); gest = g; return; } } // 左右滑＝旋轉、上下滑＝俯仰、捏合＝縮放
     if (e.pointerId !== id) return; let dx = e.clientX - ox, dy = e.clientY - oy; const L = Math.hypot(dx, dy); if (L > R) { dx *= R / L; dy *= R / L; } knob.style.transform = `translate(${dx}px,${dy}px)`; joyVec.set(dx / R, dy / R); });
-  const end = e => { if (e.pointerType === 'mouse') { drag = null; return; } touches.delete(e.pointerId); if (touches.size < 2) gest = null; if (e.pointerId === id) endJoy(); };
+  const end = e => { const tp = taps.get(e.pointerId); taps.delete(e.pointerId); if (tp && !tp.multi && e.type === 'pointerup' && performance.now() - tp.t < 350 && Math.hypot(e.clientX - tp.x, e.clientY - tp.y) < 12) clickMove(e.clientX, e.clientY); // 點一下地面＝走過去
+    if (e.pointerType === 'mouse') { drag = null; return; } touches.delete(e.pointerId); if (touches.size < 2) gest = null; if (e.pointerId === id) endJoy(); };
   addEventListener('pointerup', end); addEventListener('pointercancel', end);
   cv.addEventListener('contextmenu', e => e.preventDefault());
   cv.addEventListener('wheel', e => { e.preventDefault(); CAM.tDist = clampDist(CAM.tDist * (1 + Math.sign(e.deltaY) * 0.1)); }, { passive: false }); // 滾輪縮放
@@ -631,6 +633,16 @@ function updateOcclusion(dt) { const k = Math.min(1, dt * 8), FADED = 0.25, gy =
   const H = HOUSE_FADE, dy = curveDrop(HOUSE.x, HOUSE.z); occBox.copy(H.box); occBox.min.y -= dy; occBox.max.y -= dy; const want = blocksView(occBox) ? FADED : 1;
   if (Math.abs(H.fade - want) > 0.003) { H.fade += (want - H.fade) * k; for (const m of H.mats) m.opacity = H.fade; } }
 resetCamera(true); updateCamera(1);
+// 點地面走過去：從相機打一條射線，沿著射線往前找它碰到「彎過的地面」的那一點（地平線彎曲會讓遠處往下沉，所以要用彎過的高度比）
+const pickRay = new THREE.Raycaster(), ndc = new THREE.Vector2(), surf = (x, z) => MAP.groundY(x, z) - curveDrop(x, z);
+function groundPick(sx, sy) { const rc = renderer.domElement.getBoundingClientRect(); ndc.set((sx - rc.left) / rc.width * 2 - 1, -((sy - rc.top) / rc.height) * 2 + 1); pickRay.setFromCamera(ndc, camera); const o = pickRay.ray.origin, d = pickRay.ray.direction, at = t => [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t];
+  let prev = 0; for (let t = 0.5; t < 90; t += 0.3) { const [x, y, z] = at(t); if (y <= surf(x, z)) { let a = prev, b = t; for (let k = 0; k < 14; k++) { const m = (a + b) / 2, [X, Y, Z] = at(m); if (Y <= surf(X, Z)) b = m; else a = m; } const [X, , Z] = at(b); return { x: X, z: Z }; } prev = t; } return null; }
+const goalMark = new THREE.Mesh(new THREE.RingGeometry(0.26, 0.4, 32).rotateX(-Math.PI / 2), curvify(new THREE.MeshBasicMaterial({ color: 0xf09a8a, transparent: true, opacity: 0.85, depthWrite: false, depthTest: false }))); // 不被田、草擋住
+goalMark.frustumCulled = false; goalMark.visible = false; goalMark.renderOrder = 2; scene.add(goalMark);
+function clickMove(sx, sy) { if (LEARN.isOpen() || switching) return; const p = groundPick(sx, sy); if (!p || Math.hypot(p.x - PL.x, p.z - PL.z) < 0.3) return; PL.goal = { x: p.x, z: p.z, t: 0, best: Math.hypot(p.x - PL.x, p.z - PL.z) }; goalMark.userData.t = 0; }
+function goalDir(dt) { const g = PL.goal, dx = g.x - PL.x, dz = g.z - PL.z, d = Math.hypot(dx, dz); if (d < 0.22) { PL.goal = null; return [0, 0]; }
+  g.t += dt; if (g.t > 0.6) { if (g.best - d < 0.15) { PL.goal = null; return [0, 0]; } g.best = d; g.t = 0; } // 0.6 秒沒前進（被河、樹、房子擋住）就停下來
+  const k = Math.min(1, d / 0.8); return [dx / d * k, dz / d * k]; }
 const clock = new THREE.Clock(); let time = 0, hintSig = '';
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.05); time += dt;
@@ -640,7 +652,9 @@ function loop() {
   if (LEARN.isOpen() || switching) { keys.clear(); joyVec.set(0, 0); actPressed = false; } // 學習畫面開著、換地圖途中不能走
   const inVillage = MAP === VILLAGE_MAP, groundAt = MAP.groundY, blockedAt = MAP.blocked;
   // 移動：分 x、z 兩軸各試一次，撞到河邊可以沿著滑
-  const [jx, jz] = inputDir(), cyw = Math.cos(CAM.yaw), syw = Math.sin(CAM.yaw), ix = jx * cyw + jz * syw, iz = -jx * syw + jz * cyw, moving = ix !== 0 || iz !== 0; /* 以相機朝向為準：W 永遠往畫面上方 */ const tvx = ix * PL.speed, tvz = iz * PL.speed; PL.vx += (tvx - PL.vx) * Math.min(1, dt * 12); PL.vz += (tvz - PL.vz) * Math.min(1, dt * 12);
+  const [jx, jz] = inputDir(), cyw = Math.cos(CAM.yaw), syw = Math.sin(CAM.yaw); let ix = jx * cyw + jz * syw, iz = -jx * syw + jz * cyw; /* 以相機朝向為準：W 永遠往畫面上方 */
+  if (ix || iz || switching || LEARN.isOpen()) PL.goal = null; else if (PL.goal) [ix, iz] = goalDir(dt); // 用點的：朝目的地走，鍵盤或搖桿一動就取消
+  const moving = ix !== 0 || iz !== 0; const tvx = ix * PL.speed, tvz = iz * PL.speed; PL.vx += (tvx - PL.vx) * Math.min(1, dt * 12); PL.vz += (tvz - PL.vz) * Math.min(1, dt * 12);
   const nx = PL.x + PL.vx * dt, nz = PL.z + PL.vz * dt; if (!blockedAt(nx, PL.z)) PL.x = nx; if (!blockedAt(PL.x, nz)) PL.z = nz; resolveColliders(PL);
   if (inVillage) for (const n of neighbors) { const dx = PL.x - n.x, dz = PL.z - n.z, d = Math.hypot(dx, dz), rr = NB_R + PLAYER_R; if (d < rr && d > 1e-4 && !blocked(n.x + dx / d * rr, n.z + dz / d * rr)) { PL.x = n.x + dx / d * rr; PL.z = n.z + dz / d * rr; } } // 鄰居也擋路
   if (moving) { const target = Math.atan2(ix, iz); let d = target - PL.yaw; d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; PL.yaw += d * Math.min(1, dt * 10); } // 轉身：走最短的角度、平滑插值
@@ -661,6 +675,7 @@ function loop() {
   for (let k = drops.length - 1; k >= 0; k--) if (drops[k].y <= 0.1) drops.splice(k, 1); dropI.count = nd; dropI.instanceMatrix.needsUpdate = true;
   // 相機：固定 45 度俯視，平滑跟隨；地平線彎曲以相機看的那一點為中心
   camTarget.lerp(V.set(PL.x, groundAt(PL.x, PL.z), PL.z), 1 - Math.exp(-dt * 5)); updateCamera(dt); if (inVillage) updateOcclusion(dt);
+  goalMark.visible = !!PL.goal; if (PL.goal) { goalMark.userData.t += dt; goalMark.position.set(PL.goal.x, groundAt(PL.goal.x, PL.goal.z) + 0.04, PL.goal.z); goalMark.scale.setScalar(Math.min(1, goalMark.userData.t * 6) * (1 + Math.sin(time * 6) * 0.08)); } // 目的地的小圓圈
   // 陰影只算角色附近：太陽跟著角色移動
   sun.position.copy(camTarget).addScaledVector(sunDir, 30); sun.target.position.copy(camTarget);
   // 草、水、螢火蟲的時間；花瓣；煙
