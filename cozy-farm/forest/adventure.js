@@ -188,6 +188,8 @@ const CSS = `
 .adv-slot{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.adv-slot div{flex:1;min-width:120px;background:#fff7ef;border-radius:14px;padding:8px;display:flex;align-items:center;gap:8px;font-weight:900}.adv-slot small{display:block;color:#8a7a92;font-size:11px}
 .adv-top{display:flex;align-items:center;gap:8px;font-weight:900;margin-bottom:10px;flex-wrap:wrap}.adv-top .c{display:flex;align-items:center;gap:4px;background:#fff6d8;border-radius:999px;padding:3px 12px 3px 4px}
 .adv-h3{font-weight:900;margin:12px 0 6px;font-size:15px}
+@media (max-width:560px){.lf-ov{padding-left:10px!important;padding-right:10px!important}.adv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.adv-card{padding:8px;border-radius:12px}.adv-card .ic{width:36px;height:36px}.adv-card b{font-size:14px}.adv-card small{font-size:11px}
+.adv-top{gap:4px;font-size:12px;margin-bottom:8px}.adv-top .c{padding:2px 8px 2px 3px}.adv-top .c .ic{width:18px;height:18px}.adv-slot{gap:6px;margin-bottom:8px}.adv-slot div{min-width:calc(50% - 3px);padding:6px;font-size:13px;gap:6px}.adv-slot .ic{width:30px;height:30px}.adv-h3{margin:8px 0 4px;font-size:14px}.lf-tabs{padding:8px 12px 0}.lf-tabs button{padding:6px 12px}}
 .adv-bar{height:7px;border-radius:4px;background:#efe9f2;overflow:hidden;width:100%}.adv-bar i{display:block;height:100%;background:#8CC77E}
 `;
 let styled = false;
