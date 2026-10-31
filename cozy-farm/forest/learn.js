@@ -169,12 +169,12 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
         const why = el('div', 'lf-why', `${ok ? '答對了！🎉' : `答案是「${esc(q.choices[q.a])}」`}${q.after ? '　剛剛念的是：' + esc(q.after) : ''}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
         if (q.say && !q.listen) speak(q.say, q.slow ? SLOW : 0.75);
         const nx = el('button', 'lf-btn go', i + 1 < qs.length ? '下一題 →' : '看結果'); nx.style.marginTop = '10px'; nx.onclick = () => { i++; show(); }; body.appendChild(nx); nx.focus(); }; ch.appendChild(b); }); };
-  const finish = () => { const pass = right >= PASS.need, res = pass ? record(id, right, qs.length) : null, first = res && res.first, g = nodeById(id).guardian;
+  const finish = () => { const wasDue = isDue(id), pass = right >= PASS.need, res = pass ? record(id, right, qs.length) : null, first = res && res.first, g = nodeById(id).guardian;
     const nx = pass && nextReview(id), when = nx ? `${nx.getMonth() + 1}/${nx.getDate()}` : '';
     const d = el('div', 'lf-done', `<div class="em">${pass ? (g ? '👑' : '🌸') : '💪'}</div><h3>${pass ? (first ? (g ? '征服了這個區域！' : '精通了！') : res.up ? '熟練度提升！' : '複習完成！') : '再試一次！'}</h3>${pass ? `<p style="font-size:30px;color:#f2b84a;margin:4px 0">${stars(res.level)}</p>` : ''}<p>答對 ${right}／${qs.length} 題${pass ? `。${when} 以後記得回來澆水（複習）` : `，要答對 ${PASS.need} 題才算通過喔`}</p>`);
     if (first && g) { const opened = REGIONS.filter(R => (R.requires || []).includes(nodeById(id).region) && regionOpen(R.id)); if (opened.length) d.appendChild(el('p', null, `🗺️ 新地圖打開了：${opened.map(R => esc(R.name)).join('、')}`)); }
     if (first) { const nexts = NODES.filter(n => n.pre.includes(id) && nodeState(n.id) === 'open'); d.appendChild(el('p', null, nexts.length ? `🪨 石板路打通了：${nexts.map(n => `${esc(regionById(n.region).name)}「${esc(n.name)}」`).join('、')}` : '')); }
     const again = el('button', 'lf-btn alt', '再練一次'); again.onclick = () => renderQuiz(body, id); const done = el('button', 'lf-btn go', '回到森林'); done.onclick = close; const bs = el('div', 'lf-btns'); bs.style.justifyContent = 'center'; bs.append(again, done); d.appendChild(bs);
-    body.appendChild(d); if (pass && onDone) onDone(id, first, res.up); };
+    body.appendChild(d); dispatchEvent(new CustomEvent('forest', { detail: { type: 'practice', id, pass, wasDue } })); if (pass && onDone) onDone(id, first, res.up); }; // 練習（不論對錯）都算每日任務；答錯只是沒有這次的熟練度
   show(); }
 export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone, quizOf };

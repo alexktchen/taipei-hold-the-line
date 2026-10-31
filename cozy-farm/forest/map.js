@@ -60,6 +60,14 @@ export function createForest(ctx) {
     tower: { grass: [0xa9d09a, 0xbad6a6], leaf: [0x8fd36f], pine: [0x5fae84, 0x6fbf8f, 0x4f9e7a], props: ['books', 'books', 'rock'], slope: 0.07, trees: 80, pineK: 0.7 },
   };
 
+  // ── 森林變茂盛：一片野花，學得越多開得越多（還沒開的花縮成 0，開的時候一朵朵長出來）──
+  function bloomField(pts, palette) { const n = Math.max(1, pts.length), petal = addInstanced(merge([0, 1, 2, 3].map(k => Gc(0.16, 0.05, 0.16, 0.03, Math.cos(k * Math.PI / 2) * 0.1, 0.3, Math.sin(k * Math.PI / 2) * 0.1))), toon(0xffffff), n, { outline: false, cast: false });
+    const core = addInstanced(merge([Gc(0.03, 0.3, 0.03, 0.01, 0, 0.15, 0), Gc(0.09, 0.08, 0.09, 0.03, 0, 0.32, 0), Gc(0.16, 0.04, 0.08, 0.02, 0.07, 0.12, 0, 0.5)]), toon(0x7cc76a), n, { outline: false, cast: false });
+    pts.forEach((p, i) => petal.im.setColorAt(i, COL.setHex(palette[i % palette.length]))); const k = new Float32Array(n), M = new THREE.Matrix4(); let want = 0, dirty = true;
+    const write = () => { pts.forEach((p, i) => { M.compose(V.set(p.x, p.y, p.z), Q.setFromEuler(E.set(0, p.r, 0)), S.setScalar(p.s * k[i] + 1e-4)); petal.im.setMatrixAt(i, M); core.im.setMatrixAt(i, M); }); petal.im.instanceMatrix.needsUpdate = core.im.instanceMatrix.needsUpdate = true; };
+    write(); return { set(ratio) { want = Math.round(pts.length * Math.min(1, Math.max(0, ratio))); dirty = true; }, now: () => want / Math.max(1, pts.length),
+      update(dt) { if (!dirty) return; let moving = false; for (let i = 0; i < pts.length; i++) { const t = i < want ? 1 : 0; if (k[i] !== t) { k[i] = t > k[i] ? Math.min(t, k[i] + dt * (1.2 + (i % 7) * 0.15)) : Math.max(t, k[i] - dt * 2); moving = true; } } if (moving) write(); else dirty = false; } }; }
+
   // ── 區域地圖 ──
   function buildRegion(rid) {
     const R = regionById(rid), T = THEMES[R.theme], r = rng(rid.length * 7919 + rid.charCodeAt(0)), group = new THREE.Group(); setRoot(group);
@@ -167,7 +175,7 @@ export function createForest(ctx) {
         for (const c of chiefs) { const d = Math.hypot(c.x - P.x, c.z - P.z); if (d > 2.2) continue;
           out.push({ d, text: () => carry ? `🏳️ 按空白鍵把「${carry.c}」交給${c.name}的族長` : `${c.variant} ${c.name}族長：「我們部落的字都有『${c.variant}』。已經找回 ${c.members.length} 個字！」`,
             act: () => { if (!carry) return; const l = carry; if (D.ch(l.c).r === c.rad) { carry = null; l.done = true; c.members.push(l.c); const a = c.members.length * 0.9; l.x = c.x + Math.cos(a) * 1.3; l.z = c.z + Math.sin(a) * 1.3 + 0.8; speak(`${l.c}，${c.name}`, 0.75); ctx.banner(`🎉「${l.c}」回到${c.name}了！`);
-                if (lost.every(x => x.done)) { const res = recordPass(T2.node, 5, 5); GAMES.gameState().tribes++; ctx.talk(`🏆 迷路的字都回家了！${res ? '也算「部首」的練習。' : ''}又有新的字迷路了⋯⋯`); lost.forEach(x => setTimeout(() => { group.remove(x.sp); }, 1500)); setTimeout(() => { lost.length = 0; spawn(); }, 1600); } }
+                if (lost.every(x => x.done)) { const res = recordPass(T2.node, 5, 5); GAMES.gameState().tribes++; dispatchEvent(new CustomEvent('forest', { detail: { type: 'game', name: 'tribes' } })); ctx.talk(`🏆 迷路的字都回家了！${res ? '也算「部首」的練習。' : ''}又有新的字迷路了⋯⋯`); lost.forEach(x => setTimeout(() => { group.remove(x.sp); }, 1500)); setTimeout(() => { lost.length = 0; spawn(); }, 1600); } }
               else ctx.talk(`${c.name}族長：「嗯⋯⋯「${l.c}」不是我們部落的字喔。看看它的部首是什麼？」`); } }); }
         return out; } });
     }
@@ -214,6 +222,9 @@ export function createForest(ctx) {
     }
     const tl = []; for (let k = 0; k < T.trees * 30 && tl.length < T.trees; k++) { const edge = k % 3 === 0, a = r() * Math.PI * 2, d = edge ? RAD + 0.5 + r() * 9 : 4 + r() * 21, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!edge && !free(x, z, 0.3)) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < T.pineK ? 'pine' : 'broad' }); if (d < RAD + 1) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, T.leaf, T.pine);
+    const bpts = []; for (let k = 0; k < 2400 && bpts.length < 170; k++) { const a = r() * Math.PI * 2, d = 3 + Math.sqrt(r()) * 21, x = Math.cos(a) * d, z = Math.sin(a) * d; if (pathD(x, z) < 0.9 || (river && inRiver(x, z)) || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.3) || Object.values(pos).some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.6)) continue; bpts.push({ x, y: H(x, z), z, r: r() * 6.28, s: 0.8 + r() * 0.6 }); }
+    const bloom = bloomField(bpts, [ACCENT, 0xffffff, 0xfff3a8, 0xffb3c7, 0xd8c2ff]);
+    const lushNow = () => { const [have, all] = regionCount(rid); return (have + (levelOf('guard-' + rid) > 0 ? 1 : 0)) / (all + 1); }; // 這一區的茂盛程度（守護者也算一份）
     setRoot(null);
     // ── 依學習進度更新（熟練度與上次練習時間在 learn.js / localStorage）──
     const BG = { mastered: '#dff7e6', review: '#fdecc8', open: '#fff3c4', locked: '#efe9f2' };
@@ -225,7 +236,7 @@ export function createForest(ctx) {
         n.sign.visible = s === 'open';
         if (s === 'locked') { n.fog.visible = true; n.fogK = 1; } else if (was === 'locked') { revealFrom.set(n.id, revealT); } else if (was === null) { n.fog.visible = false; n.fogK = 0; } // 剛打通：霧氣散開、石板一塊塊冒出來
         const bloom = s === 'mastered' ? 1 : 0; if (was === null) n.bloomK = bloom; n.bloomTo = bloom; }
-      layoutStones(); }
+      layoutStones(); bloom.set(lushNow()); }
     function layoutStones() { stones.forEach((s, i) => { const nd = nodes.find(n => n.id === s.to); const vis = nd.state !== 'locked'; const t0 = revealFrom.get(s.to); let k = vis ? 1 : 0; if (vis && t0 != null) k = smooth(0, 0.35, revealT - t0 - 0.4 - s.k * 1.4); M4.compose(V.set(s.x, s.y, s.z), Q.setFromEuler(E.set(0, s.rot, 0)), S.setScalar(s.s * k + 1e-4)); st.im.setMatrixAt(i, M4); }); st.im.instanceMatrix.needsUpdate = true; }
     function update(dt, time) { revealT += dt; if (revealFrom.size) { layoutStones(); for (const [id, t0] of revealFrom) if (revealT - t0 > 2.4) revealFrom.delete(id); }
       for (const n of nodes) {
@@ -237,11 +248,11 @@ export function createForest(ctx) {
         if (n.sign.visible) { n.sign.position.y = 0.08 + Math.sin(time * 2.4 + n.z) * 0.08; n.signMat.emissiveIntensity = 0.45 + Math.sin(time * 4 + n.x) * 0.25; } // 可挑戰：路標發光、上下浮動
         n.starG.rotation.y = time * 0.8; n.starG.position.y = 2.75 + Math.sin(time * 1.6 + n.x) * 0.06;
         n.lab.position.y = n.lab.userData.base - curveDrop(n.x, n.z) + Math.sin(time * 1.2 + n.z) * 0.04; }
-      title.position.y = title.userData.base - curveDrop(0, 15); for (const f of fx) f(dt, time); }
+      title.position.y = title.userData.base - curveDrop(0, 15); for (const f of fx) f(dt, time); bloom.update(dt); }
     const spawns = { entry: { x: ENTRY[0], z: ENTRY[1] - 0.5, yaw: Math.PI } };
     const portals = [{ x: ENTRY[0], z: ENTRY[1] + 1.4, r: 1.7, to: 'trunk', spawn: 'from-' + rid, text: () => '🚪 按空白鍵回到森林主幹道', locked: () => false }];
     refresh(); group.visible = false;
-    return { id: rid, name: R.name, group, colliders, groundY, blocked, spawns, portals, nodes, items, refresh, update, spawn: 'entry' };
+    return { id: rid, name: R.name, group, colliders, groundY, blocked, spawns, portals, nodes, items, refresh, update, lush: lushNow, spawn: 'entry' };
   }
 
   // ── 森林主幹道：南邊接新手村，往北爬坡；兩旁是各區域的入口 ──
@@ -264,16 +275,19 @@ export function createForest(ctx) {
     const title = label('🌳 學習森林・識字與詞語主幹道', { bg: '#f09a8a', fg: '#fff', h: 0.85 }); title.userData.base = H(0, 27) + 3.4; title.position.set(0, title.userData.base, 27); group.add(title);
     const tl = []; for (let k = 0; k < 6000 && tl.length < 170; k++) { const x = (r() - 0.5) * 60, z = 36 - r() * 74; if (roadD(x, z) < 1.6 || gates.some(g => Math.hypot(x - g.x - g.side * 1.2, z - g.z) < 3.4) || Math.hypot(x - roadX(32), z - 32.5) < 3) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < 0.45 ? 'pine' : 'broad' }); if (Math.abs(x) < 13) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, [0x8fd36f, 0x7cc76a, 0xa8de7e], [0x5fae84, 0x4f9e7a, 0x6fbf8f]);
+    const bpts = []; for (let k = 0; k < 3000 && bpts.length < 220; k++) { const x = (r() - 0.5) * 24, z = 33 - r() * 66; if (roadD(x, z) < 0.6 || Math.abs(x) > 12 || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.3)) continue; bpts.push({ x, y: H(x, z), z, r: r() * 6.28, s: 0.8 + r() * 0.6 }); }
+    const bloom = bloomField(bpts, [0xffb3c7, 0xfff3a8, 0xffffff, 0xd8c2ff, 0xffc9a0, 0x8fd3f0]);
+    const lushNow = () => { const ns = NODES.filter(n => !n.guardian); return ns.filter(n => levelOf(n.id) > 0).length / ns.length; }; // 主幹道：整座森林學會了多少
     setRoot(null);
     const groundY = H, blocked = (x, z) => Math.abs(x) > 12.5 || z > 33.5 || z < -34;
     function refresh() { for (const g of gateObjs) { const open = regionOpen(g.R.id); const [have, all] = regionCount(g.R.id); const conquered = levelOf('guard-' + g.R.id) > 0; const txt = !open ? `先征服：${regionNeeds(g.R.id).map(n => n.name).join('、')}` : conquered ? `已征服・${have}／${all}` : `${have}／${all} 已學會`;
-        if (g.txt !== txt) { g.txt = txt; setLabel(g.info, txt, !open ? { bg: '#efe9f2', fg: '#8a7a92', h: 0.42, icon: STATE_ICON.locked } : { bg: conquered ? '#dff7e6' : '#fffaf3', h: 0.42, icon: conquered ? STATE_ICON.guardian : STATE_ICON.open }); } g.a.bars.visible = !open; g.open = open; } }
-    function update(dt, time) { for (const g of gateObjs) g.info.position.y = g.info.userData.base - curveDrop(g.x, g.z); title.position.y = title.userData.base - curveDrop(0, 27); }
+        bloom.set(lushNow()); if (g.txt !== txt) { g.txt = txt; setLabel(g.info, txt, !open ? { bg: '#efe9f2', fg: '#8a7a92', h: 0.42, icon: STATE_ICON.locked } : { bg: conquered ? '#dff7e6' : '#fffaf3', h: 0.42, icon: conquered ? STATE_ICON.guardian : STATE_ICON.open }); } g.a.bars.visible = !open; g.open = open; } }
+    function update(dt, time) { bloom.update(dt); for (const g of gateObjs) g.info.position.y = g.info.userData.base - curveDrop(g.x, g.z); title.position.y = title.userData.base - curveDrop(0, 27); }
     const spawns = { south: { x: roadX(30), z: 30, yaw: Math.PI } }; for (const g of gateObjs) spawns['from-' + g.R.id] = { x: g.x - g.side * 0.8, z: g.z, yaw: g.side > 0 ? -Math.PI / 2 : Math.PI / 2 };
     const portals = [{ x: roadX(32), z: 31.8, r: 1.7, to: 'village', spawn: 'forest', text: () => '🚪 按空白鍵回到新手村', locked: () => false },
       ...gateObjs.map(g => ({ x: g.x + g.side * 0.6, z: g.z, r: 1.6, to: g.R.id, spawn: 'entry', locked: () => !regionOpen(g.R.id), text: () => regionOpen(g.R.id) ? `🚪 按空白鍵進入${g.R.name}（${g.R.grades}）` : `🔒 ${g.R.name}還沒打開：先通過${regionNeeds(g.R.id).map(n => `「${n.name}」`).join('、')}的挑戰` }))];
     refresh(); group.visible = false;
-    return { id: 'trunk', name: '森林主幹道', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, spawn: 'south' };
+    return { id: 'trunk', name: '森林主幹道', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, lush: lushNow, spawn: 'south' };
   }
   return { buildRegion, buildTrunk, label, arch };
 }

@@ -15,6 +15,7 @@
   .panel { position:fixed; left:max(16px, env(safe-area-inset-left)); top:max(16px, env(safe-area-inset-top)); width:min(270px, calc(100vw - 32px)); background:var(--paper); border-radius:18px; padding:12px 14px; box-shadow:0 6px 22px #6a4f7a33; display:flex; flex-direction:column; gap:8px; font-size:13px; user-select:none }
   .panel h1 { margin:0; font-size:17px; font-weight:900; color:var(--accent); letter-spacing:.04em; flex:1; white-space:nowrap }
   .panel .head { display:flex; align-items:center; gap:8px }
+  #btnGift { flex:none; width:28px; height:28px; border-radius:50%; border:0; background:#fff; font-size:15px; box-shadow:0 2px 6px #6a4f7a22; cursor:pointer; padding:0 }
   #btnMin { flex:none; width:28px; height:28px; border-radius:50%; border:0; background:#fff; color:var(--ink); font:900 16px/1 system-ui, sans-serif; box-shadow:0 2px 6px #6a4f7a22; cursor:pointer }
   .panel .mini { display:none; font-weight:900; font-variant-numeric:tabular-nums }
   .panel.min { width:auto; padding:8px 10px 8px 14px } .panel.min > :not(.head) { display:none } .panel.min .mini { display:inline } .panel.min h1 { font-size:14px } /* 縮到最小：只剩標題、時間和展開鈕 */
@@ -43,7 +44,7 @@
 <body>
 <div id="app" aria-label="小島田園日記 3D 場景"></div>
 <section class="panel" aria-label="時間與設定">
-  <div class="head"><h1>🌱 小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
+  <div class="head"><h1>🌱 小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnGift" aria-label="我的收藏與獎勵" title="字精靈、衣櫃、稱號、集章冊">🎁</button><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
   <div class="row"><span class="clock" id="clock">09:00</span><span class="chip" id="harvest">🧺 收成 0</span></div>
   <div class="row"><span class="chip" id="mapName">📍 新手村</span><span class="chip" id="learnCount">🌸 精通 0</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
@@ -67,6 +68,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { createForest } from './forest/map.js';
 import * as LEARN from './forest/learn.js';
 import * as GAMES from './forest/games.js';
+import * as REWARDS from './forest/rewards.js';
 
 /* ════════════════════════════════════════════════════════════════
    0. 設定：配色、地平線彎曲、裝置等級（改這裡就能換風格）
@@ -484,8 +486,8 @@ function createBlockCharacter({ colors = {}, accessories = [], face = 'happy' } 
   return ch;
 }
 // 玩家：原創配色（珊瑚色上衣、深藍褲子、米白鞋、黃色背包），手提澆水壺
-const hero = createBlockCharacter({ colors: { skin: 0xf3cfb0, hair: 0x5a3b2e, shirt: 0xf2a07b, pants: 0x4f6a9a, shoes: 0xf6efe2, acc: 0xf6c86a, hat: 0xe0875e }, accessories: ['hairShort', 'backpack', 'wateringCan'], face: 'happy' });
-const player = hero.root; scene.add(player);
+let hero = createBlockCharacter({ colors: { skin: 0xf3cfb0, hair: 0x5a3b2e, shirt: 0xf2a07b, pants: 0x4f6a9a, shoes: 0xf6efe2, acc: 0xf6c86a, hat: 0xe0875e }, accessories: ['hairShort', 'backpack', 'wateringCan'], face: 'happy' });
+let player = hero.root; scene.add(player); // 換衣服、帽子時會重建（applyRewards）
 const PL = { x: 0, z: 9, yaw: Math.PI, vx: 0, vz: 0, phase: 0, speed: 3.3, watering: 0 };
 // 鄰居：同一個身體，用配件與配色區分個性；每人一個家附近散步，玩家靠近會揮手，按 E 聊天
 const NEIGHBOR_DEFS = [
@@ -513,7 +515,8 @@ function updateNeighbors(dt) { for (const n of neighbors) { n.greetCD = Math.max
 const turnTo = (a, b, k) => { let d = b - a; d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * Math.min(1, k); };
 function nearestNeighbor() { let best = null, bd = 1.7; for (const n of neighbors) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd) { bd = d; best = n; } } return best; }
 const talk = { t: 0, text: '' };
-function talkTo(n) { n.talkT = 3.5; n.ch.wave(1.2); hero.wave(1.0); talk.t = 3.5; talk.text = `💬 ${n.name}（${n.type}）：「${n.line}」`; }
+function talkTo(n) { n.talkT = 3.5; n.ch.wave(1.2); hero.wave(1.0); const st = REWARDS.storyFor(n.name); // 完成特定知識點後，鄰居會說新故事（念出來）
+  if (st) { REWARDS.readStory(st); n.talkT = 6; talk.t = 7; talk.text = `📖 ${n.name}的新故事：「${st.text}」`; LEARN.speak(st.text, 0.8); } else { talk.t = 3.5; talk.text = `💬 ${n.name}（${n.type}）：「${n.line}」`; } REWARDS.emit('talk'); }
 
 /* ════════════════════════════════════════════════════════════════
    5. input＋camera：鍵盤、手機搖桿與按鈕；相機旋轉、俯仰、縮放（全部平滑過渡）
@@ -585,7 +588,7 @@ function applyDayNight(h) { let i = 0; while (i < DN.length - 2 && DN[i + 1][0] 
   windowMat.emissiveIntensity = 0.2 + night * 1.8; lampGlass.emissiveIntensity = night * 2.2; lampLights.forEach(l => { l.intensity = night * 6; }); ffMat.uniforms.uNight.value = night;
   smokeMat.color.setRGB(1 - night * 0.45, 1 - night * 0.45, 1 - night * 0.3); }
 { const panel = document.querySelector('.panel'), btn = document.getElementById('btnMin'); const set = min => { panel.classList.toggle('min', min); btn.textContent = min ? '＋' : '－'; btn.setAttribute('aria-expanded', String(!min)); btn.setAttribute('aria-label', min ? '展開面板' : '縮小面板'); try { localStorage.setItem('farm.panelMin', min ? '1' : ''); } catch (e) {} };
-  let saved = false; try { saved = localStorage.getItem('farm.panelMin') === '1'; } catch (e) {} set(saved); btn.addEventListener('click', () => set(!panel.classList.contains('min'))); } // 左上面板可以縮到最小（記在這台裝置）
+  let saved = false; try { saved = localStorage.getItem('farm.panelMin') === '1'; } catch (e) {} set(saved); btn.addEventListener('click', () => set(!panel.classList.contains('min'))); document.getElementById('btnGift').addEventListener('click', () => REWARDS.open()); } // 左上面板可以縮到最小（記在這台裝置）
 const clockMini = document.getElementById('clockMini'), clockEl = document.getElementById('clock'), speedEl = document.getElementById('speed'), todEl = document.getElementById('tod'); let todDrag = false;
 todEl.addEventListener('input', () => { hour = +todEl.value; todDrag = true; }); todEl.addEventListener('change', () => { todDrag = false; });
 
@@ -619,10 +622,52 @@ const nodeHint = n => { const st = LEARN.nodeState(n.id), lv = LEARN.levelOf(n.i
   if (st === 'open') return n.guardian ? `👑 按空白鍵挑戰${n.name}（綜合 ${LEARN.passOf(n.id).total} 題，通過打開下一張地圖）` : `🪧 按空白鍵挑戰「${n.name}」`;
   return n.guardian ? `👑 已征服${R.name} ${LEARN.stars(lv)}，按空白鍵再挑戰` : `🌸 已精通「${n.name}」${LEARN.stars(lv)}，按空白鍵練習（${LEARN.nextReview(n.id).getMonth() + 1}/${LEARN.nextReview(n.id).getDate()} 要澆水）`; };
 await Promise.all([LEARN.loadData(), GAMES.loadGames()]); refreshLearn(); // 先載入知識圖譜（data/graph.json）與辭典資料
+// ── 獎勵：外觀（衣服、帽子）、頭上的稱號、跟隨的字精靈、院子家具、鄰居新故事、解鎖通知（森林本身變茂盛在 forest/map.js）──
+const notifyQ = []; let notifyT = 0; // 解鎖通知一個一個顯示
+let lookKey = '', titleSp = null, titleText = '', followerId = undefined, furnKey = '';
+const follower = new THREE.Group(); follower.visible = false; scene.add(follower); const furnGroup = new THREE.Group(); village.add(furnGroup);
+const HAT_COLOR = { cap: 0xe0875e, headband: 0xff5f5f, strawhat: 0xf2d27a, nightcap: 0x9fb2f0, beret: 0x8a3b4a, earsCat: 0x5a3b2e, earsBear: 0x5a3b2e };
+function rebuildHero(L) { const key = L.shirt + '|' + L.hat; if (key === lookKey) return; lookKey = key; const old = hero.root, face = hero.face;
+  hero = createBlockCharacter({ colors: { skin: 0xf3cfb0, hair: 0x5a3b2e, shirt: parseInt(L.shirt.slice(1), 16), pants: 0x4f6a9a, shoes: 0xf6efe2, acc: 0xf6c86a, hat: HAT_COLOR[L.hat] || 0xe0875e }, accessories: ['hairShort', 'backpack', 'wateringCan', ...(L.hat ? [L.hat] : [])], face });
+  hero.root.position.copy(old.position); hero.root.rotation.copy(old.rotation); scene.remove(old); scene.add(hero.root); player = hero.root; }
+// 跟隨的字精靈：發光的圓角方塊、正面寫著代表字、兩片小翅膀，跟在角色斜後方飄著
+function rebuildFollower(sp) { const id = sp ? sp.id : null; if (id === followerId) return; followerId = id; while (follower.children.length) follower.remove(follower.children[0]); follower.visible = !!sp; if (!sp) return;
+  const col = parseInt(sp.color.slice(1), 16), body = addMesh(G(0.46, 0.46, 0.46, 0.15), toon(col, { emissive: col, emissiveIntensity: 0.35 }), follower, { cast: false });
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = '#ffffff'; g.font = '900 64px "Noto Sans TC",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(sp.face, 64, 78); g.fillStyle = '#3b2c44'; for (const x of [44, 84]) { g.beginPath(); g.arc(x, 30, 7, 0, Math.PI * 2); g.fill(); }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), curvify(new THREE.MeshBasicMaterial({ map: tex, transparent: true }))); fp.position.z = 0.235; body.add(fp);
+  for (const wx of [-1, 1]) { const w = addMesh(Gc(0.32, 0.03, 0.2, 0.01, wx * 0.36, 0.08, -0.05), toon(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.4 }), follower, { outline: false, cast: false }); w.userData.wx = wx; }
+  follower.position.set(PL.x, groundAt0(PL.x, PL.z) + 1.4, PL.z); }
+const groundAt0 = (x, z) => MAP.groundY(x, z);
+// 院子家具（新手村小木屋旁）
+const FURN = {
+  bench: g => { addMesh(Gc(1.4, 0.1, 0.5, 0.03, 0, 0.45, 0), toon(0xc99a6a), g); addMesh(Gc(1.4, 0.4, 0.08, 0.03, 0, 0.75, -0.22), toon(0xc99a6a), g); for (const x of [-0.6, 0.6]) addMesh(Gc(0.1, 0.45, 0.45, 0.03, x, 0.22, 0), toon(0x9a6b48), g); },
+  pot: g => { addMesh(Gc(0.7, 0.55, 0.7, 0.1, 0, 0.28, 0), toon(0xd9705a), g); addMesh(Gc(0.8, 0.12, 0.8, 0.05, 0, 0.58, 0), toon(0xc0604a), g); for (let k = 0; k < 5; k++) addMesh(Gc(0.2, 0.2, 0.2, 0.06, Math.cos(k * 1.26) * 0.2, 0.78 + (k % 2) * 0.1, Math.sin(k * 1.26) * 0.2), toon([0xffb3c7, 0xfff3a8, 0xd8c2ff, 0xffffff, 0xffc9a0][k]), g, { outline: false }); },
+  windmill: g => { addMesh(Gc(0.5, 2.0, 0.5, 0.08, 0, 1.0, 0), toon(0xfff1dc), g); addMesh(Gc(0.7, 0.3, 0.7, 0.06, 0, 2.15, 0), toon(0xf2928a), g); const h = new THREE.Group(); h.position.set(0, 1.7, 0.32); g.add(h); for (let k = 0; k < 4; k++) addMesh(Gc(0.16, 0.9, 0.04, 0.02, 0, 0.45, 0).rotateZ(k * Math.PI / 2), toon(0xc99a6a), h, { outline: false }); g.userData.spin = h; },
+  swing: g => { for (const x of [-0.8, 0.8]) addMesh(Gc(0.12, 1.8, 0.12, 0.03, x, 0.9, 0), toon(0x9a6b48), g); addMesh(Gc(1.8, 0.12, 0.12, 0.03, 0, 1.8, 0), toon(0x9a6b48), g); const s = new THREE.Group(); s.position.y = 1.78; g.add(s); for (const x of [-0.3, 0.3]) addMesh(Gc(0.03, 1.2, 0.03, 0.01, x, -0.6, 0), toon(0xd8d0c0), s, { outline: false }); addMesh(Gc(0.75, 0.08, 0.32, 0.03, 0, -1.22, 0), toon(0xf2928a), s); g.userData.sway = s; },
+  doghouse: g => { addMesh(Gc(0.9, 0.7, 0.9, 0.06, 0, 0.35, 0), toon(0xd9a06a), g); [1.0, 0.65, 0.3].forEach((d, i) => addMesh(Gc(1.05, 0.14, d, 0.04, 0, 0.77 + i * 0.14, 0), toon(0x8fb6ec), g)); addMesh(Gc(0.36, 0.4, 0.05, 0.04, 0, 0.22, 0.46), toon(0x4a3b52), g, { outline: false }); },
+  bookshelf: g => { addMesh(Gc(1.3, 1.4, 0.45, 0.05, 0, 0.7, 0), toon(0x9a6b48), g); for (let r = 0; r < 3; r++) for (let k = 0; k < 5; k++) addMesh(Gc(0.18, 0.32, 0.3, 0.03, -0.45 + k * 0.22, 0.32 + r * 0.42, 0.05), toon([0xe8705c, 0x8fb6ec, 0xf2d27a, 0x8fd3a0, 0xc9b8f0][(k + r) % 5]), g, { outline: false }); },
+};
+const FURN_POS = { bench: [-12.2, -3.6, 0.3], pot: [-6.6, -4.4, 0], windmill: [-13.4, -8.6, 0.4], swing: [-5.0, -8.8, -0.3], doghouse: [-11.8, -1.8, 0.5], bookshelf: [-6.6, -10.6, Math.PI] };
+const furnCol = [];
+function rebuildFurniture(list) { const key = list.join(); if (key === furnKey) return; furnKey = key; while (furnGroup.children.length) furnGroup.remove(furnGroup.children[0]); for (const c of furnCol) { const i = VILLAGE_MAP.colliders.indexOf(c); if (i >= 0) VILLAGE_MAP.colliders.splice(i, 1); } furnCol.length = 0;
+  for (const id of list) { const [x, z, ry] = FURN_POS[id], g = new THREE.Group(); g.position.set(x, terrainHeight(x, z), z); g.rotation.y = ry; furnGroup.add(g); FURN[id](g); const c = { x, z, r: 0.7 }; furnCol.push(c); VILLAGE_MAP.colliders.push(c); } }
+function applyRewards() { const L = REWARDS.look(); rebuildHero(L); rebuildFollower(L.follower); rebuildFurniture(L.furniture);
+  if (L.title !== titleText) { titleText = L.title; if (titleSp) scene.remove(titleSp); titleSp = FOREST.label(`🏅 ${L.title}`, { bg: '#fff3c4', h: 0.36 }); scene.add(titleSp); } refreshLearn(); }
+// 鄰居頭上的「新故事」泡泡
+const storyMarks = neighbors.map(n => { const s = FOREST.label('💬 有新故事', { bg: '#ffe3ec', h: 0.38 }); s.visible = false; village.add(s); return s; });
+await REWARDS.init({ onChange: applyRewards, onNotify: text => notifyQ.push(text) }); applyRewards();
+function updateRewards(dt) {
+  if (titleSp) titleSp.position.set(PL.x, groundAt0(PL.x, PL.z) + 1.78 - curveDrop(PL.x, PL.z), PL.z);
+  if (follower.visible) { const bx = PL.x - Math.sin(PL.yaw) * 0.9 + Math.cos(PL.yaw) * 0.6, bz = PL.z - Math.cos(PL.yaw) * 0.9 - Math.sin(PL.yaw) * 0.6, k = 1 - Math.exp(-dt * 3); follower.position.x += (bx - follower.position.x) * k; follower.position.z += (bz - follower.position.z) * k;
+    follower.position.y += (groundAt0(follower.position.x, follower.position.z) + 1.35 + Math.sin(time * 2.4) * 0.12 - curveDrop(follower.position.x, follower.position.z) - follower.position.y) * k; follower.rotation.y = Math.atan2(PL.x - follower.position.x, PL.z - follower.position.z);
+    follower.children.forEach(c => { if (c.userData.wx) c.rotation.z = c.userData.wx * Math.sin(time * 14) * 0.5; }); }
+  for (const g of furnGroup.children) { if (g.userData.spin) g.userData.spin.rotation.z += dt * 1.2; if (g.userData.sway) g.userData.sway.rotation.x = Math.sin(time * 1.6) * 0.35; }
+  if (MAP === VILLAGE_MAP) neighbors.forEach((n, i) => { const s = storyMarks[i], has = !!REWARDS.storyFor(n.name); s.visible = has; if (has) s.position.set(n.x, groundY(n.x, n.z) + 1.95 + Math.sin(time * 3 + i) * 0.05 - curveDrop(n.x, n.z), n.z); });
+  if (notifyQ.length && time > notifyT) { banner(notifyQ.shift()); notifyT = time + 2.6; } }
 function resolveColliders(p) { for (const c of colliders) { const dx = p.x - c.x, dz = p.z - c.z, rr = c.r + PLAYER_R, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-8) { const d = Math.sqrt(d2), k = (rr - d) / d; if (!blocked(p.x + dx * k, p.z + dz * k)) { p.x += dx * k; p.z += dz * k; } } } }
 const hintEl = document.getElementById('hint'), harvestEl = document.getElementById('harvest'); let harvested = 0;
 function nearestPlot() { const fx = Math.sin(PL.yaw), fz = Math.cos(PL.yaw); let best = -1, bd = 1.5; PLOTS.forEach((p, i) => { const d = Math.hypot(p.x - PL.x - fx * 0.5, p.z - PL.z - fz * 0.5); if (d < bd) { bd = d; best = i; } }); return best; }
-function waterPlot(i) { const p = PLOTS[i]; PL.watering = 0.6; p.wet = 1; if (p.stage < 2) { p.stage++; p.pop = 1; } else { p.stage = 0; p.pop = 1; harvested++; harvestEl.textContent = `🧺 收成 ${harvested}`; }
+function waterPlot(i) { const p = PLOTS[i]; PL.watering = 0.6; p.wet = 1; if (p.stage < 2) { p.stage++; p.pop = 1; } else { p.stage = 0; p.pop = 1; harvested++; REWARDS.emit('harvest'); harvestEl.textContent = `🧺 收成 ${harvested}`; }
   for (let k = 0; k < 10; k++) drops.push({ x: PL.x + Math.sin(PL.yaw) * 0.45, y: 0.8, z: PL.z + Math.cos(PL.yaw) * 0.45, vx: (p.x - PL.x) * 0.9 + (rand() - 0.5) * 0.6, vy: 1.6 + rand(), vz: (p.z - PL.z) * 0.9 + (rand() - 0.5) * 0.6, t: 0 }); }
 const camTarget = new THREE.Vector3(PL.x, 0, PL.z);
 // 相機每幀：yaw／pitch／dist 平滑靠近目標值，算出相機位置（角色斜上方）；地平線彎曲的方向跟著相機朝向
@@ -652,12 +697,12 @@ function clickMove(sx, sy) { if (LEARN.isOpen() || switching) return; const p = 
 function goalDir(dt) { const g = PL.goal, dx = g.x - PL.x, dz = g.z - PL.z, d = Math.hypot(dx, dz); if (d < 0.22) { PL.goal = null; return [0, 0]; }
   g.t += dt; if (g.t > 0.6) { if (g.best - d < 0.15) { PL.goal = null; return [0, 0]; } g.best = d; g.t = 0; } // 0.6 秒沒前進（被河、樹、房子擋住）就停下來
   const k = Math.min(1, d / 0.8); return [dx / d * k, dz / d * k]; }
-const clock = new THREE.Clock(); let time = 0, hintSig = '';
+const clock = new THREE.Clock(); let time = 0, hintSig = '', fogLush = 1; const MIST = new THREE.Color(0xd9d2e6);
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.05); time += dt;
   // 時間：滑桿控制流速（每秒經過幾分鐘）
   if (!todDrag) { hour = (hour + dt * +speedEl.value / 60) % 24; todEl.value = hour.toFixed(2); }
-  applyDayNight(hour); clockMini.textContent = clockEl.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor(hour % 1 * 60)).padStart(2, '0')} ${night > 0.6 ? '🌙' : hour < 7 || hour > 17 ? '🌅' : '☀️'}`;
+  applyDayNight(hour); { const lush = MAP.lush ? MAP.lush() : 1; fogLush += (lush - fogLush) * Math.min(1, dt * 1.5); scene.fog.near = 13 + 11 * fogLush; scene.fog.far = 34 + 24 * fogLush; scene.fog.color.lerp(MIST, (1 - fogLush) * 0.5); } // 迷霧散去：學得越多，霧越淡、看得越遠 clockMini.textContent = clockEl.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor(hour % 1 * 60)).padStart(2, '0')} ${night > 0.6 ? '🌙' : hour < 7 || hour > 17 ? '🌅' : '☀️'}`;
   if (LEARN.isOpen() || switching) { keys.clear(); joyVec.set(0, 0); actPressed = false; } // 學習畫面開著、換地圖途中不能走
   const inVillage = MAP === VILLAGE_MAP, groundAt = MAP.groundY, blockedAt = MAP.blocked;
   // 移動：分 x、z 兩軸各試一次，撞到河邊可以沿著滑
@@ -692,6 +737,7 @@ function loop() {
   grassMat.uniforms.uTime.value = time; grassMat.uniforms.uPlayer.value.set(PL.x, 0, PL.z); waterMat.uniforms.uTime.value = time; ffMat.uniforms.uTime.value = time; fireflies.position.set(camTarget.x, 0, camTarget.z - 2);
   petals.forEach((p, i) => { p.y -= p.sp * dt; p.ph += dt; p.rx += dt * 2.1; p.rz += dt * 1.3; if (p.y < 0) { p.y = 6 + rand() * 2; p.x = (rand() - 0.5) * 26; p.z = (rand() - 0.5) * 26; }
     M4.compose(V.set(camTarget.x + p.x + Math.sin(p.ph) * 0.6, p.y + groundAt(camTarget.x + p.x, camTarget.z + p.z), camTarget.z + p.z + Math.cos(p.ph * 0.7) * 0.4), Q.setFromEuler(E.set(p.rx, p.ph, p.rz)), S.setScalar(1)); petalI.setMatrixAt(i, M4); }); petalI.instanceMatrix.needsUpdate = true;
+  updateRewards(dt);
   smoke.forEach(m => { m.userData.t = (m.userData.t + dt * 0.18) % 1; const t = m.userData.t; m.position.set(chimneyTop.x + Math.sin(t * 6 + time) * 0.25 * t, chimneyTop.y + t * 2.6, chimneyTop.z - t * 0.6); m.scale.setScalar(0.6 + t * 1.6); m.material.opacity = 0.65 * (1 - t); });
   renderer.render(scene, camera);
 }

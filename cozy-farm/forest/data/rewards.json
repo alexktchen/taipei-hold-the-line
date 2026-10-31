@@ -1,0 +1,88 @@
+{
+  "about": "獎勵（沒有抽卡、沒有扣分、沒有排行榜；答錯只是拿不到這次的獎勵，進度不會倒退）。cond 的寫法：{type:'region',id}＝通過那一區的守護者、{type:'node',id}、{type:'nodes',n}＝精通幾個知識點、{type:'spirits',n}、{type:'monsters',n}、{type:'items',n}、{type:'flowers',n}、{type:'harvest',n}、{type:'stamps',n}、{type:'streak',n}、{type:'free'}。",
+  "spirits": [
+    {"id": "sp-zhuyin", "name": "ㄅ精靈", "face": "ㄅ", "color": "#f2928a", "nodes": ["shengmu", "yunmu"]},
+    {"id": "sp-tone", "name": "聲調精靈", "face": "ˇ", "color": "#ffb347", "nodes": ["shengdiao", "pindu"]},
+    {"id": "sp-char", "name": "認字精靈", "face": "字", "color": "#8fd36f", "nodes": ["renzi", "bihua", "duti"]},
+    {"id": "sp-word", "name": "詞語精靈", "face": "詞", "color": "#7fc6d6", "nodes": ["ciyu", "biaodian"]},
+    {"id": "sp-radical", "name": "部首精靈", "face": "部", "color": "#b9a0d8", "nodes": ["bushou", "zidian"]},
+    {"id": "sp-sound", "name": "形聲精靈", "face": "青", "color": "#c9b8f0", "nodes": ["xingsheng", "tongyin", "xingjin"]},
+    {"id": "sp-sentence", "name": "句子精靈", "face": "句", "color": "#8fb6ec", "nodes": ["liangci", "lianjie", "duanluo"]},
+    {"id": "sp-metaphor", "name": "譬喻精靈", "face": "像", "color": "#ffb3c7", "nodes": ["piyu", "niren", "kuashi"]},
+    {"id": "sp-parallel", "name": "排比精靈", "face": "排", "color": "#f6c06a", "nodes": ["paibi", "shewen", "yingchen"]},
+    {"id": "sp-idiom", "name": "成語精靈", "face": "成", "color": "#d8b07a", "nodes": ["cy-yisi", "cy-diangu", "cy-yunyong"]},
+    {"id": "sp-poly", "name": "多音精靈", "face": "樂", "color": "#d8c2ff", "nodes": ["duoyin"]},
+    {"id": "sp-essay", "name": "文章精靈", "face": "文", "color": "#e8c56a", "nodes": ["wenti", "jiegou", "zhuzhi", "tuilun"]}
+  ],
+  "titles": [
+    {"id": "t-new", "name": "森林新手", "cond": {"type": "free"}},
+    {"id": "t-zhuyin", "name": "注音小達人", "cond": {"type": "region", "id": "zhuyin"}},
+    {"id": "t-shizi", "name": "識字小學士", "cond": {"type": "region", "id": "shizi"}},
+    {"id": "t-bushou", "name": "部首探險家", "cond": {"type": "region", "id": "bushou"}},
+    {"id": "t-juzi", "name": "句子建築師", "cond": {"type": "region", "id": "juzi"}},
+    {"id": "t-xiuci", "name": "修辭小園丁", "cond": {"type": "region", "id": "xiuci"}},
+    {"id": "t-chengyu", "name": "成語博士", "cond": {"type": "region", "id": "chengyu"}},
+    {"id": "t-shuta", "name": "書塔小賢者", "cond": {"type": "region", "id": "shuta"}},
+    {"id": "t-typo", "name": "錯字小獵人", "cond": {"type": "monsters", "n": 5}},
+    {"id": "t-chef", "name": "湯鍋小廚師", "cond": {"type": "items", "n": 15}},
+    {"id": "t-garden", "name": "花園之友", "cond": {"type": "flowers", "n": 6}},
+    {"id": "t-farmer", "name": "勤勞小農夫", "cond": {"type": "harvest", "n": 10}},
+    {"id": "t-daily", "name": "每日小勇者", "cond": {"type": "streak", "n": 3}},
+    {"id": "t-guard", "name": "森林守護者", "cond": {"type": "spirits", "n": 12}}
+  ],
+  "shirts": [
+    {"id": "coral", "name": "珊瑚橘", "color": "#f2a07b", "cond": {"type": "free"}},
+    {"id": "mint", "name": "薄荷綠", "color": "#8fd3b0", "cond": {"type": "nodes", "n": 3}},
+    {"id": "sky", "name": "天空藍", "color": "#8fc4f0", "cond": {"type": "nodes", "n": 8}},
+    {"id": "forest", "name": "森林綠", "color": "#6fb46a", "cond": {"type": "region", "id": "shizi"}},
+    {"id": "lavender", "name": "薰衣草紫", "color": "#b9a0e6", "cond": {"type": "spirits", "n": 3}},
+    {"id": "sun", "name": "向日葵黃", "color": "#f6cf5a", "cond": {"type": "stamps", "n": 5}},
+    {"id": "berry", "name": "草莓粉", "color": "#f6a0b8", "cond": {"type": "streak", "n": 7}}
+  ],
+  "hats": [
+    {"id": "none", "name": "不戴帽子", "acc": null, "cond": {"type": "free"}},
+    {"id": "cap", "name": "鴨舌帽", "acc": "cap", "cond": {"type": "region", "id": "zhuyin"}},
+    {"id": "headband", "name": "頭帶", "acc": "headband", "cond": {"type": "region", "id": "juzi"}},
+    {"id": "strawhat", "name": "草帽", "acc": "strawhat", "cond": {"type": "flowers", "n": 3}},
+    {"id": "nightcap", "name": "睡帽", "acc": "nightcap", "cond": {"type": "monsters", "n": 3}},
+    {"id": "beret", "name": "貝雷帽", "acc": "beret", "cond": {"type": "region", "id": "chengyu"}},
+    {"id": "earsCat", "name": "貓耳朵", "acc": "earsCat", "cond": {"type": "spirits", "n": 5}},
+    {"id": "earsBear", "name": "熊耳朵", "acc": "earsBear", "cond": {"type": "stamps", "n": 10}}
+  ],
+  "furniture": [
+    {"id": "bench", "name": "木長椅", "cond": {"type": "free"}},
+    {"id": "pot", "name": "大花盆", "cond": {"type": "flowers", "n": 1}},
+    {"id": "windmill", "name": "小風車", "cond": {"type": "region", "id": "shizi"}},
+    {"id": "swing", "name": "鞦韆", "cond": {"type": "streak", "n": 3}},
+    {"id": "doghouse", "name": "狗屋", "cond": {"type": "spirits", "n": 2}},
+    {"id": "bookshelf", "name": "戶外書架", "cond": {"type": "region", "id": "shuta"}}
+  ],
+  "stories": [
+    {"neighbor": "阿跳", "after": "shengmu", "text": "我發現「跑」和「跳」的聲母不一樣！ㄆ和ㄊ，念起來嘴巴的動作差好多。下次我們一起邊跑邊念注音吧！"},
+    {"neighbor": "小禾", "after": "yunmu", "text": "菜園裡的「瓜」念ㄍㄨㄚ，裡面藏著ㄨ和ㄚ兩個韻母喔！我在每棵菜旁邊都插了注音牌子。"},
+    {"neighbor": "咪嚕", "after": "shengdiao", "text": "呼啊⋯⋯我睡前會練習聲調：媽、麻、馬、罵⋯⋯每次念到第三聲就睡著了。"},
+    {"neighbor": "書書", "after": "renzi", "text": "你知道嗎？「山」這個字，很久以前畫得就像三座山峰。我在書塔找到一本象形字圖鑑！"},
+    {"neighbor": "阿壯", "after": "bihua", "text": "寫字和運動一樣要照順序！先橫後豎、先撇後捺，就像暖身要先拉筋再跑步。"},
+    {"neighbor": "阿跳", "after": "guard-zhuyin", "text": "聽說你打敗了注音守護者！村子裡的大家都說你是注音小達人！"},
+    {"neighbor": "書書", "after": "bushou", "text": "我把書架照部首排好了：言部的書最多，「說、話、語、讀」都住在一起。"},
+    {"neighbor": "小禾", "after": "xingsheng", "text": "「晴、清、請、情」都有一個「青」，就像同一種種子，長出不同的花。"},
+    {"neighbor": "阿跳", "after": "lianjie", "text": "因為我每天練跑，所以跑得越來越快！你看，我也會用連接詞了。"},
+    {"neighbor": "咪嚕", "after": "piyu", "text": "我的被窩像一朵軟綿綿的雲⋯⋯欸，這是不是就是譬喻？"},
+    {"neighbor": "阿壯", "after": "kuashi", "text": "教練說我的力氣大得可以舉起一座山——我知道，這是誇飾啦！"},
+    {"neighbor": "小禾", "after": "guard-xiuci", "text": "修辭花園的花都開了！你種的花被好多蝴蝶圍住，好漂亮。"},
+    {"neighbor": "書書", "after": "cy-diangu", "text": "我最喜歡「守株待兔」的故事。不過我不會等兔子，我會每天讀一點書。"},
+    {"neighbor": "咪嚕", "after": "zhuzhi", "text": "我讀完一篇文章都會問自己：作者最想告訴我什麼？這樣就不會讀著讀著睡著了⋯⋯大概吧。"}
+  ],
+  "daily": {
+    "count": 3,
+    "tasks": [
+      {"id": "practice", "text": "在石碑練習 1 次", "event": "practice", "n": 1},
+      {"id": "practice2", "text": "練習 2 次知識點", "event": "practice", "n": 2},
+      {"id": "review", "text": "幫需要澆水的知識點澆水（複習通過 1 次）", "event": "review", "n": 1},
+      {"id": "game", "text": "玩 1 次區域小遊戲", "event": "game", "n": 1},
+      {"id": "harvest", "text": "在新手村的田裡收成 2 次", "event": "harvest", "n": 2},
+      {"id": "talk", "text": "和鄰居聊聊天", "event": "talk", "n": 1}
+    ],
+    "stickers": [{"days": 3, "name": "小芽貼紙", "emoji": "🌱"}, {"days": 7, "name": "彩虹貼紙", "emoji": "🌈"}, {"days": 14, "name": "大樹貼紙", "emoji": "🌳"}, {"days": 30, "name": "森林之心貼紙", "emoji": "💚"}]
+  }
+}
