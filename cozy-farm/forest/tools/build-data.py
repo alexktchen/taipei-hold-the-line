@@ -10,6 +10,7 @@
   筆順：教育部《常用國字標準字體筆順學習網》，經 g0v/zh-stroke-data 整理的 JSON，執行時直接下載。
 
 產生：
+  （要用哪些字：content.js 的字庫，加上 data/graph.json 裡 lesson.chars 用到的字）
   ../data/moe.json        每個字的讀音（含多音）、部首、總筆畫、部首外筆畫；詞語讀音；注音符號的示範字
   ../data/strokes/XXXX.json  每個字（與注音符號）的筆畫輪廓與運筆軌跡（座標 0～2150）
 """
@@ -21,7 +22,8 @@ STROKE_URL = 'https://raw.githubusercontent.com/g0v/zh-stroke-data/master/json/{
 
 
 def need():
-    js = "import('" + os.path.join(HERE, '..', 'content.js') + "').then(m => console.log(JSON.stringify({ NEED: m.NEED, S: m.SHENGMU, Y: m.YUNMU })))"
+    js = ("import fs from 'fs'; const m = await import('" + os.path.join(HERE, '..', 'content.js') + "'); const g = JSON.parse(fs.readFileSync('" + os.path.join(HERE, '..', 'data', 'graph.json') + "', 'utf8'));"
+          " console.log(JSON.stringify({ NEED: m.needFor(g), S: m.SHENGMU, Y: m.YUNMU }))")
     return json.loads(subprocess.check_output(['node', '--input-type=module', '-e', js], text=True))
 
 

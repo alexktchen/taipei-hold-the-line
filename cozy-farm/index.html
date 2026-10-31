@@ -43,7 +43,7 @@
 <section class="panel" aria-label="時間與設定">
   <div class="head"><h1>🌱 小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
   <div class="row"><span class="clock" id="clock">09:00</span><span class="chip" id="harvest">🧺 收成 0</span></div>
-  <div class="row"><span class="chip" id="mapName">📍 新手村</span><span class="chip" id="learnCount">📚 學會 0／30</span></div>
+  <div class="row"><span class="chip" id="mapName">📍 新手村</span><span class="chip" id="learnCount">🌸 精通 0</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
   <label>現在時刻 <input type="range" id="tod" min="0" max="24" step="0.05" value="9" aria-label="一天中的時刻"></label>
   <div class="keys">WASD 走路・空白鍵 澆水／收成／聊天・F 揮手・1～3 表情<br>Q／E 轉鏡頭・右鍵拖曳旋轉與俯仰・滾輪縮放・R 重置鏡頭</div>
@@ -595,15 +595,19 @@ const MAPS = { village: VILLAGE_MAP }; let MAP = VILLAGE_MAP, switching = false;
 const mapOf = id => { if (!MAPS[id]) { const m = id === 'trunk' ? FOREST.buildTrunk() : FOREST.buildRegion(id); scene.add(m.group); MAPS[id] = m; } return MAPS[id]; };
 const wait = ms => new Promise(r => setTimeout(r, ms)), fadeEl = document.getElementById('fade'), bannerEl = document.getElementById('banner'), mapNameEl = document.getElementById('mapName'), learnCountEl = document.getElementById('learnCount');
 let bannerT = 0; function banner(text) { bannerEl.textContent = text; bannerEl.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => bannerEl.classList.remove('on'), 2200); }
-function refreshLearn() { learnCountEl.textContent = `📚 學會 ${LEARN.NODES.filter(n => LEARN.isLearned(n.id)).length}／${LEARN.NODES.length}`; for (const m of Object.values(MAPS)) m.refresh(); }
+function refreshLearn() { const due = LEARN.NODES.filter(n => LEARN.nodeState(n.id) === 'review').length; learnCountEl.textContent = `🌸 精通 ${LEARN.NODES.filter(n => LEARN.isLearned(n.id)).length}／${LEARN.NODES.length}${due ? `・💧${due}` : ''}`; for (const m of Object.values(MAPS)) m.refresh(); }
 async function gotoMap(id, spawnKey) { if (switching) return; switching = true; fadeEl.classList.add('on'); await wait(330);
   MAP.group.visible = false; const m = mapOf(id); MAP = m; m.group.visible = true; colliders = m.colliders; m.refresh();
   const sp = m.spawns[spawnKey] || m.spawns[m.spawn]; Object.assign(PL, { x: sp.x, z: sp.z, yaw: sp.yaw, vx: 0, vz: 0 }); camTarget.set(PL.x, m.groundY(PL.x, PL.z), PL.z); resetCamera(true); updateCamera(1); // 換地圖後相機回到預設角度
   mapNameEl.textContent = '📍 ' + m.name; await wait(80); fadeEl.classList.remove('on'); banner(m.name); setTimeout(() => { switching = false; }, 320); }
 const nearestNode = () => { let best = null, bd = 2.9; for (const n of MAP.nodes) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd) { bd = d; best = n; } } return best; };
 const nearPortal = () => MAP.portals.find(p => Math.hypot(PL.x - p.x, PL.z - p.z) < p.r);
-const nodeHint = n => { const st = LEARN.nodeState(n.id); if (n.guardian) return st === 'locked' ? `👑 守護者還在沉睡：先學會這個區域的${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}` : st === 'open' ? '👑 按空白鍵挑戰守護者（綜合題）' : '👑 已征服這個區域！按空白鍵再挑戰一次'; return st === 'learned' ? `✅ 按空白鍵複習「${n.name}」` : st === 'review' ? `🔁「${n.name}」好幾天沒練習了，按空白鍵複習` : st === 'open' ? `📖 按空白鍵學習「${n.name}」` : `🔒「${n.name}」還沒打通：先學會${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}`; };
-refreshLearn();
+const nodeHint = n => { const st = LEARN.nodeState(n.id), lv = LEARN.levelOf(n.id), R = LEARN.regionById(LEARN.nodeById(n.id).region);
+  if (st === 'locked') return !LEARN.regionOpen(R.id) ? `🌫️ 迷霧封鎖：先通過${LEARN.regionNeeds(R.id).map(x => `「${x.name}」`).join('、')}的挑戰` : n.guardian ? `👑 守護者還在沉睡：先學會這個區域的${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}` : `🌫️「${n.name}」被迷霧封鎖：先學會${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}`;
+  if (st === 'review') return `💧「${n.name}」${LEARN.stars(lv)} 需要澆水了（超過複習時間），按空白鍵複習`;
+  if (st === 'open') return n.guardian ? `👑 按空白鍵挑戰${n.name}（綜合 ${LEARN.passOf(n.id).total} 題，通過打開下一張地圖）` : `🪧 按空白鍵挑戰「${n.name}」`;
+  return n.guardian ? `👑 已征服${R.name} ${LEARN.stars(lv)}，按空白鍵再挑戰` : `🌸 已精通「${n.name}」${LEARN.stars(lv)}，按空白鍵練習（${LEARN.nextReview(n.id).getMonth() + 1}/${LEARN.nextReview(n.id).getDate()} 要澆水）`; };
+await LEARN.loadData(); refreshLearn(); // 先載入知識圖譜（data/graph.json）與辭典資料
 function resolveColliders(p) { for (const c of colliders) { const dx = p.x - c.x, dz = p.z - c.z, rr = c.r + PLAYER_R, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-8) { const d = Math.sqrt(d2), k = (rr - d) / d; if (!blocked(p.x + dx * k, p.z + dz * k)) { p.x += dx * k; p.z += dz * k; } } } }
 const hintEl = document.getElementById('hint'), harvestEl = document.getElementById('harvest'); let harvested = 0;
 function nearestPlot() { const fx = Math.sin(PL.yaw), fz = Math.cos(PL.yaw); let best = -1, bd = 1.5; PLOTS.forEach((p, i) => { const d = Math.hypot(p.x - PL.x - fx * 0.5, p.z - PL.z - fz * 0.5); if (d < bd) { bd = d; best = i; } }); return best; }
@@ -648,7 +652,7 @@ function loop() {
   // 澆水／收成優先；旁邊沒有田就和最近的鄰居聊天（聊天內容顯示幾秒）
   // 學習森林：靠近石碑按空白鍵學習；靠近拱門按空白鍵換地圖（還沒打通的顯示要先學會什麼）
   const pi = inVillage ? nearestPlot() : -1, nb = inVillage && pi < 0 ? nearestNeighbor() : null, kn = !inVillage ? nearestNode() : null, pt = pi < 0 && !nb && !kn ? nearPortal() : null;
-  if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); else if (kn && LEARN.nodeState(kn.id) !== 'locked') LEARN.open(kn.id, (id, first) => { refreshLearn(); const nd = LEARN.nodeById(id); banner(!first ? `🔁 複習完成「${nd.guardian ? '守護者挑戰' : nd.name}」` : nd.guardian ? `👑 征服${LEARN.regionById(nd.region).name}！` : `🌟 學會「${nd.name}」！`); }); else if (pt && !pt.locked()) gotoMap(pt.to, pt.spawn); }
+  if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); else if (kn && LEARN.nodeState(kn.id) !== 'locked') LEARN.open(kn.id, (id, first, up) => { refreshLearn(); const nd = LEARN.nodeById(id), lv = LEARN.levelOf(id); banner(nd.guardian && first ? `👑 征服${LEARN.regionById(nd.region).name}！新地圖打開了` : first ? `🌸 精通「${nd.name}」！` : up ? `⭐ 「${nd.name}」熟練度 ${LEARN.stars(lv)}` : `💧 澆好水了「${nd.name}」`); }); else if (pt && !pt.locked()) gotoMap(pt.to, pt.spawn); }
   talk.t = Math.max(0, talk.t - dt);
   const sig = talk.t > 0 ? talk.text : pi >= 0 ? (PLOTS[pi].stage < 2 ? `💧 按空白鍵澆水（第 ${PLOTS[pi].stage + 1} 階段）` : '🧺 按空白鍵收成') : nb ? `💬 按空白鍵和${nb.name}聊天` : kn ? nodeHint(kn) : pt ? pt.text() : ''; if (sig !== hintSig) { hintSig = sig; hintEl.textContent = MOBILE ? sig.replace('按空白鍵', '按 💧 ') : sig; hintEl.classList.toggle('on', !!sig); }
   PLOTS.forEach((p, i) => { if (p.pop > 0 || p.wet > 0) { p.pop = Math.max(0, p.pop - dt * 2.2); p.wet = Math.max(0, p.wet - dt * 0.25); updatePlot(i); } });

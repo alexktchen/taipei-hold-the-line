@@ -3,28 +3,39 @@
    - 筆順：data/strokes/XXXX.json（教育部《常用國字標準字體筆順學習網》，經 g0v/zh-stroke-data 整理），
      每一筆用輪廓當遮罩、沿著運筆軌跡畫粗線，就是一筆一筆寫出來的動畫。
    - 進度記在這台裝置（localStorage），學會一個知識點，通往下一個知識點的石板路就會打通。 */
-import { NODES, REGIONS, passOf, nodeById, regionById, lessonOf, quizOf, stripTone } from './content.js';
+import { NODES, REGIONS, GRAPH, initGraph, passOf, nodeById, regionById, lessonOf, quizOf, stripTone } from './content.js';
 const BASE = new URL('.', import.meta.url).href;
-const KEY = 'forest.progress.v1';
-let P = { learned: {} }; try { P = JSON.parse(localStorage.getItem(KEY)) || P; P.learned ||= {}; } catch (e) {}
+// ── 進度：每個知識點的熟練度（1～3 星）、上次練習時間、最佳成績，存在這台裝置 ──
+const KEY = 'forest.progress.v2', OLD = 'forest.progress.v1';
+let P = { nodes: {} }; try { P = JSON.parse(localStorage.getItem(KEY)) || P; P.nodes ||= {}; if (!localStorage.getItem(KEY)) { const o = JSON.parse(localStorage.getItem(OLD) || 'null'); if (o && o.learned) for (const [id, t] of Object.entries(o.learned)) P.nodes[id] = { level: 1, last: t > 1e12 ? t : Date.now(), best: 0 }; } } catch (e) {} // 舊版進度搬過來
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
-export const isLearned = id => !!P.learned[id];
-// 狀態：learned（學會）、review（學會但超過 3 天沒練，該複習了）、open（可以學）、locked（前置還沒學會）
-export const REVIEW_MS = 3 * 24 * 3600 * 1000;
-export const nodeState = id => isLearned(id) ? (Date.now() - P.learned[id] > REVIEW_MS ? 'review' : 'learned') : nodeById(id).pre.every(isLearned) ? 'open' : 'locked';
+const DAY = 24 * 3600 * 1000, today = () => new Date().toDateString();
+export const levelOf = id => (P.nodes[id] && P.nodes[id].level) || 0;
+export const isLearned = id => levelOf(id) > 0;
+// 複習間隔：熟練度 1、2、3 星分別隔幾天要再練一次（graph.json 的 review.days）；超過就「需要澆水」
+export const reviewDays = id => GRAPH.review.days[Math.min(levelOf(id), GRAPH.review.days.length) - 1] || 1;
+export const isDue = id => isLearned(id) && Date.now() - P.nodes[id].last > reviewDays(id) * DAY;
+export const nextReview = id => isLearned(id) ? new Date(P.nodes[id].last + reviewDays(id) * DAY) : null;
+// 區域：requires 裡的區域守護者都通過了才打開（第一個區域沒有 requires，一開始就開）
+export const regionOpen = rid => (regionById(rid).requires || []).every(r => isLearned('guard-' + r));
+export const regionNeeds = rid => (regionById(rid).requires || []).filter(r => !isLearned('guard-' + r)).map(r => nodeById('guard-' + r)).filter(Boolean);
+// 狀態：mastered（已精通）、review（需要澆水）、open（可挑戰）、locked（迷霧封鎖）
+export const nodeState = id => isLearned(id) ? (isDue(id) ? 'review' : 'mastered') : regionOpen(nodeById(id).region) && nodeById(id).pre.every(isLearned) ? 'open' : 'locked';
 // 圖示（forest/icons）：區域與狀態
 export const ICONS = BASE + 'icons/';
-export const STATE_ICON = { learned: 'state-mastered', review: 'state-needs-review', open: 'state-available', locked: 'state-locked', guardian: 'state-guardian' };
-export const regionOpen = rid => NODES.some(n => n.region === rid && nodeState(n.id) !== 'locked');
+export const STATE_ICON = { mastered: 'state-mastered', review: 'state-needs-review', open: 'state-available', locked: 'state-locked', guardian: 'state-guardian' };
 export const regionCount = rid => { const ns = NODES.filter(n => n.region === rid && !n.guardian); return [ns.filter(n => isLearned(n.id)).length, ns.length]; };
 export const missingFor = id => nodeById(id).pre.filter(p => !isLearned(p)).map(p => nodeById(p));
-// 區域還沒開的時候，要先學會哪些（從這個區域裡最容易開的知識點來看）
-export function regionNeeds(rid) { const ns = NODES.filter(n => n.region === rid); let best = null; for (const n of ns) { const m = missingFor(n.id); if (!best || m.length < best.length) best = m; } return best || []; }
+// 練習通過：第一次＝1 星；到了複習時間再通過、或當天第一次全對，熟練度 +1（最多 3 星）
+function record(id, right, total) { const rec = P.nodes[id] || (P.nodes[id] = { level: 0, last: 0, best: 0 }), was = rec.level, due = isDue(id);
+  if (!rec.level) rec.level = 1; else if (due || (right === total && rec.day !== today())) { rec.level = Math.min(3, rec.level + 1); if (right === total) rec.day = today(); }
+  rec.last = Date.now(); rec.best = Math.max(rec.best || 0, right); save(); return { first: !was, up: rec.level > was, level: rec.level }; }
+export const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 
 // ── 教育部辭典資料 ──
 let D = null;
 export async function loadData() { if (D) return D;
-  const M = await (await fetch(BASE + 'data/moe.json')).json();
+  const [g, M] = await Promise.all([fetch(BASE + 'data/graph.json').then(r => r.json()), fetch(BASE + 'data/moe.json').then(r => r.json())]); initGraph(g); // 知識圖譜（DAG）＋教育部辭典資料
   const ch = c => { const e = M.c[c]; return e ? { b: e[0], r: e[1], s: e[2], n: e[3] } : { b: [''], r: '', s: 0, n: 0 }; };
   const w = x => M.w[x] || (x.length === 1 ? ch(x).b[0] : [...x].map(c => ch(c).b[0]).join(' '));
   const syl = (word, c) => w(word).split(' ')[[...word].indexOf(c)] || ch(c).b[0];
@@ -99,12 +110,12 @@ export function close() { if (!ov) return; ov.remove(); ov = null; if ('speechSy
 export async function open(id, onLearned) { style(); close(); await loadData(); onDone = onLearned; const n = nodeById(id), R = regionById(n.region), L = lessonOf(id, D);
   ov = el('div', 'lf-ov'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', n.name);
   const box = el('div', 'lf-box'); ov.appendChild(box);
-  const PASS = passOf(id), st = nodeState(id), stIcon = n.guardian ? STATE_ICON.guardian : STATE_ICON[st];
-  const top = el('div', 'lf-top', `<img src="${ICONS}${R.img}.svg" alt=""><h2>${esc(n.guardian ? R.name + '守護者' : n.name)}<img src="${ICONS}${stIcon}.svg" alt="${{ learned: '已學會', review: '該複習了', open: '可以學', locked: '還沒打通' }[st]}"></h2><small>${esc(R.name)}・${esc(R.grades)}</small>`); const x = el('button', 'lf-x', '✕'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x); box.appendChild(top);
+  const PASS = passOf(id), st = nodeState(id), stIcon = n.guardian ? STATE_ICON.guardian : STATE_ICON[st], lv = levelOf(id);
+  const top = el('div', 'lf-top', `<img src="${ICONS}${R.img}.svg" alt=""><h2>${esc(n.name)}<img src="${ICONS}${stIcon}.svg" alt="${{ mastered: '已精通', review: '需要澆水', open: '可挑戰', locked: '迷霧封鎖' }[st]}">${lv ? `<span style="color:#f2b84a;font-size:18px">${stars(lv)}</span>` : ''}</h2><small>${esc(R.name)}・${esc(R.grades)}</small>`); const x = el('button', 'lf-x', '✕'); x.setAttribute('aria-label', '關閉'); x.onclick = close; top.appendChild(x); box.appendChild(top);
   const tabs = el('div', 'lf-tabs'); tabs.setAttribute('role', 'tablist'); const body = el('div', 'lf-body'); box.append(tabs, body);
   box.appendChild(el('div', 'lf-credit', '注音、部首、筆畫：教育部《重編國語辭典修訂本》（CC BY-ND 3.0 TW）；筆順：教育部《常用國字標準字體筆順學習網》（g0v/zh-stroke-data 整理）；發音：裝置內建語音。'));
   const tab = (label, fn) => { const b = el('button', null, label); b.setAttribute('role', 'tab'); b.onclick = () => { [...tabs.children].forEach(t => t.setAttribute('aria-selected', String(t === b))); body.innerHTML = ''; fn(); }; tabs.appendChild(b); return b; };
-  const learnTab = tab('📖 學習', () => renderLearn(body, L)); tab(`✏️ 練習（答對 ${PASS.need}／${PASS.total} 題就學會）`, () => renderQuiz(body, id));
+  const learnTab = tab('📖 學習', () => renderLearn(body, L)); tab(`✏️ 練習（答對 ${PASS.need}／${PASS.total} 題就通過）`, () => renderQuiz(body, id));
   keyFn = e => { if (!ov) return; if (e.key === 'Escape') { close(); e.stopPropagation(); return; } const k = +e.key; if (k >= 1 && k <= 4) { const bs = ov.querySelectorAll('.lf-ch button'); if (bs[k - 1] && !bs[k - 1].disabled) { bs[k - 1].click(); e.stopPropagation(); } } };
   addEventListener('keydown', keyFn, true); document.body.appendChild(ov); learnTab.click(); x.focus(); }
 
@@ -147,10 +158,12 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
         const why = el('div', 'lf-why', `${ok ? '答對了！🎉' : `答案是「${esc(q.choices[q.a])}」`}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
         if (q.say && !q.listen) speak(q.say);
         const nx = el('button', 'lf-btn go', i + 1 < qs.length ? '下一題 →' : '看結果'); nx.style.marginTop = '10px'; nx.onclick = () => { i++; show(); }; body.appendChild(nx); nx.focus(); }; ch.appendChild(b); }); };
-  const finish = () => { const pass = right >= PASS.need, first = pass && !isLearned(id); if (pass) { P.learned[id] = Date.now(); save(); }
-    const d = el('div', 'lf-done', `<div class="em">${pass ? '🌟' : '💪'}</div><h3>${pass ? (first ? (nodeById(id).guardian ? '征服了這個區域！' : '學會了！') : '複習完成！') : '再試一次！'}</h3><p>答對 ${right}／${qs.length} 題${pass ? '' : `，要答對 ${PASS.need} 題才算學會喔`}</p>`);
+  const finish = () => { const pass = right >= PASS.need, res = pass ? record(id, right, qs.length) : null, first = res && res.first, g = nodeById(id).guardian;
+    const nx = pass && nextReview(id), when = nx ? `${nx.getMonth() + 1}/${nx.getDate()}` : '';
+    const d = el('div', 'lf-done', `<div class="em">${pass ? (g ? '👑' : '🌸') : '💪'}</div><h3>${pass ? (first ? (g ? '征服了這個區域！' : '精通了！') : res.up ? '熟練度提升！' : '複習完成！') : '再試一次！'}</h3>${pass ? `<p style="font-size:30px;color:#f2b84a;margin:4px 0">${stars(res.level)}</p>` : ''}<p>答對 ${right}／${qs.length} 題${pass ? `。${when} 以後記得回來澆水（複習）` : `，要答對 ${PASS.need} 題才算通過喔`}</p>`);
+    if (first && g) { const opened = REGIONS.filter(R => (R.requires || []).includes(nodeById(id).region) && regionOpen(R.id)); if (opened.length) d.appendChild(el('p', null, `🗺️ 新地圖打開了：${opened.map(R => esc(R.name)).join('、')}`)); }
     if (first) { const nexts = NODES.filter(n => n.pre.includes(id) && nodeState(n.id) === 'open'); d.appendChild(el('p', null, nexts.length ? `🪨 石板路打通了：${nexts.map(n => `${esc(regionById(n.region).name)}「${esc(n.name)}」`).join('、')}` : '')); }
     const again = el('button', 'lf-btn alt', '再練一次'); again.onclick = () => renderQuiz(body, id); const done = el('button', 'lf-btn go', '回到森林'); done.onclick = close; const bs = el('div', 'lf-btns'); bs.style.justifyContent = 'center'; bs.append(again, done); d.appendChild(bs);
-    body.appendChild(d); if (pass && onDone) onDone(id, first); };
+    body.appendChild(d); if (pass && onDone) onDone(id, first, res.up); };
   show(); }
-export { REGIONS, NODES, nodeById, regionById, stripTone };
+export { REGIONS, NODES, GRAPH, nodeById, regionById, passOf, stripTone };
