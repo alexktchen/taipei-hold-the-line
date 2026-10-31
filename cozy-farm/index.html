@@ -11,7 +11,11 @@
   html, body { margin:0; height:100%; overflow:hidden; background:#cfeefc; font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; color:var(--ink) }
   #app { position:fixed; inset:0; touch-action:none }
   .panel { position:fixed; left:max(16px, env(safe-area-inset-left)); top:max(16px, env(safe-area-inset-top)); width:min(270px, calc(100vw - 32px)); background:var(--paper); border-radius:18px; padding:12px 14px; box-shadow:0 6px 22px #6a4f7a33; display:flex; flex-direction:column; gap:8px; font-size:13px; user-select:none }
-  .panel h1 { margin:0; font-size:17px; font-weight:900; color:var(--accent); letter-spacing:.04em }
+  .panel h1 { margin:0; font-size:17px; font-weight:900; color:var(--accent); letter-spacing:.04em; flex:1; white-space:nowrap }
+  .panel .head { display:flex; align-items:center; gap:8px }
+  #btnMin { flex:none; width:28px; height:28px; border-radius:50%; border:0; background:#fff; color:var(--ink); font:900 16px/1 system-ui, sans-serif; box-shadow:0 2px 6px #6a4f7a22; cursor:pointer }
+  .panel .mini { display:none; font-weight:900; font-variant-numeric:tabular-nums }
+  .panel.min { width:auto; padding:8px 10px 8px 14px } .panel.min > :not(.head) { display:none } .panel.min .mini { display:inline } .panel.min h1 { font-size:14px } /* 縮到最小：只剩標題、時間和展開鈕 */
   .row { display:flex; align-items:center; justify-content:space-between; gap:8px }
   .clock { font-size:22px; font-weight:900; font-variant-numeric:tabular-nums }
   .chip { background:#fff; border-radius:999px; padding:3px 10px; font-weight:700; box-shadow:0 2px 6px #6a4f7a22 }
@@ -35,7 +39,7 @@
 <body>
 <div id="app" aria-label="小島田園日記 3D 場景"></div>
 <section class="panel" aria-label="時間與設定">
-  <h1>🌱 小島田園日記</h1>
+  <div class="head"><h1>🌱 小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
   <div class="row"><span class="clock" id="clock">09:00</span><span class="chip" id="harvest">🧺 收成 0</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
   <label>現在時刻 <input type="range" id="tod" min="0" max="24" step="0.05" value="9" aria-label="一天中的時刻"></label>
@@ -372,86 +376,95 @@ const dropI = new THREE.InstancedMesh(new THREE.SphereGeometry(0.06, 6, 4), curv
 /* ════════════════════════════════════════════════════════════════
    4. characters：方塊積木角色工廠 createBlockCharacter（玩家與鄰居共用）＋鄰居
    ════════════════════════════════════════════════════════════════ */
-// 身體尺寸（世界單位）：約 5 頭身、總高約 1.65；頭寬 ≈ 軀幹寬，四肢是細長方柱
-const B = { legH: 0.7, legW: 0.14, torsoW: 0.36, torsoH: 0.6, torsoD: 0.22, armW: 0.11, armH: 0.56, headW: 0.36, headH: 0.34, headD: 0.34 };
-// 臉：CanvasTexture 畫在頭部正面的一片薄板上（點點眼睛＋弧線嘴巴），三種表情
-const FACES = new Map();
+// 身體尺寸（世界單位）：Q 版胖嘟嘟，約 2.5 頭身、總高約 1.25、重心低。頭寬 ≈ 軀幹寬 × 1.2；軀幹寬 > 高、前後厚；手臂短粗（約軀幹高 80%）；腿非常短、兩腿靠近
+const B = { legH: 0.26, legW: 0.18, legX: 0.11, torsoW: 0.54, torsoH: 0.48, torsoD: 0.42, armW: 0.16, armH: 0.38, headW: 0.65, headH: 0.5, headD: 0.58 };
+B.headR = Math.min(B.headW, B.headH, B.headD) * 0.25; // 頭的圓角＝最短邊的 25%
+// 臉：CanvasTexture 畫在頭部正面的薄板上；五官都放在圓角裡面那塊平的區域。眼睛分得開、位置偏下，兩團淡粉紅腮紅（三種表情都有）
+const FACE_W = B.headW * 0.95, FACE_H = B.headH * 0.95, FACES = new Map();
 function faceTexture(kind) { if (FACES.has(kind)) return FACES.get(kind);
-  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'); g.lineCap = 'round'; g.lineJoin = 'round'; const ink = '#3b2c44';
-  const blush = () => { g.fillStyle = 'rgba(255,150,170,0.55)'; for (const x of [26, 102]) { g.beginPath(); g.ellipse(x, 84, 12, 7, 0, 0, Math.PI * 2); g.fill(); } };
-  g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 6;
-  if (kind === 'happy') { for (const x of [42, 86]) { g.beginPath(); g.arc(x, 60, 8, 0, Math.PI * 2); g.fill(); } g.beginPath(); g.arc(64, 74, 15, Math.PI * 0.18, Math.PI * 0.82); g.stroke(); blush(); }
-  else if (kind === 'surprised') { for (const x of [42, 86]) { g.beginPath(); g.arc(x, 58, 11, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 3, 54, 3.5, 0, Math.PI * 2); g.fill(); g.fillStyle = ink; }
-    g.lineWidth = 5; for (const x of [42, 86]) { g.beginPath(); g.moveTo(x - 9, 36); g.lineTo(x + 9, 33); g.stroke(); } g.beginPath(); g.arc(64, 94, 8, 0, Math.PI * 2); g.fill(); }
-  else { g.lineWidth = 5; for (const x of [42, 86]) { g.beginPath(); g.moveTo(x - 11, 60); g.quadraticCurveTo(x, 67, x + 11, 60); g.stroke(); } g.beginPath(); g.moveTo(57, 88); g.lineTo(71, 88); g.stroke(); blush();
-    g.font = '900 26px sans-serif'; g.fillText('z', 104, 30); g.font = '900 18px sans-serif'; g.fillText('z', 116, 14); } // 睏：瞇瞇眼＋一條線的嘴＋zz
+  const cv = document.createElement('canvas'); cv.width = 160; cv.height = Math.round(160 * FACE_H / FACE_W); const g = cv.getContext('2d'); g.lineCap = 'round'; g.lineJoin = 'round'; const ink = '#3b2c44';
+  const X = x => (x / FACE_W + 0.5) * cv.width, Y = y => (0.5 - y / FACE_H) * cv.height; // 臉上座標（公尺，中心為 0）→ 畫布
+  const ex = [-0.13, 0.13].map(X), ey = Y(-0.035), my = Y(-0.095);
+  g.fillStyle = 'rgba(255,150,175,0.6)'; for (const x of [-0.195, 0.195]) { g.beginPath(); g.ellipse(X(x), Y(-0.105), 13, 8, 0, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 5;
+  if (kind === 'happy') { for (const x of ex) { g.beginPath(); g.arc(x, ey, 7.5, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 2.5, ey - 2.5, 2.2, 0, Math.PI * 2); g.fill(); g.fillStyle = ink; }
+    g.beginPath(); g.arc(X(0), my - 7, 9, Math.PI * 0.2, Math.PI * 0.8); g.stroke(); }
+  else if (kind === 'surprised') { for (const x of ex) { g.beginPath(); g.arc(x, ey, 10, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 3, ey - 3.5, 3.2, 0, Math.PI * 2); g.fill(); g.fillStyle = ink; }
+    g.lineWidth = 4; for (const x of ex) { g.beginPath(); g.moveTo(x - 8, ey - 20); g.lineTo(x + 8, ey - 23); g.stroke(); } g.beginPath(); g.ellipse(X(0), my, 6, 7.5, 0, 0, Math.PI * 2); g.fill(); }
+  else { g.lineWidth = 4.5; for (const x of ex) { g.beginPath(); g.moveTo(x - 10, ey); g.quadraticCurveTo(x, ey + 6, x + 10, ey); g.stroke(); } g.beginPath(); g.moveTo(X(0) - 6, my); g.lineTo(X(0) + 6, my); g.stroke();
+    g.font = '900 22px sans-serif'; g.fillText('z', X(0.12), Y(0.1)); g.font = '900 15px sans-serif'; g.fillText('z', X(0.17), Y(0.14)); } // 睏：瞇瞇眼＋一條線的嘴＋zz
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; FACES.set(kind, t); return t; }
 // 角色工廠：colors＝膚色、頭髮、上衣、袖子、褲子、鞋子、帽子、配件色；accessories＝髮型、帽子、衣服款式、手持物、動物耳朵尾巴；face＝'happy'｜'surprised'｜'sleepy'
-// 骨架：root → torso（髖部高度）→ head（脖子）／arms（肩膀）；legs 掛在 root 的髖關節。每個關節都是一個 Group，pivot 就在關節上
+// 骨架：root → body（搖擺、壓扁伸展的容器，支點在腳底）→ torso（髖部高度）→ head（脖子）／arms（肩膀）／legs（髖關節）。每個關節都是一個 Group，pivot 就在關節上
 function createBlockCharacter({ colors = {}, accessories = [], face = 'happy' } = {}) {
   const C = { skin: 0xf6d2b4, hair: 0x6b4a3a, shirt: 0x8fb6ec, pants: 0x5d6f9e, shoes: 0x7a5a48, hat: 0xf2928a, acc: 0xffffff, ...colors }; C.sleeve ??= C.shirt;
-  const has = a => accessories.includes(a), root = new THREE.Group();
-  const box = (parent, w, h, d, color, x, y, z, { r, rot, outline = true } = {}) => { const m = addMesh(G(w, h, d, r), toon(color), parent, { outline }); m.position.set(x, y, z); if (rot) m.rotation.set(...rot); return m; };
-  // 腿（髖關節）：褲子＋鞋子；短褲時下半截是皮膚
-  const legs = [1, -1].map(sx => { const hip = new THREE.Group(); hip.position.set(sx * 0.095, B.legH, 0); root.add(hip); const L = B.legH - 0.1, pl = has('shorts') ? 0.28 : L;
-    box(hip, B.legW, pl, 0.15, C.pants, 0, -pl / 2, 0); if (pl < L) box(hip, B.legW * 0.88, L - pl, 0.13, C.skin, 0, -pl - (L - pl) / 2, 0);
-    box(hip, 0.16, 0.1, 0.22, C.shoes, 0, -B.legH + 0.05, 0.03); return hip; });
-  // 軀幹：上衣＋腰間一截褲子
-  const torso = new THREE.Group(); torso.position.y = B.legH; root.add(torso);
-  box(torso, B.torsoW, B.torsoH, B.torsoD, C.shirt, 0, B.torsoH / 2, 0); box(torso, B.torsoW + 0.012, 0.11, B.torsoD + 0.012, C.pants, 0, 0.055, 0, { outline: false });
-  // 手臂（肩關節）：長袖／短袖／背心（沒有袖子）
-  const arms = [1, -1].map(sx => { const sh = new THREE.Group(); sh.position.set(sx * (B.torsoW / 2 + B.armW / 2 + 0.006), B.torsoH - 0.05, 0); torso.add(sh);
-    const sl = has('vest') ? 0 : has('shortSleeve') ? 0.2 : B.armH - 0.1; if (sl) box(sh, B.armW, sl, 0.12, C.sleeve, 0, 0.04 - sl / 2, 0);
-    const sk = B.armH - sl; box(sh, B.armW * 0.9, sk, 0.105, C.skin, 0, 0.04 - sl - sk / 2, 0);
-    const hand = new THREE.Group(); hand.position.y = 0.04 - B.armH; sh.add(hand); sh.userData.hand = hand; return sh; }); // arms[0]＝左手（+x），arms[1]＝右手
-  // 頭（脖子）：圓角立方體＋正面的臉
-  const neck = new THREE.Group(); neck.position.y = B.torsoH; torso.add(neck);
-  const head = box(neck, B.headW, B.headH, B.headD, C.skin, 0, B.headH / 2 + 0.01, 0, { r: 0.055 });
+  const has = a => accessories.includes(a), root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const box = (parent, w, h, d, color, x, y, z, { r, rot, outline = true } = {}) => { const m = addMesh(G(w, h, d, r ?? Math.min(w, h, d) * 0.2), toon(color), parent, { outline }); m.position.set(x, y, z); if (rot) m.rotation.set(...rot); return m; };
+  const TW = B.torsoW, TH = B.torsoH, TD = B.torsoD, HW = B.headW / 2, HT = B.headH / 2, HD = B.headD / 2, top = (h = 0) => HT + h;
+  // 軀幹：短而寬的圓角方塊＋前面微凸的肚子＋腰間一截褲子
+  const torso = new THREE.Group(); torso.position.y = B.legH; body.add(torso);
+  box(torso, TW, TH, TD, C.shirt, 0, TH / 2, 0, { r: 0.12 });
+  box(torso, TW * 0.72, TH * 0.6, 0.1, new THREE.Color(C.shirt).lerp(new THREE.Color(0xffffff), 0.12).getHex(), 0, TH * 0.4, TD / 2 - 0.01, { r: 0.05, outline: false }); // 圓滾滾的肚子
+  box(torso, TW + 0.012, 0.13, TD + 0.012, C.pants, 0, 0.065, 0, { r: 0.06, outline: false });
+  // 腿（髖關節）：非常短的粗方柱，兩腿靠近、腳尖略往內（內八）；短褲時下半截是皮膚
+  const legs = [1, -1].map(sx => { const hip = new THREE.Group(); hip.position.set(sx * B.legX, 0.02, 0); hip.rotation.order = 'YXZ'; hip.rotation.y = -sx * 0.16; torso.add(hip);
+    const L = B.legH - 0.06, pl = has('shorts') ? L * 0.45 : L; box(hip, B.legW, pl + 0.02, 0.2, C.pants, 0, -pl / 2 + 0.01, 0, { r: 0.05 }); if (pl < L) box(hip, B.legW * 0.9, L - pl, 0.18, C.skin, 0, -pl - (L - pl) / 2, 0, { r: 0.05 });
+    box(hip, 0.21, 0.09, 0.27, C.shoes, 0, -B.legH + 0.065, 0.035, { r: 0.04 }); return hip; });
+  // 手臂（肩關節）：短粗方柱，末端圓角；長袖／短袖／背心（沒有袖子）
+  const arms = [1, -1].map(sx => { const sh = new THREE.Group(); sh.position.set(sx * (TW / 2 + B.armW / 2 - 0.015), TH - 0.08, 0); torso.add(sh);
+    const sl = has('vest') ? 0 : has('shortSleeve') ? 0.14 : B.armH - 0.1; if (sl) box(sh, B.armW, sl, 0.17, C.sleeve, 0, 0.05 - sl / 2, 0, { r: 0.05 });
+    const sk = B.armH - sl; box(sh, B.armW * 0.92, sk, 0.16, C.skin, 0, 0.05 - sl - sk / 2, 0, { r: 0.065 });
+    const hand = new THREE.Group(); hand.position.y = 0.05 - B.armH; sh.add(hand); sh.userData.hand = hand; return sh; }); // arms[0]＝左手（+x），arms[1]＝右手
+  // 頭（脖子）：大大的圓角立方體＋正面的臉
+  const neck = new THREE.Group(); neck.position.y = TH - 0.03; torso.add(neck);
+  const head = box(neck, B.headW, B.headH, B.headD, C.skin, 0, HT, 0, { r: B.headR });
   const faceMat = curvify(new THREE.MeshToonMaterial({ map: faceTexture(face), alphaTest: 0.5, gradientMap: GRADIENT }));
-  const fp = new THREE.Mesh(new THREE.PlaneGeometry(B.headW * 0.9, B.headH * 0.9), faceMat); fp.position.z = B.headD / 2 + 0.004; fp.frustumCulled = false; head.add(fp);
-  const HT = B.headH / 2, HW = B.headW / 2, HD = B.headD / 2, top = (h = 0) => HT + h;
+  const fp = new THREE.Mesh(new THREE.PlaneGeometry(FACE_W, FACE_H), faceMat); fp.position.z = HD + 0.004; fp.frustumCulled = false; head.add(fp);
   // ── 髮型 ──
-  if (has('hairShort') || has('hairBob') || has('hairSpiky') || has('hairBun')) { box(head, B.headW + 0.03, 0.09, B.headD + 0.03, C.hair, 0, top(-0.025), 0); box(head, B.headW + 0.03, B.headH * 0.62, 0.06, C.hair, 0, 0.04, -HD - 0.01);
-    box(head, B.headW + 0.03, 0.055, 0.05, C.hair, 0, top(-0.07), HD - 0.005, { outline: false }); } // 頂、後腦、瀏海
-  if (has('hairBob')) for (const sx of [-1, 1]) box(head, 0.06, B.headH * 0.78, B.headD + 0.02, C.hair, sx * (HW + 0.02), 0.02, -0.01);
-  if (has('hairSpiky')) for (const [x, z, a] of [[-0.1, 0.04, 0.3], [0.02, -0.02, -0.15], [0.12, 0.05, -0.4]]) box(head, 0.09, 0.09, 0.09, C.hair, x, top(0.04), z, { rot: [a, 0.6, a] });
-  if (has('hairBun')) box(head, 0.13, 0.12, 0.13, C.hair, 0, top(0.06), -0.08, { r: 0.04 });
+  if (has('hairShort') || has('hairBob') || has('hairSpiky') || has('hairBun')) { box(head, B.headW + 0.03, 0.13, B.headD + 0.03, C.hair, 0, top(-0.04), 0, { r: 0.06 }); box(head, B.headW + 0.02, B.headH * 0.62, 0.09, C.hair, 0, 0.05, -HD + 0.02, { r: 0.05 });
+    box(head, B.headW * 0.8, 0.07, 0.07, C.hair, 0, top(-0.1), HD - 0.03, { r: 0.03, outline: false }); } // 頂、後腦、瀏海
+  if (has('hairBob')) for (const sx of [-1, 1]) box(head, 0.08, B.headH * 0.75, B.headD * 0.9, C.hair, sx * (HW + 0.005), 0.02, -0.02, { r: 0.04 });
+  if (has('hairSpiky')) for (const [x, z, a] of [[-0.15, 0.05, 0.3], [0.02, -0.03, -0.15], [0.17, 0.06, -0.4]]) box(head, 0.13, 0.13, 0.13, C.hair, x, top(0.04), z, { rot: [a, 0.6, a], r: 0.03 });
+  if (has('hairBun')) box(head, 0.2, 0.17, 0.2, C.hair, 0, top(0.08), -0.12, { r: 0.07 });
   // ── 帽子 ──
-  if (has('cap')) { box(head, B.headW + 0.05, 0.12, B.headD + 0.05, C.hat, 0, top(0.03), 0); box(head, B.headW * 0.86, 0.03, 0.2, C.hat, 0, top(-0.015), HD + 0.09); box(head, 0.05, 0.03, 0.05, C.acc, 0, top(0.1), 0, { outline: false }); } // 鴨舌帽
-  if (has('nightcap')) { const g = new THREE.Group(); g.position.set(0, top(0.03), 0); g.rotation.set(-0.55, 0, 0.25); head.add(g); box(head, B.headW + 0.04, 0.1, B.headD + 0.04, C.hat, 0, top(0.0), 0);
-    [[0.3, 0.12], [0.22, 0.12], [0.14, 0.11]].forEach(([w, h], i) => box(g, w, h, w, C.hat, 0, 0.06 + i * 0.11, -i * 0.02)); box(g, 0.09, 0.09, 0.09, C.acc, 0, 0.4, -0.05, { r: 0.04 }); } // 睡帽：越往上越細、尾端一顆毛球
-  if (has('beret')) { box(head, B.headW + 0.1, 0.07, B.headD + 0.08, C.hat, 0.02, top(0.02), 0, { rot: [0, 0, 0.18], r: 0.03 }); box(head, 0.03, 0.04, 0.03, C.hat, 0.03, top(0.07), 0, { outline: false }); } // 貝雷帽：歪一邊
-  if (has('headband')) box(head, B.headW + 0.025, 0.055, B.headD + 0.025, C.hat, 0, B.headH * 0.24, 0, { outline: false }); // 頭帶
-  if (has('strawhat')) { box(head, 0.7, 0.03, 0.7, C.hat, 0, top(0.0), 0, { r: 0.012 }); box(head, B.headW + 0.03, 0.14, B.headD + 0.03, C.hat, 0, top(0.08), 0); box(head, B.headW + 0.04, 0.04, B.headD + 0.04, C.acc, 0, top(0.03), 0, { outline: false }); } // 草帽：寬帽沿＋緞帶
+  if (has('cap')) { box(head, B.headW + 0.05, 0.15, B.headD + 0.05, C.hat, 0, top(0.03), 0, { r: 0.07 }); box(head, B.headW * 0.8, 0.04, 0.26, C.hat, 0, top(-0.02), HD + 0.11, { r: 0.02 }); box(head, 0.07, 0.04, 0.07, C.acc, 0, top(0.12), 0, { outline: false }); } // 鴨舌帽
+  if (has('nightcap')) { const g = new THREE.Group(); g.position.set(0, top(0.05), 0); g.rotation.set(-0.55, 0, 0.3); head.add(g); box(head, B.headW + 0.05, 0.13, B.headD + 0.05, C.hat, 0, top(0.01), 0, { r: 0.06 });
+    [[0.44, 0.16], [0.32, 0.15], [0.21, 0.14]].forEach(([w, h], i) => box(g, w, h, w, C.hat, 0, 0.07 + i * 0.14, -i * 0.03, { r: 0.05 })); box(g, 0.13, 0.13, 0.13, C.acc, 0, 0.5, -0.07, { r: 0.06 }); } // 睡帽：越往上越細、尾端一顆毛球
+  if (has('beret')) { box(head, B.headW + 0.12, 0.1, B.headD + 0.1, C.hat, 0.03, top(0.02), 0, { rot: [0, 0, 0.18], r: 0.045 }); box(head, 0.04, 0.05, 0.04, C.hat, 0.04, top(0.09), 0, { outline: false }); } // 貝雷帽：歪一邊
+  if (has('headband')) box(head, B.headW + 0.02, 0.07, B.headD + 0.02, C.hat, 0, 0.1, 0, { r: 0.08, outline: false }); // 頭帶
+  if (has('strawhat')) { box(head, 0.98, 0.04, 0.98, C.hat, 0, top(0.0), 0, { r: 0.015 }); box(head, B.headW + 0.03, 0.17, B.headD + 0.03, C.hat, 0, top(0.09), 0, { r: 0.06 }); box(head, B.headW + 0.04, 0.05, B.headD + 0.04, C.acc, 0, top(0.03), 0, { r: 0.06, outline: false }); } // 草帽：寬帽沿＋緞帶
   // ── 臉上：眼鏡（只有鏡框，眼睛看得到）──
-  if (has('glasses')) { const z = HD + 0.012, y = 0.014, k = 0x3b2c44; for (const x of [-0.068, 0.068]) { box(head, 0.1, 0.014, 0.012, k, x, y + 0.042, z, { outline: false }); box(head, 0.1, 0.014, 0.012, k, x, y - 0.042, z, { outline: false }); box(head, 0.014, 0.098, 0.012, k, x - 0.045, y, z, { outline: false }); box(head, 0.014, 0.098, 0.012, k, x + 0.045, y, z, { outline: false }); }
-    box(head, 0.04, 0.012, 0.012, k, 0, y + 0.02, z, { outline: false }); }
+  if (has('glasses')) { const z = HD + 0.014, y = -0.035, k = 0x3b2c44, fb = (w, h, x, yy) => box(head, w, h, 0.014, k, x, yy, z, { r: 0.005, outline: false });
+    for (const x of [-0.13, 0.13]) { fb(0.15, 0.018, x, y + 0.055); fb(0.15, 0.018, x, y - 0.055); fb(0.018, 0.128, x - 0.066, y); fb(0.018, 0.128, x + 0.066, y); } fb(0.11, 0.016, 0, y + 0.03); }
   // ── 動物耳朵／尾巴 ──
-  if (has('earsCat')) for (const sx of [-1, 1]) box(head, 0.1, 0.1, 0.05, C.hair, sx * 0.11, top(0.02), 0.02, { rot: [0, 0, Math.PI / 4] });
-  if (has('earsBear')) for (const sx of [-1, 1]) box(head, 0.1, 0.09, 0.06, C.hair, sx * 0.14, top(0.04), 0.02, { r: 0.03 });
-  if (has('earsBunny')) for (const sx of [-1, 1]) box(head, 0.06, 0.24, 0.04, C.acc, sx * 0.08, top(0.12), 0, { rot: [0, 0, sx * -0.12] });
-  if (has('tailCat')) { const tl = new THREE.Group(); tl.position.set(0, 0.06, -B.torsoD / 2); tl.rotation.x = -0.7; torso.add(tl); box(tl, 0.055, 0.055, 0.32, C.hair, 0, 0, -0.16); root.userData.tail = tl; }
-  if (has('tailBunny')) box(torso, 0.1, 0.1, 0.1, C.acc, 0, 0.08, -B.torsoD / 2 - 0.04, { r: 0.04 });
+  if (has('earsCat')) for (const sx of [-1, 1]) box(head, 0.14, 0.14, 0.07, C.hair, sx * 0.19, top(0.02), 0.03, { rot: [0, 0, Math.PI / 4], r: 0.025 });
+  if (has('earsBear')) for (const sx of [-1, 1]) box(head, 0.14, 0.13, 0.08, C.hair, sx * 0.23, top(0.05), 0.04, { r: 0.05 });
+  if (has('earsBunny')) for (const sx of [-1, 1]) box(head, 0.08, 0.3, 0.05, C.acc, sx * 0.12, top(0.15), 0, { rot: [0, 0, sx * -0.12], r: 0.03 });
+  if (has('tailCat')) { const tl = new THREE.Group(); tl.position.set(0, 0.1, -TD / 2); tl.rotation.x = -0.7; torso.add(tl); box(tl, 0.07, 0.07, 0.34, C.hair, 0, 0, -0.17, { r: 0.03 }); root.userData.tail = tl; }
+  if (has('tailBunny')) box(torso, 0.13, 0.13, 0.13, C.acc, 0, 0.1, -TD / 2 - 0.05, { r: 0.06 });
   // ── 身上：圍巾、背包、吊帶 ──
-  if (has('scarf')) { box(torso, B.torsoW + 0.05, 0.08, B.torsoD + 0.05, C.acc, 0, B.torsoH - 0.03, 0); box(torso, 0.09, 0.24, 0.04, C.acc, 0.08, B.torsoH - 0.17, B.torsoD / 2 + 0.03, { rot: [0.1, 0, 0.08] }); }
-  if (has('backpack')) { box(torso, 0.3, 0.34, 0.12, C.acc, 0, 0.32, -B.torsoD / 2 - 0.06); box(torso, 0.2, 0.1, 0.03, C.hat, 0, 0.24, -B.torsoD / 2 - 0.13, { outline: false }); for (const sx of [-1, 1]) box(torso, 0.05, 0.3, 0.012, C.acc, sx * 0.1, 0.4, B.torsoD / 2 + 0.006, { outline: false }); }
-  if (has('overalls')) { box(torso, B.torsoW * 0.66, 0.25, 0.012, C.pants, 0, 0.18, B.torsoD / 2 + 0.006, { outline: false }); for (const sx of [-1, 1]) box(torso, 0.05, 0.32, 0.012, C.pants, sx * 0.1, 0.43, B.torsoD / 2 + 0.006, { outline: false }); }
+  if (has('scarf')) { box(torso, TW + 0.04, 0.1, TD + 0.04, C.acc, 0, TH - 0.04, 0, { r: 0.05 }); box(torso, 0.12, 0.24, 0.05, C.acc, 0.12, TH - 0.17, TD / 2 + 0.05, { rot: [0.15, 0, 0.08], r: 0.03 }); }
+  if (has('backpack')) { box(torso, 0.42, 0.4, 0.16, C.acc, 0, 0.26, -TD / 2 - 0.07, { r: 0.07 }); box(torso, 0.28, 0.12, 0.04, C.hat, 0, 0.2, -TD / 2 - 0.16, { r: 0.02, outline: false }); for (const sx of [-1, 1]) box(torso, 0.07, 0.03, TD + 0.02, C.acc, sx * 0.14, TH - 0.005, 0, { r: 0.01, outline: false }); }
+  if (has('overalls')) { box(torso, TW * 0.6, 0.24, 0.014, C.pants, 0, 0.2, TD / 2 + 0.045, { r: 0.006, outline: false }); for (const sx of [-1, 1]) box(torso, 0.065, 0.2, 0.014, C.pants, sx * 0.14, TH - 0.1, TD / 2 + 0.01, { r: 0.006, outline: false }); }
   // ── 手持物（右手）──
   const handR = arms[1].userData.hand;
-  if (has('trowel')) { box(handR, 0.04, 0.14, 0.04, CFG.pal.wood, 0, -0.02, 0.04); box(handR, 0.075, 0.13, 0.016, 0xb8b8c8, 0, -0.15, 0.06, { rot: [0.25, 0, 0] }); } // 小鏟子
-  if (has('wateringCan')) { const can = new THREE.Group(); can.position.set(0, -0.12, 0.06); handR.add(can); addMesh(G(0.2, 0.18, 0.2, 0.04), toon(0x9fd8c8), can); addMesh(G(0.04, 0.04, 0.2, 0.012).clone().rotateX(-Math.PI / 5).translate(0, 0.04, 0.15), toon(0x9fd8c8), can, { outline: false }); addMesh(Gc(0.04, 0.12, 0.14, 0.012, 0, 0.13, -0.02), toon(0x7fbcae), can, { outline: false }); }
-  // ── 動畫：走路（肩、髖前後擺）、待機（輕輕擺手＋呼吸）、揮手（右手舉高左右搖）、澆水（右手往前舉）──
+  if (has('trowel')) { box(handR, 0.05, 0.16, 0.05, CFG.pal.wood, 0, -0.03, 0.05, { r: 0.015 }); box(handR, 0.09, 0.15, 0.02, 0xb8b8c8, 0, -0.17, 0.07, { rot: [0.25, 0, 0], r: 0.008 }); } // 小鏟子
+  if (has('wateringCan')) { const can = new THREE.Group(); can.position.set(0, -0.1, 0.07); handR.add(can); addMesh(G(0.2, 0.18, 0.2, 0.04), toon(0x9fd8c8), can); addMesh(G(0.04, 0.04, 0.2, 0.012).clone().rotateX(-Math.PI / 5).translate(0, 0.04, 0.15), toon(0x9fd8c8), can, { outline: false }); addMesh(Gc(0.04, 0.12, 0.14, 0.012, 0, 0.13, -0.02), toon(0x7fbcae), can, { outline: false }); }
+  // ── 動畫（配合胖身材）──
+  // 走路：企鵝步（身體左右搖擺）、步伐小頻率快；每一步落地 squash & stretch（Y 壓扁 5%、XZ 撐開）；待機：慢慢的呼吸起伏；揮手；澆水（右手往前舉）
   let phase = 0, t = Math.random() * 10, waveT = 0, faceNow = face;
-  const ch = { root, torso, head, arms, legs, hold: null,
+  const ch = { root, body, torso, head, arms, legs, hold: null,
     get face() { return faceNow; }, setFace(k) { if (k !== faceNow) { faceNow = k; faceMat.map = faceTexture(k); } },
     wave(sec = 1.6) { waveT = sec; },
     get waving() { return waveT > 0; },
-    update(dt, speed = 0) { t += dt; phase += dt * 10 * speed; waveT = Math.max(0, waveT - dt); const s = Math.sin(phase), idle = 1 - Math.min(1, speed), sway = Math.sin(t * 1.7);
-      legs[0].rotation.x = s * 0.7 * speed; legs[1].rotation.x = -s * 0.7 * speed;
-      torso.position.y = B.legH + Math.abs(Math.sin(phase)) * 0.05 * speed; torso.scale.set(1, 1 + Math.sin(t * 2.2) * 0.012 * idle, 1);
-      arms[0].rotation.set(-s * 0.6 * speed + sway * 0.07 * idle, 0, (0.07 + sway * 0.03) * idle);
-      if (waveT > 0) arms[1].rotation.set(0, 0, -(2.55 + Math.sin(t * 12) * 0.38)); else if (ch.hold === 'water') arms[1].rotation.set(-1.2, 0, -0.05); else arms[1].rotation.set(s * 0.6 * speed - sway * 0.07 * idle, 0, -(0.07 + sway * 0.03) * idle);
-      head.parent.rotation.set(0, Math.sin(t * 0.6) * 0.18 * idle, faceNow === 'sleepy' ? 0.12 + Math.sin(t * 1.1) * 0.05 : waveT > 0 ? 0.12 : 0); // 待機時左右張望；睏的時候頭歪一邊晃
+    update(dt, speed = 0) { t += dt; const sp = Math.min(1, speed); phase += dt * 15 * sp; waveT = Math.max(0, waveT - dt); const s = Math.sin(phase), idle = 1 - sp, sway = Math.sin(t * 1.7);
+      const step = Math.abs(Math.cos(phase)), land = Math.pow(1 - step, 3) * sp; // land：腳剛落地的那一下（每半個週期一次）
+      legs[0].rotation.x = s * 0.45 * sp; legs[1].rotation.x = -s * 0.45 * sp;
+      body.rotation.z = s * 0.12 * sp; body.position.y = step * 0.035 * sp; // 企鵝步：左右搖、每一步微微彈起
+      const breath = Math.sin(t * 1.6) * 0.022 * idle; body.scale.set(1 + land * 0.03 - breath * 0.4, 1 - land * 0.05 + breath, 1 + land * 0.03 - breath * 0.4); // 落地壓扁 5%＋呼吸
+      arms[0].rotation.set(-s * 0.5 * sp + sway * 0.05 * idle, 0, 0.2 + sway * 0.03 * idle + s * 0.08 * sp);
+      if (waveT > 0) arms[1].rotation.set(0, 0, -(2.5 + Math.sin(t * 12) * 0.4)); else if (ch.hold === 'water') arms[1].rotation.set(-1.25, 0, -0.1); else arms[1].rotation.set(s * 0.5 * sp - sway * 0.05 * idle, 0, -(0.2 + sway * 0.03 * idle) + s * 0.08 * sp);
+      neck.rotation.set(0, Math.sin(t * 0.6) * 0.18 * idle, faceNow === 'sleepy' ? 0.12 + Math.sin(t * 1.1) * 0.05 : waveT > 0 ? 0.12 : -s * 0.06 * sp); // 待機左右張望；睏的時候頭歪一邊晃；走路時頭反向擺一點保持平衡
       if (root.userData.tail) root.userData.tail.rotation.y = Math.sin(t * 3) * 0.5; } };
   return ch;
 }
@@ -551,7 +564,9 @@ function applyDayNight(h) { let i = 0; while (i < DN.length - 2 && DN[i + 1][0] 
   grassMat.uniforms.uLight.value.copy(L); waterMat.uniforms.uLight.value.copy(L);
   windowMat.emissiveIntensity = 0.2 + night * 1.8; lampGlass.emissiveIntensity = night * 2.2; lampLights.forEach(l => { l.intensity = night * 6; }); ffMat.uniforms.uNight.value = night;
   smokeMat.color.setRGB(1 - night * 0.45, 1 - night * 0.45, 1 - night * 0.3); }
-const clockEl = document.getElementById('clock'), speedEl = document.getElementById('speed'), todEl = document.getElementById('tod'); let todDrag = false;
+{ const panel = document.querySelector('.panel'), btn = document.getElementById('btnMin'); const set = min => { panel.classList.toggle('min', min); btn.textContent = min ? '＋' : '－'; btn.setAttribute('aria-expanded', String(!min)); btn.setAttribute('aria-label', min ? '展開面板' : '縮小面板'); try { localStorage.setItem('farm.panelMin', min ? '1' : ''); } catch (e) {} };
+  let saved = false; try { saved = localStorage.getItem('farm.panelMin') === '1'; } catch (e) {} set(saved); btn.addEventListener('click', () => set(!panel.classList.contains('min'))); } // 左上面板可以縮到最小（記在這台裝置）
+const clockMini = document.getElementById('clockMini'), clockEl = document.getElementById('clock'), speedEl = document.getElementById('speed'), todEl = document.getElementById('tod'); let todDrag = false;
 todEl.addEventListener('input', () => { hour = +todEl.value; todDrag = true; }); todEl.addEventListener('change', () => { todDrag = false; });
 
 /* ════════════════════════════════════════════════════════════════
@@ -586,7 +601,7 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.05); time += dt;
   // 時間：滑桿控制流速（每秒經過幾分鐘）
   if (!todDrag) { hour = (hour + dt * +speedEl.value / 60) % 24; todEl.value = hour.toFixed(2); }
-  applyDayNight(hour); clockEl.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor(hour % 1 * 60)).padStart(2, '0')} ${night > 0.6 ? '🌙' : hour < 7 || hour > 17 ? '🌅' : '☀️'}`;
+  applyDayNight(hour); clockMini.textContent = clockEl.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor(hour % 1 * 60)).padStart(2, '0')} ${night > 0.6 ? '🌙' : hour < 7 || hour > 17 ? '🌅' : '☀️'}`;
   // 移動：分 x、z 兩軸各試一次，撞到河邊可以沿著滑
   const [jx, jz] = inputDir(), cyw = Math.cos(CAM.yaw), syw = Math.sin(CAM.yaw), ix = jx * cyw + jz * syw, iz = -jx * syw + jz * cyw, moving = ix !== 0 || iz !== 0; /* 以相機朝向為準：W 永遠往畫面上方 */ const tvx = ix * PL.speed, tvz = iz * PL.speed; PL.vx += (tvx - PL.vx) * Math.min(1, dt * 12); PL.vz += (tvz - PL.vz) * Math.min(1, dt * 12);
   const nx = PL.x + PL.vx * dt, nz = PL.z + PL.vz * dt; if (!blocked(nx, PL.z)) PL.x = nx; if (!blocked(PL.x, nz)) PL.z = nz; resolveColliders(PL);
