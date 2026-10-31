@@ -73,13 +73,13 @@ function strokePlayer(canvas, c, { onCount } = {}) { const g = canvas.getContext
 
 // ── 畫面 ──
 const CSS = `
-.lf-ov{position:fixed;inset:0;z-index:50;background:#4a3b5266;display:flex;align-items:center;justify-content:center;padding:16px;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:#4a3b52}
+.lf-ov{touch-action:pan-y;position:fixed;inset:0;z-index:50;background:#4a3b5266;display:flex;align-items:center;justify-content:center;padding:16px;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:#4a3b52}
 .lf-box{background:#fffaf3;border-radius:22px;box-shadow:0 14px 40px #4a3b5255;width:min(760px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden}
 .lf-top{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid #4a3b5214}
 .lf-top h2{margin:0;font-size:20px;font-weight:900;flex:1;display:flex;align-items:center;gap:8px}.lf-top img{width:40px;height:40px;flex:none}.lf-top h2 img{width:28px;height:28px}.lf-top small{color:#8a7a92;font-weight:700}
 .lf-x{border:0;background:#fff;border-radius:50%;width:34px;height:34px;font-size:18px;box-shadow:0 2px 6px #6a4f7a22;cursor:pointer}
 .lf-tabs{display:flex;gap:6px;padding:10px 16px 0}.lf-tabs button{border:0;border-radius:999px;padding:7px 16px;font:inherit;font-weight:800;background:#f3ebe4;color:#8a7a92;cursor:pointer}.lf-tabs button[aria-selected=true]{background:#f09a8a;color:#fff}
-.lf-body{padding:14px 16px 18px;overflow:auto}
+.lf-body{padding:14px 16px 18px;overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}
 .lf-intro{background:#fff;border-radius:14px;padding:10px 14px;line-height:1.7;margin-bottom:12px;box-shadow:0 2px 8px #6a4f7a14}
 .lf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
 .lf-card{border:0;background:#fff;border-radius:16px;padding:10px 6px 8px;box-shadow:0 3px 0 #ead9cc,0 4px 12px #6a4f7a14;cursor:pointer;font:inherit;color:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:112px;justify-content:center}

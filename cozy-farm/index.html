@@ -2,12 +2,14 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <title>小島田園日記</title>
 <style>
   /* ═══ 介面：粉彩紙卡風格；手機才顯示搖桿與澆水鈕 ═══ */
   :root { --ink:#4a3b52; --muted:#8a7a92; --paper:#fffaf3ee; --accent:#f09a8a; --line:#4a3b5222; color-scheme:light; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  /* 整頁不能被縮放：iOS 不理 user-scalable=no，連點按鈕兩下或在面板上捏合會把頁面放大、按鈕被推出畫面；touch-action:none 把雙擊縮放和捏合都關掉（學習畫面另外開放上下捲動）*/
+  html, body { touch-action:none; overscroll-behavior:none; -webkit-text-size-adjust:100%; text-size-adjust:100% }
   html, body { margin:0; height:100%; overflow:hidden; background:#cfeefc; font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; color:var(--ink) }
   #app { position:fixed; inset:0; touch-action:none }
   .panel { position:fixed; left:max(16px, env(safe-area-inset-left)); top:max(16px, env(safe-area-inset-top)); width:min(270px, calc(100vw - 32px)); background:var(--paper); border-radius:18px; padding:12px 14px; box-shadow:0 6px 22px #6a4f7a33; display:flex; flex-direction:column; gap:8px; font-size:13px; user-select:none }
@@ -25,7 +27,7 @@
   #hint { position:fixed; left:50%; bottom:max(28px, env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--paper); border-radius:999px; padding:8px 18px; font-weight:900; box-shadow:0 6px 18px #6a4f7a33; opacity:0; transition:opacity .2s; pointer-events:none; max-width:min(620px, calc(100vw - 32px)); text-align:center; line-height:1.45 }
   #hint.on { opacity:1 }
   #fade { position:fixed; inset:0; background:#fffaf3; opacity:0; pointer-events:none; transition:opacity .3s; z-index:40 } #fade.on { opacity:1 } /* 換地圖的淡入淡出 */
-  #banner { position:fixed; left:50%; top:22%; transform:translate(-50%, 8px); background:var(--paper); border-radius:20px; padding:12px 26px; font-size:24px; font-weight:900; color:var(--accent); box-shadow:0 8px 24px #6a4f7a33; opacity:0; transition:opacity .4s, transform .4s; pointer-events:none; z-index:41; white-space:nowrap } #banner.on { opacity:1; transform:translate(-50%, 0) }
+  #banner { position:fixed; left:50%; top:22%; transform:translate(-50%, 8px); background:var(--paper); border-radius:20px; padding:12px 26px; font-size:24px; font-weight:900; color:var(--accent); box-shadow:0 8px 24px #6a4f7a33; opacity:0; transition:opacity .4s, transform .4s; pointer-events:none; z-index:41; max-width:calc(100vw - 32px); text-align:center } #banner.on { opacity:1; transform:translate(-50%, 0) }
   #joy { position:fixed; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:#ffffff55; border:3px solid #ffffffaa; display:none; pointer-events:none }
   #joy i { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; background:#fffaf3; box-shadow:0 4px 12px #6a4f7a44 }
   #btnAct { position:fixed; right:max(22px, env(safe-area-inset-right)); bottom:max(26px, env(safe-area-inset-bottom)); width:76px; height:76px; border-radius:50%; border:0; background:#8fd3f0; color:#fff; font-size:32px; box-shadow:0 6px 0 #5aa9cc, 0 10px 22px #6a4f7a44; display:none }
@@ -528,6 +530,9 @@ addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (/INPUT|TEX
   if (k.startsWith('arrow') || k === ' ') e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase())); addEventListener('blur', () => keys.clear());
 if (MOBILE) document.body.classList.add('touch');
+// Safari 的捏合手勢（gesturestart）與雙擊放大另外擋掉；萬一已經被放大了（例如舊版頁面留下的），回到正常比例
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchend', (() => { let last = 0; return e => { const now = performance.now(); if (now - last < 320 && !e.target.closest('.lf-ov input, .lf-ov select')) e.preventDefault(); last = now; }; })(), { passive: false });
 { const cv = renderer.domElement, joy = document.getElementById('joy'), knob = joy.firstElementChild, R = 50; let id = null, ox = 0, oy = 0, drag = null, gest = null; const touches = new Map(), taps = new Map(); // taps：按下的位置與時間，放開時判斷是不是「點一下」
   const endJoy = () => { id = null; joyVec.set(0, 0); joy.style.display = 'none'; };
   const two = () => { const [a, b] = [...touches.values()]; return { mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
