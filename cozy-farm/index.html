@@ -18,13 +18,15 @@
   label { display:flex; flex-direction:column; gap:3px; font-weight:700; color:var(--muted) }
   input[type=range] { width:100%; accent-color:var(--accent) }
   .keys { color:var(--muted); font-size:12px; line-height:1.5 }
-  #hint { position:fixed; left:50%; bottom:max(28px, env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--paper); border-radius:999px; padding:8px 18px; font-weight:900; box-shadow:0 6px 18px #6a4f7a33; opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap }
+  #hint { position:fixed; left:50%; bottom:max(28px, env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--paper); border-radius:999px; padding:8px 18px; font-weight:900; box-shadow:0 6px 18px #6a4f7a33; opacity:0; transition:opacity .2s; pointer-events:none; max-width:min(620px, calc(100vw - 32px)); text-align:center; line-height:1.45 }
   #hint.on { opacity:1 }
   #joy { position:fixed; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:#ffffff55; border:3px solid #ffffffaa; display:none; pointer-events:none }
   #joy i { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; background:#fffaf3; box-shadow:0 4px 12px #6a4f7a44 }
   #btnAct { position:fixed; right:max(22px, env(safe-area-inset-right)); bottom:max(26px, env(safe-area-inset-bottom)); width:76px; height:76px; border-radius:50%; border:0; background:#8fd3f0; color:#fff; font-size:32px; box-shadow:0 6px 0 #5aa9cc, 0 10px 22px #6a4f7a44; display:none }
   #btnAct:active { transform:translateY(4px); box-shadow:0 2px 0 #5aa9cc }
-  body.touch #btnAct { display:block } body.touch .keys { display:none }
+  #btnWave { position:fixed; right:max(110px, calc(env(safe-area-inset-right) + 110px)); bottom:max(30px, env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; border:0; background:#fffaf3; font-size:26px; box-shadow:0 5px 0 #e6d6c8, 0 8px 18px #6a4f7a33; display:none }
+  body.touch #btnAct, body.touch #btnWave { display:block }
+  body.touch #hint { bottom:max(116px, calc(env(safe-area-inset-bottom) + 116px)) } /* 手機：對話泡泡放在按鈕上面 */ body.touch .keys { display:none }
   @media (max-width:640px) { .panel { padding:10px 12px } .panel h1 { font-size:15px } }
 </style>
 </head>
@@ -35,16 +37,18 @@
   <div class="row"><span class="clock" id="clock">09:00</span><span class="chip" id="harvest">🧺 收成 0</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
   <label>現在時刻 <input type="range" id="tod" min="0" max="24" step="0.05" value="9" aria-label="一天中的時刻"></label>
-  <div class="keys">WASD／方向鍵走路・E 澆水或收成</div>
+  <div class="keys">WASD／方向鍵走路・E 澆水、收成或聊天<br>Q 揮手・1 開心 2 驚訝 3 睏</div>
 </section>
 <div id="hint"></div>
 <div id="joy"><i></i></div>
-<button id="btnAct" type="button" aria-label="澆水或收成">💧</button>
+<button id="btnAct" type="button" aria-label="澆水、收成或聊天">💧</button>
+<button id="btnWave" type="button" aria-label="揮手">👋</button>
 
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 /* ════════════════════════════════════════════════════════════════
    0. 設定：配色、地平線彎曲、裝置等級（改這裡就能換風格）
@@ -341,33 +345,139 @@ const petals = Array.from({ length: CFG.petals }, (_, i) => { petalI.setColorAt(
 const dropI = new THREE.InstancedMesh(new THREE.SphereGeometry(0.06, 6, 4), curvify(new THREE.MeshBasicMaterial({ color: 0x9fe3ff })), 24); dropI.frustumCulled = false; scene.add(dropI); const drops = [];
 
 /* ════════════════════════════════════════════════════════════════
-   4. player：原創 Q 版角色（大頭、圓身、短手腳、頭上一片小葉子、手提澆水壺）
+   4. characters：方塊積木角色工廠 createBlockCharacter（玩家與鄰居共用）＋鄰居
    ════════════════════════════════════════════════════════════════ */
-const player = new THREE.Group(), body = new THREE.Group(); player.add(body); scene.add(player);
-const P = CFG.pal; const limb = (r, h) => new THREE.CapsuleGeometry(r, h, 4, 10);
-const torso = addMesh(new THREE.CapsuleGeometry(0.3, 0.2, 6, 14), toon(P.overall), body); torso.position.y = 0.58; torso.scale.set(1, 0.95, 0.9);
-const head = addMesh(new THREE.SphereGeometry(0.44, 20, 16), toon(P.skin), body); head.position.y = 1.28;
-const hair = addMesh(new THREE.SphereGeometry(0.46, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), toon(P.hair), head); hair.rotation.x = -0.32; hair.position.set(0, 0.02, -0.02);
-const sprout = addMesh(merge([new THREE.CylinderGeometry(0.02, 0.025, 0.22, 6).translate(0, 0.11, 0), new THREE.SphereGeometry(0.1, 10, 8).scale(1.6, 0.45, 0.9).translate(0.1, 0.24, 0)]), toon(0x8fd36f), head); sprout.position.y = 0.42; sprout.rotation.z = -0.25;
-for (const sx of [-1, 1]) { addMesh(new THREE.SphereGeometry(0.055, 10, 8).scale(1, 1.35, 0.6), toon(0x3b2c44), head, { outline: false, cast: false }).position.set(sx * 0.15, 0.0, 0.41); addMesh(new THREE.SphereGeometry(0.018, 6, 4), toon(0xffffff), head, { outline: false, cast: false }).position.set(sx * 0.15 + 0.02, 0.035, 0.445); addMesh(new THREE.SphereGeometry(0.07, 10, 6).scale(1.3, 0.6, 0.4), toon(P.blush), head, { outline: false, cast: false }).position.set(sx * 0.26, -0.11, 0.35); }
-addMesh(new THREE.TorusGeometry(0.04, 0.012, 6, 12, Math.PI), toon(0x7a3b3b), head, { outline: false, cast: false }).position.set(0, -0.09, 0.43);
-const arms = [-1, 1].map(sx => { const piv = new THREE.Group(); piv.position.set(sx * 0.32, 0.74, 0); body.add(piv); const a = addMesh(limb(0.075, 0.18), toon(P.skin), piv); a.position.y = -0.15; a.rotation.z = sx * 0.25; return piv; });
-const legs = [-1, 1].map(sx => { const piv = new THREE.Group(); piv.position.set(sx * 0.13, 0.32, 0); body.add(piv); const l = addMesh(limb(0.085, 0.12), toon(0x6f8fc8), piv); l.position.y = -0.14; const shoe = addMesh(new THREE.SphereGeometry(0.1, 10, 8).scale(1, 0.6, 1.3), toon(0xb07a55), piv); shoe.position.set(0, -0.27, 0.03); return piv; });
-{ const can = new THREE.Group(); arms[1].add(can); can.position.set(0.05, -0.34, 0.08); addMesh(new THREE.CylinderGeometry(0.1, 0.11, 0.18, 12), toon(0x9fd8c8), can); addMesh(new THREE.CylinderGeometry(0.02, 0.03, 0.2, 6).rotateX(Math.PI / 3).translate(0, 0.02, 0.15), toon(0x9fd8c8), can, { outline: false }); }
+// 身體尺寸（世界單位）：約 5 頭身、總高約 1.65；頭寬 ≈ 軀幹寬，四肢是細長方柱
+const B = { legH: 0.7, legW: 0.14, torsoW: 0.36, torsoH: 0.6, torsoD: 0.22, armW: 0.11, armH: 0.56, headW: 0.36, headH: 0.34, headD: 0.34 };
+// 圓角方塊幾何（同尺寸共用一份）；圓角讓法線連續，反向外殼描邊在角落不會裂開
+const GEO = new Map();
+function G(w, h, d, r = 0.022) { const k = [w, h, d, r].join(); if (!GEO.has(k)) GEO.set(k, new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 0.002, h / 2 - 0.002, d / 2 - 0.002))); return GEO.get(k); }
+// 臉：CanvasTexture 畫在頭部正面的一片薄板上（點點眼睛＋弧線嘴巴），三種表情
+const FACES = new Map();
+function faceTexture(kind) { if (FACES.has(kind)) return FACES.get(kind);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'); g.lineCap = 'round'; g.lineJoin = 'round'; const ink = '#3b2c44';
+  const blush = () => { g.fillStyle = 'rgba(255,150,170,0.55)'; for (const x of [26, 102]) { g.beginPath(); g.ellipse(x, 84, 12, 7, 0, 0, Math.PI * 2); g.fill(); } };
+  g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 6;
+  if (kind === 'happy') { for (const x of [42, 86]) { g.beginPath(); g.arc(x, 60, 8, 0, Math.PI * 2); g.fill(); } g.beginPath(); g.arc(64, 74, 15, Math.PI * 0.18, Math.PI * 0.82); g.stroke(); blush(); }
+  else if (kind === 'surprised') { for (const x of [42, 86]) { g.beginPath(); g.arc(x, 58, 11, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 3, 54, 3.5, 0, Math.PI * 2); g.fill(); g.fillStyle = ink; }
+    g.lineWidth = 5; for (const x of [42, 86]) { g.beginPath(); g.moveTo(x - 9, 36); g.lineTo(x + 9, 33); g.stroke(); } g.beginPath(); g.arc(64, 94, 8, 0, Math.PI * 2); g.fill(); }
+  else { g.lineWidth = 5; for (const x of [42, 86]) { g.beginPath(); g.moveTo(x - 11, 60); g.quadraticCurveTo(x, 67, x + 11, 60); g.stroke(); } g.beginPath(); g.moveTo(57, 88); g.lineTo(71, 88); g.stroke(); blush();
+    g.font = '900 26px sans-serif'; g.fillText('z', 104, 30); g.font = '900 18px sans-serif'; g.fillText('z', 116, 14); } // 睏：瞇瞇眼＋一條線的嘴＋zz
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; FACES.set(kind, t); return t; }
+// 角色工廠：colors＝膚色、頭髮、上衣、袖子、褲子、鞋子、帽子、配件色；accessories＝髮型、帽子、衣服款式、手持物、動物耳朵尾巴；face＝'happy'｜'surprised'｜'sleepy'
+// 骨架：root → torso（髖部高度）→ head（脖子）／arms（肩膀）；legs 掛在 root 的髖關節。每個關節都是一個 Group，pivot 就在關節上
+function createBlockCharacter({ colors = {}, accessories = [], face = 'happy' } = {}) {
+  const C = { skin: 0xf6d2b4, hair: 0x6b4a3a, shirt: 0x8fb6ec, pants: 0x5d6f9e, shoes: 0x7a5a48, hat: 0xf2928a, acc: 0xffffff, ...colors }; C.sleeve ??= C.shirt;
+  const has = a => accessories.includes(a), root = new THREE.Group();
+  const box = (parent, w, h, d, color, x, y, z, { r, rot, outline = true } = {}) => { const m = addMesh(G(w, h, d, r), toon(color), parent, { outline }); m.position.set(x, y, z); if (rot) m.rotation.set(...rot); return m; };
+  // 腿（髖關節）：褲子＋鞋子；短褲時下半截是皮膚
+  const legs = [1, -1].map(sx => { const hip = new THREE.Group(); hip.position.set(sx * 0.095, B.legH, 0); root.add(hip); const L = B.legH - 0.1, pl = has('shorts') ? 0.28 : L;
+    box(hip, B.legW, pl, 0.15, C.pants, 0, -pl / 2, 0); if (pl < L) box(hip, B.legW * 0.88, L - pl, 0.13, C.skin, 0, -pl - (L - pl) / 2, 0);
+    box(hip, 0.16, 0.1, 0.22, C.shoes, 0, -B.legH + 0.05, 0.03); return hip; });
+  // 軀幹：上衣＋腰間一截褲子
+  const torso = new THREE.Group(); torso.position.y = B.legH; root.add(torso);
+  box(torso, B.torsoW, B.torsoH, B.torsoD, C.shirt, 0, B.torsoH / 2, 0); box(torso, B.torsoW + 0.012, 0.11, B.torsoD + 0.012, C.pants, 0, 0.055, 0, { outline: false });
+  // 手臂（肩關節）：長袖／短袖／背心（沒有袖子）
+  const arms = [1, -1].map(sx => { const sh = new THREE.Group(); sh.position.set(sx * (B.torsoW / 2 + B.armW / 2 + 0.006), B.torsoH - 0.05, 0); torso.add(sh);
+    const sl = has('vest') ? 0 : has('shortSleeve') ? 0.2 : B.armH - 0.1; if (sl) box(sh, B.armW, sl, 0.12, C.sleeve, 0, 0.04 - sl / 2, 0);
+    const sk = B.armH - sl; box(sh, B.armW * 0.9, sk, 0.105, C.skin, 0, 0.04 - sl - sk / 2, 0);
+    const hand = new THREE.Group(); hand.position.y = 0.04 - B.armH; sh.add(hand); sh.userData.hand = hand; return sh; }); // arms[0]＝左手（+x），arms[1]＝右手
+  // 頭（脖子）：圓角立方體＋正面的臉
+  const neck = new THREE.Group(); neck.position.y = B.torsoH; torso.add(neck);
+  const head = box(neck, B.headW, B.headH, B.headD, C.skin, 0, B.headH / 2 + 0.01, 0, { r: 0.055 });
+  const faceMat = curvify(new THREE.MeshToonMaterial({ map: faceTexture(face), alphaTest: 0.5, gradientMap: GRADIENT }));
+  const fp = new THREE.Mesh(new THREE.PlaneGeometry(B.headW * 0.9, B.headH * 0.9), faceMat); fp.position.z = B.headD / 2 + 0.004; fp.frustumCulled = false; head.add(fp);
+  const HT = B.headH / 2, HW = B.headW / 2, HD = B.headD / 2, top = (h = 0) => HT + h;
+  // ── 髮型 ──
+  if (has('hairShort') || has('hairBob') || has('hairSpiky') || has('hairBun')) { box(head, B.headW + 0.03, 0.09, B.headD + 0.03, C.hair, 0, top(-0.025), 0); box(head, B.headW + 0.03, B.headH * 0.62, 0.06, C.hair, 0, 0.04, -HD - 0.01);
+    box(head, B.headW + 0.03, 0.055, 0.05, C.hair, 0, top(-0.07), HD - 0.005, { outline: false }); } // 頂、後腦、瀏海
+  if (has('hairBob')) for (const sx of [-1, 1]) box(head, 0.06, B.headH * 0.78, B.headD + 0.02, C.hair, sx * (HW + 0.02), 0.02, -0.01);
+  if (has('hairSpiky')) for (const [x, z, a] of [[-0.1, 0.04, 0.3], [0.02, -0.02, -0.15], [0.12, 0.05, -0.4]]) box(head, 0.09, 0.09, 0.09, C.hair, x, top(0.04), z, { rot: [a, 0.6, a] });
+  if (has('hairBun')) box(head, 0.13, 0.12, 0.13, C.hair, 0, top(0.06), -0.08, { r: 0.04 });
+  // ── 帽子 ──
+  if (has('cap')) { box(head, B.headW + 0.05, 0.12, B.headD + 0.05, C.hat, 0, top(0.03), 0); box(head, B.headW * 0.86, 0.03, 0.2, C.hat, 0, top(-0.015), HD + 0.09); box(head, 0.05, 0.03, 0.05, C.acc, 0, top(0.1), 0, { outline: false }); } // 鴨舌帽
+  if (has('nightcap')) { const g = new THREE.Group(); g.position.set(0, top(0.03), 0); g.rotation.set(-0.55, 0, 0.25); head.add(g); box(head, B.headW + 0.04, 0.1, B.headD + 0.04, C.hat, 0, top(0.0), 0);
+    [[0.3, 0.12], [0.22, 0.12], [0.14, 0.11]].forEach(([w, h], i) => box(g, w, h, w, C.hat, 0, 0.06 + i * 0.11, -i * 0.02)); box(g, 0.09, 0.09, 0.09, C.acc, 0, 0.4, -0.05, { r: 0.04 }); } // 睡帽：越往上越細、尾端一顆毛球
+  if (has('beret')) { box(head, B.headW + 0.1, 0.07, B.headD + 0.08, C.hat, 0.02, top(0.02), 0, { rot: [0, 0, 0.18], r: 0.03 }); box(head, 0.03, 0.04, 0.03, C.hat, 0.03, top(0.07), 0, { outline: false }); } // 貝雷帽：歪一邊
+  if (has('headband')) box(head, B.headW + 0.025, 0.055, B.headD + 0.025, C.hat, 0, B.headH * 0.24, 0, { outline: false }); // 頭帶
+  if (has('strawhat')) { box(head, 0.7, 0.03, 0.7, C.hat, 0, top(0.0), 0, { r: 0.012 }); box(head, B.headW + 0.03, 0.14, B.headD + 0.03, C.hat, 0, top(0.08), 0); box(head, B.headW + 0.04, 0.04, B.headD + 0.04, C.acc, 0, top(0.03), 0, { outline: false }); } // 草帽：寬帽沿＋緞帶
+  // ── 臉上：眼鏡（只有鏡框，眼睛看得到）──
+  if (has('glasses')) { const z = HD + 0.012, y = 0.014, k = 0x3b2c44; for (const x of [-0.068, 0.068]) { box(head, 0.1, 0.014, 0.012, k, x, y + 0.042, z, { outline: false }); box(head, 0.1, 0.014, 0.012, k, x, y - 0.042, z, { outline: false }); box(head, 0.014, 0.098, 0.012, k, x - 0.045, y, z, { outline: false }); box(head, 0.014, 0.098, 0.012, k, x + 0.045, y, z, { outline: false }); }
+    box(head, 0.04, 0.012, 0.012, k, 0, y + 0.02, z, { outline: false }); }
+  // ── 動物耳朵／尾巴 ──
+  if (has('earsCat')) for (const sx of [-1, 1]) box(head, 0.1, 0.1, 0.05, C.hair, sx * 0.11, top(0.02), 0.02, { rot: [0, 0, Math.PI / 4] });
+  if (has('earsBear')) for (const sx of [-1, 1]) box(head, 0.1, 0.09, 0.06, C.hair, sx * 0.14, top(0.04), 0.02, { r: 0.03 });
+  if (has('earsBunny')) for (const sx of [-1, 1]) box(head, 0.06, 0.24, 0.04, C.acc, sx * 0.08, top(0.12), 0, { rot: [0, 0, sx * -0.12] });
+  if (has('tailCat')) { const tl = new THREE.Group(); tl.position.set(0, 0.06, -B.torsoD / 2); tl.rotation.x = -0.7; torso.add(tl); box(tl, 0.055, 0.055, 0.32, C.hair, 0, 0, -0.16); root.userData.tail = tl; }
+  if (has('tailBunny')) box(torso, 0.1, 0.1, 0.1, C.acc, 0, 0.08, -B.torsoD / 2 - 0.04, { r: 0.04 });
+  // ── 身上：圍巾、背包、吊帶 ──
+  if (has('scarf')) { box(torso, B.torsoW + 0.05, 0.08, B.torsoD + 0.05, C.acc, 0, B.torsoH - 0.03, 0); box(torso, 0.09, 0.24, 0.04, C.acc, 0.08, B.torsoH - 0.17, B.torsoD / 2 + 0.03, { rot: [0.1, 0, 0.08] }); }
+  if (has('backpack')) { box(torso, 0.3, 0.34, 0.12, C.acc, 0, 0.32, -B.torsoD / 2 - 0.06); box(torso, 0.2, 0.1, 0.03, C.hat, 0, 0.24, -B.torsoD / 2 - 0.13, { outline: false }); for (const sx of [-1, 1]) box(torso, 0.05, 0.3, 0.012, C.acc, sx * 0.1, 0.4, B.torsoD / 2 + 0.006, { outline: false }); }
+  if (has('overalls')) { box(torso, B.torsoW * 0.66, 0.25, 0.012, C.pants, 0, 0.18, B.torsoD / 2 + 0.006, { outline: false }); for (const sx of [-1, 1]) box(torso, 0.05, 0.32, 0.012, C.pants, sx * 0.1, 0.43, B.torsoD / 2 + 0.006, { outline: false }); }
+  // ── 手持物（右手）──
+  const handR = arms[1].userData.hand;
+  if (has('trowel')) { box(handR, 0.04, 0.14, 0.04, CFG.pal.wood, 0, -0.02, 0.04); box(handR, 0.075, 0.13, 0.016, 0xb8b8c8, 0, -0.15, 0.06, { rot: [0.25, 0, 0] }); } // 小鏟子
+  if (has('wateringCan')) { const can = new THREE.Group(); can.position.set(0, -0.12, 0.06); handR.add(can); addMesh(new THREE.CylinderGeometry(0.1, 0.11, 0.18, 12), toon(0x9fd8c8), can); addMesh(new THREE.CylinderGeometry(0.02, 0.03, 0.2, 6).rotateX(Math.PI / 3).translate(0, 0.02, 0.15), toon(0x9fd8c8), can, { outline: false }); }
+  // ── 動畫：走路（肩、髖前後擺）、待機（輕輕擺手＋呼吸）、揮手（右手舉高左右搖）、澆水（右手往前舉）──
+  let phase = 0, t = Math.random() * 10, waveT = 0, faceNow = face;
+  const ch = { root, torso, head, arms, legs, hold: null,
+    get face() { return faceNow; }, setFace(k) { if (k !== faceNow) { faceNow = k; faceMat.map = faceTexture(k); } },
+    wave(sec = 1.6) { waveT = sec; },
+    get waving() { return waveT > 0; },
+    update(dt, speed = 0) { t += dt; phase += dt * 10 * speed; waveT = Math.max(0, waveT - dt); const s = Math.sin(phase), idle = 1 - Math.min(1, speed), sway = Math.sin(t * 1.7);
+      legs[0].rotation.x = s * 0.7 * speed; legs[1].rotation.x = -s * 0.7 * speed;
+      torso.position.y = B.legH + Math.abs(Math.sin(phase)) * 0.05 * speed; torso.scale.set(1, 1 + Math.sin(t * 2.2) * 0.012 * idle, 1);
+      arms[0].rotation.set(-s * 0.6 * speed + sway * 0.07 * idle, 0, (0.07 + sway * 0.03) * idle);
+      if (waveT > 0) arms[1].rotation.set(0, 0, -(2.55 + Math.sin(t * 12) * 0.38)); else if (ch.hold === 'water') arms[1].rotation.set(-1.2, 0, -0.05); else arms[1].rotation.set(s * 0.6 * speed - sway * 0.07 * idle, 0, -(0.07 + sway * 0.03) * idle);
+      head.parent.rotation.set(0, Math.sin(t * 0.6) * 0.18 * idle, faceNow === 'sleepy' ? 0.12 + Math.sin(t * 1.1) * 0.05 : waveT > 0 ? 0.12 : 0); // 待機時左右張望；睏的時候頭歪一邊晃
+      if (root.userData.tail) root.userData.tail.rotation.y = Math.sin(t * 3) * 0.5; } };
+  return ch;
+}
+// 玩家：原創配色（珊瑚色上衣、深藍褲子、米白鞋、黃色背包），手提澆水壺
+const hero = createBlockCharacter({ colors: { skin: 0xf3cfb0, hair: 0x5a3b2e, shirt: 0xf2a07b, pants: 0x4f6a9a, shoes: 0xf6efe2, acc: 0xf6c86a, hat: 0xe0875e }, accessories: ['hairShort', 'backpack', 'wateringCan'], face: 'happy' });
+const player = hero.root; scene.add(player);
 const PL = { x: 0, z: 9, yaw: Math.PI, vx: 0, vz: 0, phase: 0, speed: 3.3, watering: 0 };
+// 鄰居：同一個身體，用配件與配色區分個性；每人一個家附近散步，玩家靠近會揮手，按 E 聊天
+const NEIGHBOR_DEFS = [
+  { name: '阿跳', type: '活潑型', home: [-4.5, -3.8], colors: { shirt: 0xffb347, pants: 0x3fc1c9, shoes: 0xff6f6f, hat: 0xff6f91, acc: 0xffffff, hair: 0x2e2a35 }, accessories: ['hairShort', 'cap', 'shortSleeve'], line: '一起來賽跑嗎？我今天已經繞小島三圈了！' },
+  { name: '咪嚕', type: '慵懶型', home: [-12, -2.5], colors: { shirt: 0xc9b8f0, pants: 0xb3a2e6, shoes: 0xf4eefc, hat: 0x9fb2f0, acc: 0xffffff, hair: 0xe8d6b8 }, accessories: ['hairBob', 'nightcap', 'earsCat', 'tailCat'], face: 'sleepy', lazy: true, line: '呼啊…曬太陽好舒服，再睡五分鐘就好…' },
+  { name: '書書', type: '文青型', home: [5.5, -5.2], colors: { shirt: 0xeadfca, sleeve: 0xeadfca, pants: 0x6f6a5f, shoes: 0x5a4636, hat: 0x8a3b4a, acc: 0xd98b5f, hair: 0x3a2a24 }, accessories: ['hairBob', 'beret', 'scarf', 'glasses'], line: '這座島的夕陽，很適合寫一首詩。' },
+  { name: '阿壯', type: '運動型', home: [20.5, 6.5], colors: { skin: 0xd9a27c, shirt: 0x5fd0a0, pants: 0x34507a, shoes: 0xffffff, hat: 0xff5f5f, hair: 0x2a2a2a }, accessories: ['hairSpiky', 'headband', 'vest', 'shorts'], line: '過橋跑來回十趟，熱身完畢！' },
+  { name: '小禾', type: '園藝型', home: [-6, 6.5], colors: { shirt: 0xfff3d6, sleeve: 0xfff3d6, pants: 0x6fa36a, shoes: 0x8a5a3c, hat: 0xf2d27a, acc: 0xe06666, hair: 0xb5653a }, accessories: ['hairBun', 'strawhat', 'overalls', 'trowel', 'earsBear', 'shortSleeve'], line: '紅蘿蔔要多澆水，番茄要多曬太陽喔！' },
+];
+const neighbors = NEIGHBOR_DEFS.map(d => { const ch = createBlockCharacter(d); scene.add(ch.root); return { ...d, ch, x: d.home[0], z: d.home[1], yaw: rand() * 6.28, tx: d.home[0], tz: d.home[1], wait: rand() * 3, greetCD: 0, moved: 0, stuckT: 0 }; });
+const NB_R = 0.3, NB_SPEED = 1.2;
+function pickTarget(n) { for (let k = 0; k < 20; k++) { const a = rand() * 6.28, r = 1 + rand() * 3.2, x = n.home[0] + Math.cos(a) * r, z = n.home[1] + Math.sin(a) * r;
+    if (blocked(x, z) || rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) < 0.4 || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.45)) continue; n.tx = x; n.tz = z; return; } n.tx = n.home[0]; n.tz = n.home[1]; }
+function updateNeighbors(dt) { for (const n of neighbors) { n.greetCD = Math.max(0, n.greetCD - dt); const dp = Math.hypot(PL.x - n.x, PL.z - n.z); let speed = 0, face = n.lazy || night > 0.7 ? 'sleepy' : 'happy';
+    if (dp < 2.4 && n.greetCD <= 0) { n.greetCD = 14; n.ch.wave(1.8); n.surpriseT = 0.6; } // 玩家走近：嚇一跳、揮手打招呼
+    if (n.surpriseT > 0) { n.surpriseT -= dt; face = 'surprised'; } else if (n.ch.waving || n.talkT > 0) face = 'happy';
+    n.talkT = Math.max(0, (n.talkT || 0) - dt);
+    if (n.ch.waving || n.talkT > 0 || dp < 0.9) { n.yaw = turnTo(n.yaw, Math.atan2(PL.x - n.x, PL.z - n.z), dt * 6); } // 揮手、聊天、玩家站很近時停下來看著玩家
+    else if (n.wait > 0) n.wait -= dt;
+    else { const dx = n.tx - n.x, dz = n.tz - n.z, d = Math.hypot(dx, dz); if (d < 0.15) { n.wait = 2 + rand() * (n.lazy ? 8 : 4); pickTarget(n); }
+      else { const sp = NB_SPEED * (n.lazy ? 0.6 : 1), nx = n.x + dx / d * sp * dt, nz = n.z + dz / d * sp * dt; const ox = n.x, oz = n.z; if (!blocked(nx, nz)) { n.x = nx; n.z = nz; } resolveColliders(n);
+        n.moved += Math.hypot(n.x - ox, n.z - oz); n.stuckT += dt; if (n.stuckT > 1.5) { if (n.moved < 0.3) pickTarget(n); n.stuckT = 0; n.moved = 0; } // 卡住就換目的地
+        n.yaw = turnTo(n.yaw, Math.atan2(dx, dz), dt * 8); speed = n.lazy ? 0.55 : 0.75; } }
+    n.ch.setFace(face); n.ch.update(dt, speed); n.ch.root.position.set(n.x, groundY(n.x, n.z), n.z); n.ch.root.rotation.y = n.yaw; } }
+const turnTo = (a, b, k) => { let d = b - a; d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * Math.min(1, k); };
+function nearestNeighbor() { let best = null, bd = 1.7; for (const n of neighbors) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd) { bd = d; best = n; } } return best; }
+const talk = { t: 0, text: '' };
+function talkTo(n) { n.talkT = 3.5; n.ch.wave(1.2); hero.wave(1.0); talk.t = 3.5; talk.text = `💬 ${n.name}（${n.type}）：「${n.line}」`; }
 
 /* ════════════════════════════════════════════════════════════════
    5. input：鍵盤 WASD／方向鍵、E；手機虛擬搖桿與澆水鈕
    ════════════════════════════════════════════════════════════════ */
-const keys = new Set(), joyVec = new THREE.Vector2(); let actPressed = false;
-addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys.add(k); if (k === 'e') actPressed = true; if (k.startsWith('arrow') || k === ' ') e.preventDefault(); });
+const keys = new Set(), joyVec = new THREE.Vector2(); let actPressed = false; const FACE_KEYS = { 1: 'happy', 2: 'surprised', 3: 'sleepy' };
+addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys.add(k); if (k === 'e') actPressed = true; if (k === 'q') hero.wave(); if (FACE_KEYS[k]) hero.setFace(FACE_KEYS[k]); if (k.startsWith('arrow') || k === ' ') e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase())); addEventListener('blur', () => keys.clear());
 if (MOBILE) document.body.classList.add('touch');
 { const joy = document.getElementById('joy'), knob = joy.firstElementChild, R = 50; let id = null, ox = 0, oy = 0;
   renderer.domElement.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || id !== null || e.clientX > innerWidth * 0.6) return; id = e.pointerId; ox = e.clientX; oy = e.clientY; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.style.display = 'block'; knob.style.transform = ''; });
   addEventListener('pointermove', e => { if (e.pointerId !== id) return; let dx = e.clientX - ox, dy = e.clientY - oy; const L = Math.hypot(dx, dy); if (L > R) { dx *= R / L; dy *= R / L; } knob.style.transform = `translate(${dx}px,${dy}px)`; joyVec.set(dx / R, dy / R); });
   const end = e => { if (e.pointerId !== id) return; id = null; joyVec.set(0, 0); joy.style.display = 'none'; }; addEventListener('pointerup', end); addEventListener('pointercancel', end);
-  document.getElementById('btnAct').addEventListener('pointerdown', e => { e.preventDefault(); actPressed = true; }); }
+  document.getElementById('btnAct').addEventListener('pointerdown', e => { e.preventDefault(); actPressed = true; });
+  document.getElementById('btnWave').addEventListener('pointerdown', e => { e.preventDefault(); hero.wave(); }); }
 function inputDir() { let x = joyVec.x, z = joyVec.y; if (keys.has('a') || keys.has('arrowleft')) x -= 1; if (keys.has('d') || keys.has('arrowright')) x += 1; if (keys.has('w') || keys.has('arrowup')) z -= 1; if (keys.has('s') || keys.has('arrowdown')) z += 1; const L = Math.hypot(x, z); return L > 1 ? [x / L, z / L] : L < 0.12 ? [0, 0] : [x, z]; }
 
 /* ════════════════════════════════════════════════════════════════
@@ -418,16 +528,17 @@ function loop() {
   // 移動（相機固定朝北，所以畫面的上方就是 −z）；分 x、z 兩軸各試一次，撞到河邊可以沿著滑
   const [ix, iz] = inputDir(), moving = ix !== 0 || iz !== 0; const tvx = ix * PL.speed, tvz = iz * PL.speed; PL.vx += (tvx - PL.vx) * Math.min(1, dt * 12); PL.vz += (tvz - PL.vz) * Math.min(1, dt * 12);
   const nx = PL.x + PL.vx * dt, nz = PL.z + PL.vz * dt; if (!blocked(nx, PL.z)) PL.x = nx; if (!blocked(PL.x, nz)) PL.z = nz; resolveColliders(PL);
+  for (const n of neighbors) { const dx = PL.x - n.x, dz = PL.z - n.z, d = Math.hypot(dx, dz), rr = NB_R + PLAYER_R; if (d < rr && d > 1e-4 && !blocked(n.x + dx / d * rr, n.z + dz / d * rr)) { PL.x = n.x + dx / d * rr; PL.z = n.z + dz / d * rr; } } // 鄰居也擋路
   if (moving) { const target = Math.atan2(ix, iz); let d = target - PL.yaw; d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; PL.yaw += d * Math.min(1, dt * 10); } // 轉身：走最短的角度、平滑插值
   // 走路動畫：上下彈跳、手腳擺動；站著時微微呼吸
   const spd = Math.hypot(PL.vx, PL.vz) / PL.speed; PL.phase += dt * 11 * spd;
   player.position.set(PL.x, groundY(PL.x, PL.z), PL.z); player.rotation.y = PL.yaw;
-  body.position.y = Math.abs(Math.sin(PL.phase)) * 0.09 * spd; body.scale.set(1, 1 + Math.sin(time * 2.2) * 0.015 * (1 - spd), 1);
-  legs[0].rotation.x = Math.sin(PL.phase) * 0.7 * spd; legs[1].rotation.x = -Math.sin(PL.phase) * 0.7 * spd; arms[0].rotation.x = -Math.sin(PL.phase) * 0.6 * spd;
-  PL.watering = Math.max(0, PL.watering - dt); arms[1].rotation.x = PL.watering > 0 ? -1.2 : Math.sin(PL.phase) * 0.6 * spd; // 澆水時舉起澆水壺
+  PL.watering = Math.max(0, PL.watering - dt); hero.hold = PL.watering > 0 ? 'water' : null; hero.update(dt, spd); // 走路、待機、揮手、澆水（舉起澆水壺）
+  updateNeighbors(dt);
   // 澆水／收成
-  const pi = nearestPlot(); const sig = pi < 0 ? '' : PLOTS[pi].stage < 2 ? `💧 按 E 澆水（第 ${PLOTS[pi].stage + 1} 階段）` : '🧺 按 E 收成'; if (sig !== hintSig) { hintSig = sig; hintEl.textContent = MOBILE ? sig.replace('按 E ', '按 💧 ') : sig; hintEl.classList.toggle('on', !!sig); }
-  if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); }
+  // 澆水／收成優先；旁邊沒有田就和最近的鄰居聊天（聊天內容顯示幾秒）
+  const pi = nearestPlot(), nb = pi < 0 ? nearestNeighbor() : null; if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); } talk.t = Math.max(0, talk.t - dt);
+  const sig = talk.t > 0 ? talk.text : pi >= 0 ? (PLOTS[pi].stage < 2 ? `💧 按 E 澆水（第 ${PLOTS[pi].stage + 1} 階段）` : '🧺 按 E 收成') : nb ? `💬 按 E 和${nb.name}聊天` : ''; if (sig !== hintSig) { hintSig = sig; hintEl.textContent = MOBILE ? sig.replace('按 E ', '按 💧 ') : sig; hintEl.classList.toggle('on', !!sig); }
   PLOTS.forEach((p, i) => { if (p.pop > 0 || p.wet > 0) { p.pop = Math.max(0, p.pop - dt * 2.2); p.wet = Math.max(0, p.wet - dt * 0.25); updatePlot(i); } });
   // 水滴
   let nd = 0; for (const d of drops) { d.t += dt; d.vy -= 9 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; if (d.y > 0.1 && nd < 24) { M4.compose(V.set(d.x, d.y, d.z), Q.identity(), S.setScalar(1)); dropI.setMatrixAt(nd++, M4); } }
@@ -448,7 +559,7 @@ function loop() {
 function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 52 : 40; camera.updateProjectionMatrix(); ffMat.uniforms.uPR.value = renderer.getPixelRatio(); }
 resize(); addEventListener('resize', resize);
 renderer.setAnimationLoop(loop);
-window.FARM_DEBUG = { CURVE, PL, PLOTS, setHour: h => { hour = h; }, water: () => { actPressed = true; } }; // 除錯用
+window.FARM_DEBUG = { CFG, CURVE, PL, PLOTS, hero, neighbors, camTarget, setHour: h => { hour = h; }, water: () => { actPressed = true; } }; // 除錯用
 </script>
 </body>
 </html>
