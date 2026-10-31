@@ -9,7 +9,8 @@ import * as ICON from './icons.js';
 import * as GAMES from './games.js';
 
 export function createForest(ctx) {
-  const { THREE, G, Gc, merge, toon, addMesh, addInstanced, setRoot, curveDrop, TREE_GEO, CFG } = ctx, PL = ctx.player;
+  const { THREE, G, Gc, Gl, merge, toon, addMesh, addInstanced, setRoot, curveDrop, TREE_GEO, CFG } = ctx, PL = ctx.player;
+  const Bx = (w, h, d, x = 0, y = 0, z = 0, ry = 0) => new THREE.BoxGeometry(w, h, d).rotateY(ry).translate(x, y, z); // 小東西（花、小石子、草）用一般方塊就好，每個只有 12 個三角形
   const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), E = new THREE.Euler(), COL = new THREE.Color();
   const rng = seed => { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -43,24 +44,24 @@ export function createForest(ctx) {
     for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i); pos.setY(i, hFn(x, z)); colFn(x, z, c); col.set([c.r, c.g, c.b], i * 3); }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals(); return addMesh(geo, toon(0xffffff, { vertexColors: true }), ctx.ROOT(), { outline: false, cast: false }); }
   // 樹：沿用田園的積木樹形（闊葉、針葉），每張地圖一組 InstancedMesh
-  function trees(list, leaf, pine) { if (!list.length) return; const broad = list.filter(t => t.kind === 'broad'), pines = list.filter(t => t.kind !== 'broad');
-    const tr = addInstanced(TREE_GEO.trunk, toon(CFG.pal.trunk), list.length); list.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.set(t.s, t.s * (t.kind === 'broad' ? 1 : 1.15), t.s)); tr.im.setMatrixAt(i, M4); });
-    if (broad.length) { const b = addInstanced(TREE_GEO.broad, toon(0xffffff), broad.length); broad.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.setScalar(t.s)); b.im.setMatrixAt(i, M4); b.im.setColorAt(i, COL.setHex(leaf[i % leaf.length])); }); }
-    if (pines.length) { const p = addInstanced(TREE_GEO.pine, toon(0xffffff), pines.length); pines.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.set(t.s, t.s * 1.15, t.s)); p.im.setMatrixAt(i, M4); p.im.setColorAt(i, COL.setHex(pine[i % pine.length])); }); } }
+  function trees(list, leaf, pine, cast = true) { if (!list.length) return; const broad = list.filter(t => t.kind === 'broad'), pines = list.filter(t => t.kind !== 'broad');
+    const tr = addInstanced(TREE_GEO.trunk, toon(CFG.pal.trunk), list.length, { cast }); list.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.set(t.s, t.s * (t.kind === 'broad' ? 1 : 1.15), t.s)); tr.im.setMatrixAt(i, M4); });
+    if (broad.length) { const b = addInstanced(TREE_GEO.broad, toon(0xffffff), broad.length, { cast }); broad.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.setScalar(t.s)); b.im.setMatrixAt(i, M4); b.im.setColorAt(i, COL.setHex(leaf[i % leaf.length])); }); }
+    if (pines.length) { const p = addInstanced(TREE_GEO.pine, toon(0xffffff), pines.length, { cast }); pines.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.set(t.s, t.s * 1.15, t.s)); p.im.setMatrixAt(i, M4); p.im.setColorAt(i, COL.setHex(pine[i % pine.length])); }); } }
   // ── 邊界：一圈矮樹籬（積木灌木）＋後面兩排大樹，地圖走不出去的地方都看得到牆；pts＝沿著邊界每 0.8 格一點 {x,z,nx,nz}（nx,nz＝往外的方向）──
-  const BUSH = merge([Gc(1.15, 0.85, 0.95, 0.26, 0, 0.42, 0), Gc(0.85, 0.72, 0.75, 0.22, 0.32, 0.8, 0.08), Gc(0.72, 0.62, 0.62, 0.2, -0.3, 0.74, -0.1)]);
-  function border(pts, hFn, { leaf, pine, pineK = 0.4, hedge = [0x6fb85e, 0x7cc76a, 0x62a956], seed = 7, skip = null, low = null } = {}) { const rr = rng(seed), base = pts.filter(p => !(skip && skip(p.x, p.z))), ok = [...base, ...base.filter(p => low && low(p)).map(p => ({ ...p, x: p.x + p.nx * 1.1, z: p.z + p.nz * 1.1, back: true }))]; // low：鏡頭那一側只種樹籬（兩排），不種大樹，才不會擋住畫面
-    const b = addInstanced(BUSH, toon(0xffffff), Math.max(1, ok.length), { cast: false }); ok.forEach((p, i) => { const s = 0.85 + rr() * 0.45, x = p.x + p.nx * 0.35, z = p.z + p.nz * 0.35; M4.compose(V.set(x, hFn(x, z) - 0.08, z), Q.setFromEuler(E.set(0, Math.atan2(p.nx, p.nz) + (rr() - 0.5) * 0.8, 0)), S.set(s * 1.05, s * (0.85 + rr() * 0.35), s)); b.im.setMatrixAt(i, M4); b.im.setColorAt(i, COL.setHex(hedge[i % hedge.length])); });
-    const tl = []; base.forEach((p, i) => { if (low && low(p)) return; for (const row of [0, 1]) { if ((i + row) % 2) continue; const off = 1.5 + row * 1.6 + rr() * 0.7, x = p.x + p.nx * off + (rr() - 0.5) * 0.5, z = p.z + p.nz * off + (rr() - 0.5) * 0.5; if (skip && skip(x, z)) continue; tl.push({ x, z, y: hFn(x, z), s: 1.0 + rr() * 0.55, r: rr() * 6.28, kind: rr() < pineK ? 'pine' : 'broad' }); } });
-    trees(tl, leaf, pine); }
-  const ringPts = (cx, cz, R) => { const n = Math.ceil(2 * Math.PI * R / 0.8); return Array.from({ length: n }, (_, k) => { const a = k / n * Math.PI * 2; return { x: cx + Math.cos(a) * R, z: cz + Math.sin(a) * R, nx: Math.cos(a), nz: Math.sin(a) }; }); };
+  const BUSH = merge([Gl(1.15, 0.85, 0.95, 0.26, 0, 0.42, 0), Gl(0.85, 0.72, 0.75, 0.22, 0.32, 0.8, 0.08), Gl(0.72, 0.62, 0.62, 0.2, -0.3, 0.74, -0.1)]);
+  function border(pts, hFn, { leaf, pine, pineK = 0.4, hedge = [0x6fb85e, 0x7cc76a, 0x62a956], seed = 7, skip = null, low = null, treesOn = true } = {}) { const rr = rng(seed), base = pts.filter(p => !(skip && skip(p.x, p.z))), ok = [...base, ...base.filter(p => low && low(p)).map(p => ({ ...p, x: p.x + p.nx * 1.1, z: p.z + p.nz * 1.1, back: true }))]; // low：鏡頭那一側只種樹籬（兩排），不種大樹，才不會擋住畫面
+    const b = addInstanced(BUSH, toon(0xffffff), Math.max(1, ok.length), { cast: false }); ok.forEach((p, i) => { const s = 1.0 + rr() * 0.4, x = p.x + p.nx * 0.35, z = p.z + p.nz * 0.35; M4.compose(V.set(x, hFn(x, z) - 0.08, z), Q.setFromEuler(E.set(0, Math.atan2(p.nx, p.nz) + (rr() - 0.5) * 0.8, 0)), S.set(s * 1.05, s * (0.85 + rr() * 0.35), s)); b.im.setMatrixAt(i, M4); b.im.setColorAt(i, COL.setHex(hedge[i % hedge.length])); });
+    const tl = []; if (treesOn) base.forEach((p, i) => { if (low && low(p)) return; for (const row of [0]) { if (i % 3) continue; const off = 1.9 + rr() * 0.8, x = p.x + p.nx * off + (rr() - 0.5) * 0.5, z = p.z + p.nz * off + (rr() - 0.5) * 0.5; if (skip && skip(x, z)) continue; tl.push({ x, z, y: hFn(x, z), s: 1.0 + rr() * 0.55, r: rr() * 6.28, kind: rr() < pineK ? 'pine' : 'broad' }); } });
+    trees(tl, leaf, pine, false); }
+  const ringPts = (cx, cz, R) => { const n = Math.ceil(2 * Math.PI * R / 1.0); return Array.from({ length: n }, (_, k) => { const a = k / n * Math.PI * 2; return { x: cx + Math.cos(a) * R, z: cz + Math.sin(a) * R, nx: Math.cos(a), nz: Math.sin(a) }; }); };
   // ── 石板路：幾種不規則的圓角石板（擠出成厚片、圓倒角）＋路邊的小石子與草叢；每一種一組 InstancedMesh ──
   // list 的每一項 {kind, x, z, y, rot, sx, sy, sz, col}；layout(fnK) 依每一項的顯示比例（0～1）擺放，路一段段冒出來時用
   const FLAGS = [0, 1, 2, 3].map(seed => { const rr = rng(seed * 977 + 13), n = 7, P = []; for (let k = 0; k < n; k++) { const a = (k + (rr() - 0.5) * 0.45) / n * Math.PI * 2, d = 0.42 + rr() * 0.12; P.push([Math.cos(a) * d, Math.sin(a) * d]); }
     const sh = new THREE.Shape(), mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], m0 = mid(P[n - 1], P[0]); sh.moveTo(m0[0], m0[1]); for (let k = 0; k < n; k++) { const m = mid(P[k], P[(k + 1) % n]); sh.quadraticCurveTo(P[k][0], P[k][1], m[0], m[1]); }
-    return new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.05, bevelSegments: 2, curveSegments: 3 }).rotateX(-Math.PI / 2); });
-  const DECO_GEO = { f0: FLAGS[0], f1: FLAGS[1], f2: FLAGS[2], f3: FLAGS[3], pb: Gc(0.16, 0.1, 0.13, 0.04, 0, 0.04, 0), cb: Gc(0.36, 0.17, 0.3, 0.06, 0, 0.07, 0),
-    tf: merge([[0, 0, 0.24], [0.07, 0.5, 0.2], [-0.07, -0.5, 0.18], [0.02, 1.2, 0.15]].map(([x, rz, h]) => Gc(0.05, h, 0.04, 0.015, x, h / 2, 0, 0).rotateZ(rz * 0.5))) };
+    return new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.05, bevelSegments: 1, curveSegments: 2 }).rotateX(-Math.PI / 2); });
+  const DECO_GEO = { f0: FLAGS[0], f1: FLAGS[1], f2: FLAGS[2], f3: FLAGS[3], pb: Bx(0.15, 0.09, 0.12, 0, 0.04, 0), cb: Gl(0.36, 0.17, 0.3, 0.06, 0, 0.07, 0),
+    tf: merge([[0, 0, 0.24], [0.07, 0.5, 0.2], [-0.07, -0.5, 0.18], [0.02, 1.2, 0.15]].map(([x, rz, h]) => Bx(0.05, h, 0.04, x, h / 2, 0).rotateZ(rz * 0.5))) };
   const STONE_COL = [0xeee6d8, 0xe2d8c8, 0xd8d0e0, 0xe9dfcd, 0xd6ccbc], PEBBLE_COL = [0xc4bad0, 0xd9cebb, 0xb3a99e, 0xe0d6c6], TUFT_COL = [0x6fb85e, 0x7cc76a, 0x8fd36f];
   const flagKind = () => 'f' + Math.floor(Math.random() * 4);
   function pathDeco(list) { const groups = {}; for (const d of list) (groups[d.kind] ||= []).push(d);
@@ -92,18 +93,18 @@ export function createForest(ctx) {
     books(x, z, y, r, col) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = r; ctx.ROOT().add(g); const cs = [0xe8705c, 0x8fb6ec, 0xf2d27a, 0x8fd3a0, 0xc9b8f0]; for (let k = 0; k < 4; k++) addMesh(Gc(1.0 - k * 0.06, 0.22, 0.75, 0.04, (k % 2) * 0.06, 0.11 + k * 0.22, 0, k * 0.2), toon(cs[k % 5]), g); return 0.7; },
   };
   const THEMES = {
-    village: { grass: [0xa6dc7a, 0x94cf6c], leaf: [0x8fd36f, 0xa8de7e], pine: [0x5fae84, 0x6fbf8f], props: ['hut', 'hut', 'hut', 'bed', 'rock'], slope: 0.02, trees: 70, pineK: 0.3 },
-    woods: { grass: [0x86c46a, 0x76b45c], leaf: [0x6fbf5e, 0x7cc76a, 0x5fae52], pine: [0x4f9e7a, 0x5fae84], props: ['rock', 'books'], slope: 0.03, trees: 150, pineK: 0.55 },
-    valley: { grass: [0xb8d68a, 0xc9c08e], leaf: [0x9ccf6a, 0xb5d77a], pine: [0x6fae84], props: ['rock', 'rock', 'rock', 'rock', 'books'], slope: 0.02, trees: 60, pineK: 0.4, bowl: true },
-    river: { grass: [0x9fd87a, 0x8fcf6e], leaf: [0x8fd36f, 0x9ccf6a], pine: [0x5fae84], props: ['rock', 'bed'], slope: 0.02, trees: 70, pineK: 0.3, river: true },
-    garden: { grass: [0xaee68a, 0x9ad97c], leaf: [0xf2b5c6, 0x9ccf6a, 0xf6c9d4], pine: [0x6fbf8f], props: ['bed', 'bed', 'bed', 'bed', 'lantern'], slope: 0.02, trees: 60, pineK: 0.15 },
-    city: { grass: [0xc9d69a, 0xb7cc8a], leaf: [0x9ccf6a], pine: [0x5fae84, 0x4f9e7a], props: ['wall', 'wall', 'lantern', 'lantern', 'hut'], slope: 0.02, trees: 50, pineK: 0.6 },
-    tower: { grass: [0xa9d09a, 0xbad6a6], leaf: [0x8fd36f], pine: [0x5fae84, 0x6fbf8f, 0x4f9e7a], props: ['books', 'books', 'rock'], slope: 0.07, trees: 80, pineK: 0.7 },
+    village: { grass: [0xa6dc7a, 0x94cf6c], leaf: [0x8fd36f, 0xa8de7e], pine: [0x5fae84, 0x6fbf8f], props: ['hut', 'hut', 'hut', 'bed', 'rock'], slope: 0.02, trees: 35, pineK: 0.3 },
+    woods: { grass: [0x86c46a, 0x76b45c], leaf: [0x6fbf5e, 0x7cc76a, 0x5fae52], pine: [0x4f9e7a, 0x5fae84], props: ['rock', 'books'], slope: 0.03, trees: 70, pineK: 0.55 },
+    valley: { grass: [0xb8d68a, 0xc9c08e], leaf: [0x9ccf6a, 0xb5d77a], pine: [0x6fae84], props: ['rock', 'rock', 'rock', 'rock', 'books'], slope: 0.02, trees: 30, pineK: 0.4, bowl: true },
+    river: { grass: [0x9fd87a, 0x8fcf6e], leaf: [0x8fd36f, 0x9ccf6a], pine: [0x5fae84], props: ['rock', 'bed'], slope: 0.02, trees: 35, pineK: 0.3, river: true },
+    garden: { grass: [0xaee68a, 0x9ad97c], leaf: [0xf2b5c6, 0x9ccf6a, 0xf6c9d4], pine: [0x6fbf8f], props: ['bed', 'bed', 'bed', 'bed', 'lantern'], slope: 0.02, trees: 30, pineK: 0.15 },
+    city: { grass: [0xc9d69a, 0xb7cc8a], leaf: [0x9ccf6a], pine: [0x5fae84, 0x4f9e7a], props: ['wall', 'wall', 'lantern', 'lantern', 'hut'], slope: 0.02, trees: 25, pineK: 0.6 },
+    tower: { grass: [0xa9d09a, 0xbad6a6], leaf: [0x8fd36f], pine: [0x5fae84, 0x6fbf8f, 0x4f9e7a], props: ['books', 'books', 'rock'], slope: 0.07, trees: 40, pineK: 0.7 },
   };
 
   // ── 森林變茂盛：一片野花，學得越多開得越多（還沒開的花縮成 0，開的時候一朵朵長出來）──
-  function bloomField(pts, palette) { const n = Math.max(1, pts.length), petal = addInstanced(merge([0, 1, 2, 3].map(k => Gc(0.16, 0.05, 0.16, 0.03, Math.cos(k * Math.PI / 2) * 0.1, 0.3, Math.sin(k * Math.PI / 2) * 0.1))), toon(0xffffff), n, { outline: false, cast: false });
-    const core = addInstanced(merge([Gc(0.03, 0.3, 0.03, 0.01, 0, 0.15, 0), Gc(0.09, 0.08, 0.09, 0.03, 0, 0.32, 0), Gc(0.16, 0.04, 0.08, 0.02, 0.07, 0.12, 0, 0.5)]), toon(0x7cc76a), n, { outline: false, cast: false });
+  function bloomField(pts, palette) { const n = Math.max(1, pts.length), petal = addInstanced(merge([0, 1, 2, 3].map(k => Bx(0.15, 0.05, 0.15, Math.cos(k * Math.PI / 2) * 0.1, 0.3, Math.sin(k * Math.PI / 2) * 0.1))), toon(0xffffff), n, { outline: false, cast: false });
+    const core = addInstanced(merge([Bx(0.03, 0.3, 0.03, 0, 0.15, 0), Bx(0.09, 0.08, 0.09, 0, 0.32, 0), Bx(0.16, 0.04, 0.08, 0.07, 0.12, 0, 0.5)]), toon(0x7cc76a), n, { outline: false, cast: false });
     pts.forEach((p, i) => petal.im.setColorAt(i, COL.setHex(palette[i % palette.length]))); const k = new Float32Array(n), M = new THREE.Matrix4(); let want = 0, dirty = true;
     const write = () => { pts.forEach((p, i) => { M.compose(V.set(p.x, p.y, p.z), Q.setFromEuler(E.set(0, p.r, 0)), S.setScalar(p.s * k[i] + 1e-4)); petal.im.setMatrixAt(i, M); core.im.setMatrixAt(i, M); }); petal.im.instanceMatrix.needsUpdate = core.im.instanceMatrix.needsUpdate = true; };
     write(); return { set(ratio) { want = Math.round(pts.length * Math.min(1, Math.max(0, ratio))); dirty = true; }, now: () => want / Math.max(1, pts.length),
@@ -330,9 +331,9 @@ export function createForest(ctx) {
     // 入口牌坊（南邊，回新手村）與北邊山頂
     const home = arch(roadX(32), 32.5, H(roadX(32), 32.5), 0, 0xc99a6a, '新手村', 'back'); home.bars.visible = false; colliders.push({ x: roadX(32) - 1.3, z: 32.5, r: 0.35 }, { x: roadX(32) + 1.3, z: 32.5, r: 0.35 });
     const title = label('學習森林・識字與詞語主幹道', { bg: '#f09a8a', fg: '#fff', h: 0.85, icon: 'forest' }); title.userData.base = H(0, 27) + 3.4; title.position.set(0, title.userData.base, 27); group.add(title);
-    const tl = []; for (let k = 0; k < 6000 && tl.length < 170; k++) { const x = (r() - 0.5) * 60, z = 36 - r() * 74; if (z > 30.5 || roadD(x, z) < 1.6 || gates.some(g => Math.hypot(x - g.x - g.side * 1.2, z - g.z) < 3.4) || Math.hypot(x - roadX(32), z - 32.5) < 3) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < 0.45 ? 'pine' : 'broad' }); if (Math.abs(x) < 13) colliders.push({ x, z, r: 0.42 * s }); }
+    const tl = []; for (let k = 0; k < 6000 && tl.length < 70; k++) { const x = (r() - 0.5) * 60, z = 36 - r() * 74; if (z > 30.5 || roadD(x, z) < 1.6 || gates.some(g => Math.hypot(x - g.x - g.side * 1.2, z - g.z) < 3.4) || Math.hypot(x - roadX(32), z - 32.5) < 3) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < 0.45 ? 'pine' : 'broad' }); if (Math.abs(x) < 13) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, [0x8fd36f, 0x7cc76a, 0xa8de7e], [0x5fae84, 0x4f9e7a, 0x6fbf8f]);
-    { const bp = []; for (let z = 34.2; z > -34.6; z -= 0.8) for (const sd of [-1, 1]) bp.push({ x: sd * 13.1, z, nx: sd, nz: 0 }); for (let x = -12.6; x <= 12.6; x += 0.8) { bp.push({ x, z: 34.3, nx: 0, nz: 1 }); bp.push({ x, z: -34.7, nx: 0, nz: -1 }); }
+    { const bp = []; for (let z = 34.2; z > -34.6; z -= 1.0) for (const sd of [-1, 1]) bp.push({ x: sd * 13.1, z, nx: sd, nz: 0 }); for (let x = -12.6; x <= 12.6; x += 1.0) { bp.push({ x, z: 34.3, nx: 0, nz: 1 }); bp.push({ x, z: -34.7, nx: 0, nz: -1 }); }
       border(bp, H, { leaf: [0x8fd36f, 0x7cc76a, 0xa8de7e], pine: [0x5fae84, 0x4f9e7a, 0x6fbf8f], pineK: 0.5, seed: 4242, low: p => p.nz > 0.5 || p.z > 28 }); } // 邊界：兩旁與南北兩端都是樹籬＋大樹
     const bpts = []; for (let k = 0; k < 3000 && bpts.length < 220; k++) { const x = (r() - 0.5) * 24, z = 33 - r() * 66; if (roadD(x, z) < 0.6 || Math.abs(x) > 12 || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.3)) continue; bpts.push({ x, y: H(x, z), z, r: r() * 6.28, s: 0.8 + r() * 0.6 }); }
     const bloom = bloomField(bpts, [0xffb3c7, 0xfff3a8, 0xffffff, 0xd8c2ff, 0xffc9a0, 0x8fd3f0]);
