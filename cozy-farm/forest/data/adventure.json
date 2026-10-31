@@ -21,7 +21,7 @@
     "chengyu": { "lv": 3, "n": 6, "types": ["rock", "ink"] },
     "shuta": { "lv": 4, "n": 6, "types": ["ghost", "ink"] }
   },
-  "slots": { "weapon": "武器", "shield": "盾牌", "shoes": "鞋子" },
+  "slots": { "weapon": "近攻武器", "ranged": "遠攻武器", "shield": "盾牌", "shoes": "鞋子" },
   "items": [
     { "id": "twig", "slot": "weapon", "name": "樹枝", "icon": "eq-twig", "atk": 1, "price": 0, "desc": "路邊撿到的樹枝，一開始就有。" },
     { "id": "wood", "slot": "weapon", "name": "木劍", "icon": "eq-wood", "atk": 2, "price": 30, "desc": "小舖老闆親手削的木劍。" },
@@ -29,6 +29,9 @@
     { "id": "brush", "slot": "weapon", "name": "毛筆杖", "icon": "eq-brush", "atk": 3, "range": 0.7, "from": "ink", "desc": "很長的毛筆，打得比較遠。" },
     { "id": "ruler", "slot": "weapon", "name": "彩虹尺", "icon": "eq-ruler", "atk": 5, "price": 220, "desc": "量什麼都準，打怪也很準。" },
     { "id": "star", "slot": "weapon", "name": "星光杖", "icon": "eq-star", "atk": 6, "range": 0.5, "from": "ghost", "desc": "會發光的魔杖，幽靈最怕它。" },
+    { "id": "sling", "slot": "ranged", "name": "彈弓", "icon": "eq-sling", "atk": 1, "reach": 7, "cd": 0.6, "shot": "pebble", "price": 0, "desc": "射小石子，站遠遠的也打得到，一開始就有。" },
+    { "id": "plane", "slot": "ranged", "name": "紙飛機", "icon": "eq-plane", "atk": 2, "reach": 8.5, "cd": 0.55, "shot": "plane", "price": 60, "desc": "用作業紙摺的紙飛機，會自己飛向怪物。" },
+    { "id": "chalk", "slot": "ranged", "name": "粉筆連發", "icon": "eq-chalk", "atk": 3, "reach": 10, "cd": 0.38, "shot": "chalk", "price": 180, "desc": "一次一根粉筆，丟得又快又遠。" },
     { "id": "book", "slot": "shield", "name": "書本盾", "icon": "eq-book", "def": 1, "price": 25, "desc": "厚厚的字典，拿來擋一下剛好。" },
     { "id": "pot", "slot": "shield", "name": "鍋蓋盾", "icon": "eq-pot", "def": 2, "from": "shroom", "desc": "煮湯鍋的鍋蓋，很耐撞。" },
     { "id": "stone", "slot": "shield", "name": "石板盾", "icon": "eq-stone", "def": 3, "from": "rock", "desc": "石頭小兵留下來的石板。" },

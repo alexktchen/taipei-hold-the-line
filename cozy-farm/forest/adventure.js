@@ -13,12 +13,17 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 export const data = () => A;
 export const state = () => S;
 export const item = id => A.items.find(i => i.id === id);
-export function stats() { const w = item(S.equip.weapon) || item('twig'), sh = item(S.equip.shield), so = item(S.equip.shoes);
-  return { atk: w.atk, range: 1.8 + (w.range || 0), def: sh ? sh.def : 0, spd: 1 + (so ? so.spd : 0), max: A.player.hearts * 2 }; }
+export function stats() { const w = item(S.equip.weapon) || item('twig'), r = item(S.equip.ranged) || item('sling'), sh = item(S.equip.shield), so = item(S.equip.shoes);
+  return { atk: w.atk, range: 2.5 + (w.range || 0), ratk: r.atk, reachR: r.reach, rcd: r.cd, shot: r.shot, def: sh ? sh.def : 0, spd: 1 + (so ? so.spd : 0), max: A.player.hearts * 2 }; }
+// 近攻／遠攻：可以隨時切換（背包旁的按鈕、G 鍵）；遠攻會自動瞄準射程內最近的怪物
+export const mode = () => S.mode || 'melee';
+export function setMode(m) { S.mode = m; save(); changed(); X && X.banner(m === 'ranged' ? `${item(S.equip.ranged).icon}|切換成遠攻：${item(S.equip.ranged).name}（射程 ${stats().reachR} 格）` : `${item(S.equip.weapon).icon}|切換成近攻：${item(S.equip.weapon).name}`); }
+export const toggleMode = () => setMode(mode() === 'ranged' ? 'melee' : 'ranged');
+export const reach = () => mode() === 'ranged' ? stats().reachR : stats().range + 0.9; // 這個距離內有怪物，行動鈕就變成「攻擊」
 
 export async function load() { if (A) return A; A = await (await fetch(BASE + 'data/adventure.json')).json();
   S = { coins: 0, owned: ['twig'], equip: { weapon: 'twig', shield: null, shoes: null }, kills: {}, hp: A.player.hearts * 2 };
-  try { Object.assign(S, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {} S.equip ||= { weapon: 'twig' }; if (!S.owned.includes('twig')) S.owned.unshift('twig'); return A; }
+  try { Object.assign(S, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {} S.equip ||= { weapon: 'twig' }; for (const id of ['twig', 'sling']) if (!S.owned.includes(id)) S.owned.push(id); S.equip.ranged ||= 'sling'; return A; }
 
 // ── 金幣與獎勵 ──
 let hudEl = null; const listeners = [];
@@ -38,8 +43,8 @@ const heartSVG = k => `<span class="adv-h${k === 1 ? ' half' : k === 0 ? ' empty
 export function mountHUD(elm) { hudEl = elm; renderHUD(); }
 let showHearts = false; export function setHeartsVisible(v) { if (v !== showHearts) { showHearts = v; renderHUD(); } }
 function renderHUD() { if (!hudEl || !S) return; const st = stats(), hp = Math.max(0, Math.round(S.hp)); let hs = ''; for (let i = 0; i < st.max / 2; i++) hs += heartSVG(Math.max(0, Math.min(2, hp - i * 2)));
-  hudEl.innerHTML = `${showHearts ? `<span class="adv-hearts" aria-label="愛心 ${hp / 2}／${st.max / 2}">${hs}</span>` : ''}<button type="button" class="adv-bag" aria-label="背包與裝備（金幣 ${S.coins}）">${ICON.svg('coin', 22)}<b>${S.coins}</b>${ICON.svg('bag', 22)}</button>`;
-  hudEl.querySelector('.adv-bag').onclick = () => open('bag'); }
+  hudEl.innerHTML = `${showHearts ? `<span class="adv-hearts" aria-label="愛心 ${hp / 2}／${st.max / 2}">${hs}</span>` : ''}<span class="adv-row">${showHearts ? `<button type="button" class="adv-mode${mode() === 'ranged' ? ' r' : ''}" aria-label="切換近攻／遠攻（G）" title="切換近攻／遠攻（G）">${ICON.svg(item(mode() === 'ranged' ? S.equip.ranged : S.equip.weapon).icon, 22)}<b>${mode() === 'ranged' ? '遠攻' : '近攻'}</b></button>` : ''}<button type="button" class="adv-bag" aria-label="背包與裝備（金幣 ${S.coins}）">${ICON.svg('coin', 22)}<b>${S.coins}</b>${ICON.svg('bag', 22)}</button></span>`;
+  hudEl.querySelector('.adv-bag').onclick = () => open('bag'); const mb = hudEl.querySelector('.adv-mode'); if (mb) mb.onclick = toggleMode; }
 
 // ── 場景：init 時拿到 three.js 與遊戲的工具 ──
 export function init(ctx) { X = ctx; }
@@ -73,7 +78,7 @@ function randomSpot(map) { const m = map.mini; for (let k = 0; k < 300; k++) { l
 function spawn(map, M, type) { const T = A.monsters[type], spot = randomSpot(map); if (!spot) return; const lv = M.lv, k = 1 + 0.35 * (lv - 1), mesh = monsterMesh(type, lv);
   const m = { type, T, lv, max: Math.round(T.hp * k), atk: T.atk + Math.floor((lv - 1) / 2), speed: T.speed * (1 + 0.05 * (lv - 1)), x: spot.x, z: spot.z, home: spot, yaw: Math.random() * 6.28, wx: spot.x, wz: spot.z, wt: 0, t: Math.random() * 10, cd: 0, hitT: 0, kx: 0, kz: 0, dead: 0, ...mesh };
   m.hp = m.max; drawBar(m); map.group.add(m.g); map.group.add(m.bar); M.list.push(m); }
-export function ensure(map) { if (!A || !map || MAPS.has(map.id)) return; const cfg = A.maps[map.id]; const M = { list: [], coins: [], fx: [], lv: cfg ? cfg.lv : 1 }; MAPS.set(map.id, M); if (!cfg || !map.mini) return; for (let i = 0; i < cfg.n; i++) spawn(map, M, cfg.types[i % cfg.types.length]); }
+export function ensure(map) { if (!A || !map || MAPS.has(map.id)) return; const cfg = A.maps[map.id]; const M = { list: [], coins: [], fx: [], shots: [], lv: cfg ? cfg.lv : 1 }; MAPS.set(map.id, M); if (!cfg || !map.mini) return; for (let i = 0; i < cfg.n; i++) spawn(map, M, cfg.types[i % cfg.types.length]); }
 
 // ── 飄字與金幣 ──
 function floatText(text, x, z, icon, col) { const M = MAPS.get(X.getMap().id); if (!M) return; const sp = X.label(text, { icon, h: 0.68, bg: col ? '#fff' : '#fff6d8', fg: col || '#a0703f' }); const y = X.getMap().groundY(x, z) + 1.6; sp.position.set(x, y, z); X.getMap().group.add(sp); M.fx.push({ sp, t: 0, y, x, z }); }
@@ -84,12 +89,30 @@ let coinGeo = null; const COIN_GEO = () => coinGeo ||= new X.THREE.CylinderGeome
 
 // ── 揮武器 ──
 export function nearestMonster(r = 2.6) { const M = X && MAPS.get(X.getMap().id); if (!M) return null; let best = null, bd = r; const P = X.PL; for (const m of M.list) { if (m.dead) continue; const d = Math.hypot(m.x - P.x, m.z - P.z); if (d < bd) { bd = d; best = m; } } return best; }
-export function attack() { if (cd > 0) return false; const st = stats(), P = X.PL, t = nearestMonster(st.range + 1.2); if (t) P.yaw = Math.atan2(t.x - P.x, t.z - P.z); cd = 0.45; swingT = 0.32; hitDone = false; return true; }
+let throwT = 0;
+export function attack() { if (cd > 0) return false; const st = stats(), P = X.PL, map = X.getMap(), M = MAPS.get(map.id);
+  if (mode() === 'ranged') { const t = nearestMonster(st.reachR); if (t) P.yaw = Math.atan2(t.x - P.x, t.z - P.z); cd = st.rcd; throwT = 0.22; if (M) shoot(map, M, t, st); return true; }
+  const t = nearestMonster(st.range + 1.2); if (t) P.yaw = Math.atan2(t.x - P.x, t.z - P.z); cd = 0.45; swingT = 0.32; hitDone = false; return true; }
 function doHit(map, M) { const st = stats(), P = X.PL, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
-  for (const m of M.list) { if (m.dead) continue; const dx = m.x - P.x, dz = m.z - P.z, d = Math.hypot(dx, dz); if (d > st.range || (d > 0.5 && (dx * fx + dz * fz) / d < 0.25)) continue;
-    const crit = Math.random() < 0.15, dmg = st.atk * (crit ? 2 : 1); m.hp -= dmg; m.hitT = 0.18; m.kx = dx / (d || 1) * 5; m.kz = dz / (d || 1) * 5; m.aggro = 3; drawBar(m); m.bar.visible = true;
-    floatText(crit ? `${dmg}！` : String(dmg), m.x, m.z, null, crit ? '#e8705c' : '#6a4f7a');
-    if (m.hp <= 0) { m.dead = 0.4; m.bar.visible = false; S.kills[m.type] = (S.kills[m.type] || 0) + 1; save(); dropCoins(map, M, m); const dr = m.T.drop; if (dr && S.kills[m.type] >= dr.n) give(dr.item); changed(); } } }
+  for (const m of M.list) { if (m.dead) continue; const dx = m.x - P.x, dz = m.z - P.z, d = Math.hypot(dx, dz); if (d > st.range || (d > 0.5 && (dx * fx + dz * fz) / d < 0.25)) continue; damage(map, M, m, st.atk, dx / (d || 1), dz / (d || 1), 5); } }
+function damage(map, M, m, atk, nx, nz, push) { const crit = Math.random() < 0.15, dmg = atk * (crit ? 2 : 1); m.hp -= dmg; m.hitT = 0.18; m.kx = nx * push; m.kz = nz * push; m.aggro = 3; drawBar(m); m.bar.visible = true;
+  floatText(crit ? `${dmg}！` : String(dmg), m.x, m.z, null, crit ? '#e8705c' : '#6a4f7a');
+  if (m.hp <= 0) { m.dead = 0.4; m.bar.visible = false; S.kills[m.type] = (S.kills[m.type] || 0) + 1; save(); dropCoins(map, M, m); const dr = m.T.drop; if (dr && S.kills[m.type] >= dr.n) give(dr.item); changed(); } }
+// 遠攻的子彈：小石子／紙飛機／粉筆，會稍微轉彎追向瞄準的怪物，飛到射程盡頭就消失
+function shotModel(kind) { const { THREE, G, Gc, addMesh, toon } = X, g = new THREE.Group();
+  if (kind === 'plane') { const V3 = (x, y, z) => new THREE.Vector3(x, y, z), geo = new THREE.BufferGeometry().setFromPoints([V3(0, 0, 0.3), V3(-0.22, 0, -0.2), V3(0, 0.05, -0.12), V3(0, 0, 0.3), V3(0, 0.05, -0.12), V3(0.22, 0, -0.2)]); geo.computeVertexNormals();
+    addMesh(geo, toon(0xfffaf3, { side: THREE.DoubleSide }), g, { outline: false, cast: false }); addMesh(Gc(0.03, 0.08, 0.36, 0.01, 0, -0.02, 0.04), toon(0xbfe3f2), g, { outline: false, cast: false }); }
+  else if (kind === 'chalk') { addMesh(Gc(0.08, 0.08, 0.3, 0.03, 0, 0, 0), toon(0xffffff), g, { cast: false }); addMesh(Gc(0.085, 0.085, 0.08, 0.03, 0, 0, 0.12), toon(0xf28ca0), g, { cast: false, outline: false }); }
+  else addMesh(G(0.16, 0.14, 0.15, 0.05), toon(0xb3a8cc), g, { cast: false });
+  return g; }
+function shoot(map, M, target, st) { const P = X.PL, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), mesh = shotModel(st.shot); map.group.add(mesh);
+  M.shots.push({ mesh, x: P.x + fx * 0.5, z: P.z + fz * 0.5, y: 0.75, vx: fx * 13, vz: fz * 13, left: st.reachR + 1, atk: st.ratk, target, spin: st.shot === 'pebble' }); }
+function updateShots(dt, map, M) { for (let i = M.shots.length - 1; i >= 0; i--) { const s = M.shots[i];
+    if (s.target && !s.target.dead) { const dx = s.target.x - s.x, dz = s.target.z - s.z, d = Math.hypot(dx, dz) || 1, sp = Math.hypot(s.vx, s.vz), k = Math.min(1, dt * 7); s.vx += (dx / d * sp - s.vx) * k; s.vz += (dz / d * sp - s.vz) * k; }
+    const step = Math.hypot(s.vx, s.vz) * dt; s.x += s.vx * dt; s.z += s.vz * dt; s.left -= step; const gy = map.groundY(s.x, s.z); s.mesh.position.set(s.x, gy + s.y, s.z); s.mesh.rotation.set(s.spin ? s.left * 6 : 0, Math.atan2(s.vx, s.vz), 0);
+    let hit = null; for (const m of M.list) { if (m.dead) continue; if (Math.hypot(m.x - s.x, m.z - s.z) < 0.55 * m.g.scale.x) { hit = m; break; } }
+    if (hit) { const sp = Math.hypot(s.vx, s.vz) || 1; damage(map, M, hit, s.atk, s.vx / sp, s.vz / sp, 2.5); }
+    if (hit || s.left <= 0 || map.blocked(s.x, s.z)) { s.mesh.removeFromParent(); M.shots.splice(i, 1); } } }
 
 // ── 被打到：少愛心、往後彈；愛心用完就回入口休息 ──
 function hurt(m) { const st = stats(), dmg = Math.max(1, m.atk - st.def); S.hp = Math.max(0, S.hp - dmg); invuln = 1.0; sinceHit = 0; const P = X.PL, dx = P.x - m.x, dz = P.z - m.z, d = Math.hypot(dx, dz) || 1; kx = dx / d * 6; kz = dz / d * 6; save(); changed();
@@ -97,8 +120,8 @@ function hurt(m) { const st = stats(), dmg = Math.max(1, m.atk - st.def); S.hp =
 export function heal() { if (!S) return; const mx = stats().max; if (S.hp !== mx) { S.hp = mx; save(); changed(); } }
 
 // ── 手上的武器與盾（森林裡拿武器、新手村拿澆水壺）──
-function equipVisual(inVillage) { const hero = X.hero(), key = S.equip.weapon + '|' + S.equip.shield; const handR = hero.arms[1].userData.hand, handL = hero.arms[0].userData.hand;
-  if (hero !== lastHero || key !== weaponKey) { lastHero = hero; weaponKey = key; weaponG?.removeFromParent(); shieldG?.removeFromParent(); weaponG = weaponModel(S.equip.weapon); handR.add(weaponG); shieldG = S.equip.shield ? shieldModel(S.equip.shield) : null; if (shieldG) handL.add(shieldG); }
+function equipVisual(inVillage) { const hero = X.hero(), wid = mode() === 'ranged' ? S.equip.ranged : S.equip.weapon, key = wid + '|' + S.equip.shield; const handR = hero.arms[1].userData.hand, handL = hero.arms[0].userData.hand;
+  if (hero !== lastHero || key !== weaponKey) { lastHero = hero; weaponKey = key; weaponG?.removeFromParent(); shieldG?.removeFromParent(); weaponG = weaponModel(wid); handR.add(weaponG); shieldG = S.equip.shield ? shieldModel(S.equip.shield) : null; if (shieldG) handL.add(shieldG); }
   for (const c of handR.children) c.visible = (c === weaponG) !== inVillage; if (shieldG) shieldG.visible = !inVillage; }
 function weaponModel(id) { const { THREE, Gc, G, addMesh, toon } = X, g = new THREE.Group(); g.position.set(0, -0.06, 0.04); const add = (geo, col, o = {}) => addMesh(geo, toon(col, o), g, { cast: false });
   if (id === 'twig') { add(Gc(0.05, 0.5, 0.05, 0.02, 0, -0.25, 0), 0x9a6b48); add(Gc(0.12, 0.04, 0.08, 0.02, 0.06, -0.38, 0), 0x8cc77e); }
@@ -106,6 +129,9 @@ function weaponModel(id) { const { THREE, Gc, G, addMesh, toon } = X, g = new TH
   else if (id === 'pencil') { add(Gc(0.1, 0.42, 0.1, 0.03, 0, -0.26, 0), 0xf5b731); add(Gc(0.1, 0.08, 0.1, 0.03, 0, -0.02, 0), 0xf28ca0); add(G(0.07, 0.07, 0.07, 0.02).clone().rotateX(Math.PI / 4).scale(1, 1.6, 1).translate(0, -0.5, 0), 0xefcfae); }
   else if (id === 'brush') { add(Gc(0.05, 0.62, 0.05, 0.02, 0, -0.26, 0), 0xa0703f); add(Gc(0.1, 0.17, 0.1, 0.04, 0, -0.63, 0), 0x4a3b52); add(Gc(0.07, 0.05, 0.07, 0.02, 0, -0.53, 0), 0xf5b731); }
   else if (id === 'ruler') { add(Gc(0.05, 0.1, 0.05, 0.02, 0, -0.01, 0), 0x9c8be0); add(Gc(0.12, 0.5, 0.03, 0.015, 0, -0.32, 0), 0xbfe3f2); for (let k = 0; k < 5; k++) add(Gc(0.05, 0.015, 0.035, 0.005, -0.03, -0.14 - k * 0.08, 0), 0x7cc3e3); }
+  else if (id === 'sling') { add(Gc(0.05, 0.16, 0.05, 0.02, 0, -0.06, 0), 0x9a6b48); for (const sx of [-1, 1]) add(G(0.04, 0.16, 0.04, 0.015).clone().rotateZ(sx * 0.45).translate(sx * 0.05, -0.2, 0), 0x9a6b48); add(Gc(0.14, 0.025, 0.025, 0.01, 0, -0.27, 0), 0xf28ca0); }
+  else if (id === 'plane') { add(Gc(0.24, 0.02, 0.3, 0.008, 0, -0.08, 0.1), 0xfffaf3); add(Gc(0.03, 0.06, 0.3, 0.01, 0, -0.11, 0.1), 0xbfe3f2); }
+  else if (id === 'chalk') { add(Gc(0.07, 0.24, 0.07, 0.025, 0, -0.1, 0.02), 0xffffff); add(Gc(0.075, 0.07, 0.075, 0.025, 0, -0.2, 0.02), 0xf28ca0); }
   else { add(Gc(0.05, 0.5, 0.05, 0.02, 0, -0.24, 0), 0x9c8be0); for (const r of [0, Math.PI / 4]) add(G(0.2, 0.2, 0.06, 0.03).clone().rotateZ(r).translate(0, -0.55, 0), 0xf5b731, { emissive: 0xf5a020, emissiveIntensity: 0.5 }); }
   return g; }
 function shieldModel(id) { const { THREE, Gc, addMesh, toon } = X, g = new THREE.Group(); g.position.set(0.06, -0.05, 0.02); const col = { book: 0xf28ca0, pot: 0xc7cbd6, stone: 0xb3a8cc, cloud: 0xffffff }[id] || 0xcccccc;
@@ -121,8 +147,8 @@ export function update(dt, time, { inVillage, frozen, hidden = false }) { if (!A
   X.hero().root.visible = invuln <= 0 || Math.floor(time * 14) % 2 === 0; // 受傷後閃一閃
   if (sinceHit > 6 && S.hp < st.max) { regenT += dt; if (regenT > 3) { regenT = 0; S.hp++; save(); changed(); } }
   // 揮武器：先舉高再往前劈
-  const arm = X.hero().arms[1]; if (swingT > 0) { swingT -= dt; const p = 1 - swingT / 0.32; arm.rotation.set(p < 0.3 ? -1.0 - p / 0.3 * 1.9 : -2.9 + Math.min(1, (p - 0.3) / 0.4) * 2.5, 0, -0.15); if (!hitDone && p > 0.55) { hitDone = true; doHit(map, M); } } else arm.rotation.set(-1.0 + Math.sin(time * 2) * 0.04, 0, -0.18);
-  if (!M) return;
+  const arm = X.hero().arms[1]; if (throwT > 0) { throwT -= dt; const p = 1 - throwT / 0.22; arm.rotation.set(p < 0.4 ? -1.0 - p / 0.4 * 1.6 : -2.6 + (p - 0.4) / 0.6 * 1.9, 0, -0.15); } else if (swingT > 0) { swingT -= dt; const p = 1 - swingT / 0.32; arm.rotation.set(p < 0.3 ? -1.0 - p / 0.3 * 1.9 : -2.9 + Math.min(1, (p - 0.3) / 0.4) * 2.5, 0, -0.15); if (!hitDone && p > 0.55) { hitDone = true; doHit(map, M); } } else arm.rotation.set(-1.0 + Math.sin(time * 2) * 0.04, 0, -0.18);
+  if (!M) return; updateShots(dt, map, M);
   const inSafeP = safeAt(map, P.x, P.z, -0.6);
   for (const m of M.list) {
     if (hidden) { m.g.visible = false; m.bar.visible = false; continue; } else if (!m.dead) m.g.visible = true;
@@ -146,7 +172,7 @@ export function update(dt, time, { inVillage, frozen, hidden = false }) { if (!A
     m.bar.visible = m.hp < m.max; if (m.bar.visible) m.bar.position.set(m.x, gy + m.top * m.g.scale.y + 0.35 - X.curveDrop(m.x, m.z), m.z); }
   // 金幣：彈出來、落地、靠近就被吸過來
   for (let i = M.coins.length - 1; i >= 0; i--) { const c = M.coins[i]; c.t += dt; const gy = map.groundY(c.x, c.z), dx = P.x - c.x, dz = P.z - c.z, d = Math.hypot(dx, dz);
-    if (c.t > 0.5 && d < 3.2) { const sp = 7 + c.t * 4; c.x += dx / d * Math.min(d, sp * dt); c.z += dz / d * Math.min(d, sp * dt); c.y += (0.5 - c.y) * Math.min(1, dt * 8); } else { c.vy -= 14 * dt; c.x += c.vx * dt; c.z += c.vz * dt; c.y += c.vy * dt; if (c.y < 0) { c.y = 0; c.vy = Math.abs(c.vy) * 0.35; c.vx *= 0.6; c.vz *= 0.6; } }
+    if (c.t > 0.6 && d < 11) { const sp = 8 + c.t * 6; c.x += dx / d * Math.min(d, sp * dt); c.z += dz / d * Math.min(d, sp * dt); c.y += (0.5 - c.y) * Math.min(1, dt * 8); } else { c.vy -= 14 * dt; c.x += c.vx * dt; c.z += c.vz * dt; c.y += c.vy * dt; if (c.y < 0) { c.y = 0; c.vy = Math.abs(c.vy) * 0.35; c.vx *= 0.6; c.vz *= 0.6; } }
     c.mesh.position.set(c.x, gy + c.y, c.z); c.mesh.rotation.y = time * 5 + i;
     if ((c.t > 0.5 && d < 0.55) || c.t > 25) { c.mesh.removeFromParent(); M.coins.splice(i, 1); if (c.t <= 25) addCoins(c.v, { x: P.x, z: P.z }); } }
   for (let i = M.fx.length - 1; i >= 0; i--) { const f = M.fx[i]; f.t += dt; f.sp.position.y = f.y + f.t * 1.2 - X.curveDrop(f.x, f.z); f.sp.material.opacity = Math.min(1, 2.2 - f.t * 2.2); if (f.t > 1) { f.sp.removeFromParent(); f.sp.material.map.dispose(); f.sp.material.dispose(); M.fx.splice(i, 1); } } }
@@ -165,17 +191,17 @@ const CSS = `
 .adv-bar{height:7px;border-radius:4px;background:#efe9f2;overflow:hidden;width:100%}.adv-bar i{display:block;height:100%;background:#8CC77E}
 `;
 let styled = false;
-const statText = it => [it.atk ? `攻擊 ${it.atk}` : '', it.range ? '距離＋' : '', it.def ? `防禦 ${it.def}` : '', it.spd ? `速度＋${Math.round(it.spd * 100)}%` : ''].filter(Boolean).join('・');
+const statText = it => [it.reach ? `遠攻・射程 ${it.reach}` : '', it.atk ? `攻擊 ${it.atk}` : '', it.range ? '距離＋' : '', it.def ? `防禦 ${it.def}` : '', it.spd ? `速度＋${Math.round(it.spd * 100)}%` : ''].filter(Boolean).join('・');
 const sourceText = it => it.price != null ? (it.price ? `道具小舖 ${it.price} 金幣` : '一開始就有') : `打倒 ${A.monsters[it.from].drop.n} 隻${A.monsters[it.from].name}`;
 export function open(tab = 'bag', { shop = false } = {}) { if (!styled) { styled = true; const s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s); }
   const m = modal({ title: shop ? '道具小舖' : '背包與裝備', sub: shop ? '用金幣買裝備' : '打怪、學習都能賺金幣', icon: shop ? 'coin' : 'bag' }); const tabs = el('div', 'lf-tabs'); m.body.before(tabs);
   const T = [['bag', '裝備'], ['shop', '商店'], ['book', '怪物圖鑑']]; let cur = shop ? 'shop' : tab;
   const render = () => { tabs.innerHTML = ''; for (const [k, n] of T) { const b = el('button', null, n); b.setAttribute('aria-selected', String(k === cur)); b.onclick = () => { cur = k; render(); }; tabs.appendChild(b); }
-    const st = stats(), b = m.body; b.innerHTML = `<div class="adv-top"><span class="c">${ICON.svg('coin', 24)}${S.coins} 金幣</span><span class="c">${ICON.svg('heart', 22)}${S.hp / 2}／${st.max / 2}</span><span class="c">${ICON.svg('sword', 22)}攻擊 ${st.atk}</span><span class="c">${ICON.svg('shield', 22)}防禦 ${st.def}</span><span class="c">${ICON.svg('boot', 22)}速度 ${Math.round(st.spd * 100)}%</span></div>`;
+    const st = stats(), b = m.body; b.innerHTML = `<div class="adv-top"><span class="c">${ICON.svg('coin', 24)}${S.coins} 金幣</span><span class="c">${ICON.svg('heart', 22)}${S.hp / 2}／${st.max / 2}</span><span class="c">${ICON.svg('sword', 22)}近攻 ${st.atk}</span><span class="c">${ICON.svg(item(S.equip.ranged).icon, 22)}遠攻 ${st.ratk}</span><span class="c">${ICON.svg('shield', 22)}防禦 ${st.def}</span><span class="c">${ICON.svg('boot', 22)}速度 ${Math.round(st.spd * 100)}%</span></div>`;
     if (cur === 'bag') { b.insertAdjacentHTML('beforeend', `<div class="adv-slot">${Object.entries(A.slots).map(([k, n]) => { const it = item(S.equip[k]); return `<div>${ICON.svg(it ? it.icon : 'st-locked', 40)}<span><small>${n}</small>${it ? esc(it.name) : '還沒有'}</span></div>`; }).join('')}</div>`);
       for (const [k, n] of Object.entries(A.slots)) { b.appendChild(el('div', 'adv-h3', n)); const g = el('div', 'adv-grid'); b.appendChild(g);
         for (const it of A.items.filter(x => x.slot === k)) { const own = S.owned.includes(it.id), on = S.equip[k] === it.id, c = el('div', 'adv-card' + (on ? ' on' : '') + (own ? '' : ' lock'), `${ICON.svg(own ? it.icon : 'st-locked', 48)}<b>${esc(it.name)}</b><span class="st">${statText(it)}</span><small>${own ? esc(it.desc) : esc(sourceText(it))}</small>`);
-          if (own) { const bt = el('button', null, on ? '裝備中' : k === 'weapon' ? '拿這個' : on ? '裝備中' : '裝上'); bt.disabled = on; bt.onclick = () => { S.equip[k] = it.id; save(); changed(); render(); }; c.appendChild(bt); if (on && k !== 'weapon') { const off = el('button', null, '拿下來'); off.style.background = '#f3ebe4'; off.style.color = '#6e5d7a'; off.onclick = () => { S.equip[k] = null; save(); changed(); render(); }; c.appendChild(off); } } g.appendChild(c); } } }
+          if (own) { const bt = el('button', null, on ? '裝備中' : k === 'weapon' || k === 'ranged' ? '拿這個' : '裝上'); bt.disabled = on; bt.onclick = () => { S.equip[k] = it.id; if (k === 'ranged') S.mode = 'ranged'; else if (k === 'weapon') S.mode = 'melee'; save(); changed(); render(); }; c.appendChild(bt); if (on && k !== 'weapon' && k !== 'ranged') { const off = el('button', null, '拿下來'); off.style.background = '#f3ebe4'; off.style.color = '#6e5d7a'; off.onclick = () => { S.equip[k] = null; save(); changed(); render(); }; c.appendChild(off); } } g.appendChild(c); } } }
     else if (cur === 'shop') { b.insertAdjacentHTML('beforeend', `<p class="adv-h3" style="font-weight:700;color:#8a7a92;font-size:13px">${shop ? '歡迎光臨！金幣可以打怪賺，也可以在石碑練習賺：每答對一題 +2，過關再 +5。' : '要到新手村的「道具小舖」才能買喔（從學習森林拱門往村子走就看得到）。'}</p>`); const g = el('div', 'adv-grid'); b.appendChild(g);
       for (const it of A.items.filter(x => x.price)) { const own = S.owned.includes(it.id), c = el('div', 'adv-card' + (own ? ' on' : ''), `${ICON.svg(it.icon, 48)}<b>${esc(it.name)}</b><span class="st">${statText(it)}</span><small>${esc(it.desc)}</small>`); const bt = el('button', null, own ? '已經有了' : `${ICON.svg('coin', 18)}${it.price}`); bt.disabled = own || !shop || S.coins < it.price;
         bt.onclick = () => { if (S.coins < it.price || own) return; S.coins -= it.price; save(); give(it.id); render(); }; c.appendChild(bt); g.appendChild(c); }
