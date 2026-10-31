@@ -47,6 +47,35 @@ export function createForest(ctx) {
     const tr = addInstanced(TREE_GEO.trunk, toon(CFG.pal.trunk), list.length); list.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.set(t.s, t.s * (t.kind === 'broad' ? 1 : 1.15), t.s)); tr.im.setMatrixAt(i, M4); });
     if (broad.length) { const b = addInstanced(TREE_GEO.broad, toon(0xffffff), broad.length); broad.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.setScalar(t.s)); b.im.setMatrixAt(i, M4); b.im.setColorAt(i, COL.setHex(leaf[i % leaf.length])); }); }
     if (pines.length) { const p = addInstanced(TREE_GEO.pine, toon(0xffffff), pines.length); pines.forEach((t, i) => { M4.compose(V.set(t.x, t.y - 0.05, t.z), Q.setFromEuler(E.set(0, t.r, 0)), S.set(t.s, t.s * 1.15, t.s)); p.im.setMatrixAt(i, M4); p.im.setColorAt(i, COL.setHex(pine[i % pine.length])); }); } }
+  // ── 邊界：一圈矮樹籬（積木灌木）＋後面兩排大樹，地圖走不出去的地方都看得到牆；pts＝沿著邊界每 0.8 格一點 {x,z,nx,nz}（nx,nz＝往外的方向）──
+  const BUSH = merge([Gc(1.15, 0.85, 0.95, 0.26, 0, 0.42, 0), Gc(0.85, 0.72, 0.75, 0.22, 0.32, 0.8, 0.08), Gc(0.72, 0.62, 0.62, 0.2, -0.3, 0.74, -0.1)]);
+  function border(pts, hFn, { leaf, pine, pineK = 0.4, hedge = [0x6fb85e, 0x7cc76a, 0x62a956], seed = 7, skip = null, low = null } = {}) { const rr = rng(seed), base = pts.filter(p => !(skip && skip(p.x, p.z))), ok = [...base, ...base.filter(p => low && low(p)).map(p => ({ ...p, x: p.x + p.nx * 1.1, z: p.z + p.nz * 1.1, back: true }))]; // low：鏡頭那一側只種樹籬（兩排），不種大樹，才不會擋住畫面
+    const b = addInstanced(BUSH, toon(0xffffff), Math.max(1, ok.length), { cast: false }); ok.forEach((p, i) => { const s = 0.85 + rr() * 0.45, x = p.x + p.nx * 0.35, z = p.z + p.nz * 0.35; M4.compose(V.set(x, hFn(x, z) - 0.08, z), Q.setFromEuler(E.set(0, Math.atan2(p.nx, p.nz) + (rr() - 0.5) * 0.8, 0)), S.set(s * 1.05, s * (0.85 + rr() * 0.35), s)); b.im.setMatrixAt(i, M4); b.im.setColorAt(i, COL.setHex(hedge[i % hedge.length])); });
+    const tl = []; base.forEach((p, i) => { if (low && low(p)) return; for (const row of [0, 1]) { if ((i + row) % 2) continue; const off = 1.5 + row * 1.6 + rr() * 0.7, x = p.x + p.nx * off + (rr() - 0.5) * 0.5, z = p.z + p.nz * off + (rr() - 0.5) * 0.5; if (skip && skip(x, z)) continue; tl.push({ x, z, y: hFn(x, z), s: 1.0 + rr() * 0.55, r: rr() * 6.28, kind: rr() < pineK ? 'pine' : 'broad' }); } });
+    trees(tl, leaf, pine); }
+  const ringPts = (cx, cz, R) => { const n = Math.ceil(2 * Math.PI * R / 0.8); return Array.from({ length: n }, (_, k) => { const a = k / n * Math.PI * 2; return { x: cx + Math.cos(a) * R, z: cz + Math.sin(a) * R, nx: Math.cos(a), nz: Math.sin(a) }; }); };
+  // ── 石板路：幾種不規則的圓角石板（擠出成厚片、圓倒角）＋路邊的小石子與草叢；每一種一組 InstancedMesh ──
+  // list 的每一項 {kind, x, z, y, rot, sx, sy, sz, col}；layout(fnK) 依每一項的顯示比例（0～1）擺放，路一段段冒出來時用
+  const FLAGS = [0, 1, 2, 3].map(seed => { const rr = rng(seed * 977 + 13), n = 7, P = []; for (let k = 0; k < n; k++) { const a = (k + (rr() - 0.5) * 0.45) / n * Math.PI * 2, d = 0.42 + rr() * 0.12; P.push([Math.cos(a) * d, Math.sin(a) * d]); }
+    const sh = new THREE.Shape(), mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], m0 = mid(P[n - 1], P[0]); sh.moveTo(m0[0], m0[1]); for (let k = 0; k < n; k++) { const m = mid(P[k], P[(k + 1) % n]); sh.quadraticCurveTo(P[k][0], P[k][1], m[0], m[1]); }
+    return new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.05, bevelSegments: 2, curveSegments: 3 }).rotateX(-Math.PI / 2); });
+  const DECO_GEO = { f0: FLAGS[0], f1: FLAGS[1], f2: FLAGS[2], f3: FLAGS[3], pb: Gc(0.16, 0.1, 0.13, 0.04, 0, 0.04, 0), cb: Gc(0.36, 0.17, 0.3, 0.06, 0, 0.07, 0),
+    tf: merge([[0, 0, 0.24], [0.07, 0.5, 0.2], [-0.07, -0.5, 0.18], [0.02, 1.2, 0.15]].map(([x, rz, h]) => Gc(0.05, h, 0.04, 0.015, x, h / 2, 0, 0).rotateZ(rz * 0.5))) };
+  const STONE_COL = [0xeee6d8, 0xe2d8c8, 0xd8d0e0, 0xe9dfcd, 0xd6ccbc], PEBBLE_COL = [0xc4bad0, 0xd9cebb, 0xb3a99e, 0xe0d6c6], TUFT_COL = [0x6fb85e, 0x7cc76a, 0x8fd36f];
+  const flagKind = () => 'f' + Math.floor(Math.random() * 4);
+  function pathDeco(list) { const groups = {}; for (const d of list) (groups[d.kind] ||= []).push(d);
+    const ims = Object.entries(groups).map(([kind, arr]) => { const im = addInstanced(DECO_GEO[kind], toon(0xffffff), arr.length, { cast: false, outline: kind[0] === 'f' || kind === 'cb' }).im; arr.forEach((d, i) => im.setColorAt(i, COL.setHex(d.col))); return { im, arr }; });
+    const layout = (fk = () => 1) => { for (const { im, arr } of ims) { arr.forEach((d, i) => { const k = fk(d) + 1e-4; M4.compose(V.set(d.x, d.y, d.z), Q.setFromEuler(E.set(0, d.rot, 0)), S.set(d.sx * k, (d.sy || 1) * k, d.sz * k)); im.setMatrixAt(i, M4); }); im.instanceMatrix.needsUpdate = true; } };
+    layout(); return { layout }; }
+  // 沿著一條路（一串點）鋪：踏腳石左右交錯、偶爾一顆小石板、路邊小石子和草叢
+  function stepStones(pts, hFn, { width = 1, extra = {}, skip = null } = {}) { const out = [], rr = rng(Math.round(pts[0].x * 31 + pts[0].z * 17) + 99);
+    for (let k = 1; k < pts.length - 1; k++) { const p = pts[k], a = pts[k - 1], b = pts[k + 1], tx = b.x - a.x, tz = b.z - a.z, tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl, yaw = Math.atan2(tx, tz), side = k % 2 ? 1 : -1;
+      const put = (kind, lat, along, o) => { const x = p.x + nx * lat + tx / tl * along, z = p.z + nz * lat + tz / tl * along; if (skip && skip(x, z)) return; out.push({ kind, x, z, y: hFn(x, z) + (o.dy || 0), ...o, ...extra, k: k / pts.length }); };
+      put(flagKind(), side * 0.17 * width + (rr() - 0.5) * 0.08, 0, { rot: yaw + (rr() - 0.5) * 0.7, sx: (0.62 + rr() * 0.16) * width, sz: 0.5 + rr() * 0.12, col: STONE_COL[(k * 7 + Math.floor(rr() * 5)) % 5], dy: 0.01 });
+      if (rr() < 0.35) put(flagKind(), -side * 0.42 * width, (rr() - 0.5) * 0.2, { rot: rr() * 6.28, sx: 0.3 + rr() * 0.08, sz: 0.26 + rr() * 0.06, col: STONE_COL[Math.floor(rr() * 5)] });
+      if (rr() < 0.5) put('pb', (rr() < 0.5 ? -1 : 1) * (0.62 + rr() * 0.3) * width, (rr() - 0.5) * 0.4, { rot: rr() * 6.28, sx: 0.8 + rr() * 0.6, sy: 0.8 + rr() * 0.5, sz: 0.8 + rr() * 0.6, col: PEBBLE_COL[Math.floor(rr() * 4)] });
+      if (rr() < 0.45) put('tf', (rr() < 0.5 ? -1 : 1) * (0.6 + rr() * 0.4) * width, (rr() - 0.5) * 0.4, { rot: rr() * 6.28, sx: 1, sy: 0.8 + rr() * 0.6, sz: 1, col: TUFT_COL[Math.floor(rr() * 3)] }); }
+    return out; }
   // 拱門（入口）：兩根方柱＋橫樑＋招牌；locked 時中間多兩片木柵
   function arch(x, z, y, yaw, color, sign, icon = null) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw; ctx.ROOT().add(g);
     for (const sx of [-1, 1]) { addMesh(Gc(0.36, 2.6, 0.36, 0.06, sx * 1.3, 1.3, 0), toon(color), g); addMesh(Gc(0.5, 0.18, 0.5, 0.05, sx * 1.3, 2.68, 0), toon(0x9a6b48), g); }
@@ -132,8 +161,8 @@ export function createForest(ctx) {
       return { id: n.id, name: n.name, guardian: !!n.guardian, x, z, g, plant, leafMat, flowers, starG, starList, sign, signMat, fog, fogMat, lab, state: null, level: -1, fogK: 1, bloomK: 0 }; });
     // 石板（沿著曲線鋪，一條路的石板只在它通往的知識點打開後出現）
     const near = (x, z, id) => { const p = pos[id]; return p && Math.hypot(x - p[0], z - p[1]) < 1.45 * (nodeById(id).guardian ? 1.3 : 1); };
-    const stones = []; for (const e of edges) { const pts = e.curve.getSpacedPoints(Math.max(2, Math.round(e.len / 0.95))); pts.forEach((p, k) => { if (!k || k === pts.length - 1) return; const x = p.x + (r() - 0.5) * 0.2, z = p.z + (r() - 0.5) * 0.2; if (near(x, z, e.to) || (e.from && near(x, z, e.from)) || (river && inRiver(x, z))) return; stones.push({ x, z, y: H(x, z), to: e.to, rot: r() * 0.6, s: 0.85 + r() * 0.3, k: k / pts.length }); }); }
-    const st = addInstanced(Gc(0.62, 0.1, 0.5, 0.04, 0, 0.05, 0), toon(0xffffff), Math.max(1, stones.length), { cast: false }); stones.forEach((s, i) => st.im.setColorAt(i, COL.setHex([0xd8d0e0, 0xc9c2d6, 0xe6dfea][i % 3])));
+    const stones = edges.flatMap(e => stepStones(e.curve.getSpacedPoints(Math.max(2, Math.round(e.len / 0.82))), H, { extra: { to: e.to }, skip: (x, z) => near(x, z, e.to) || (e.from && near(x, z, e.from)) || (river && inRiver(x, z)) }));
+    const st = pathDeco(stones);
     // 入口拱門（回主幹道）
     const ent = arch(ENTRY[0], ENTRY[1] + 2.2, H(ENTRY[0], ENTRY[1] + 2.2), 0, 0xc99a6a, '森林主幹道', 'back'); colliders.push({ x: ENTRY[0] - 1.3, z: ENTRY[1] + 2.2, r: 0.35 }, { x: ENTRY[0] + 1.3, z: ENTRY[1] + 2.2, r: 0.35 }); ent.bars.visible = false;
     const title = label(`${R.name}（${R.grades}）`, { bg: '#f09a8a', fg: '#fff', h: 0.7, icon: R.img }); title.userData.base = H(0, 15) + 3.2; title.position.set(0, title.userData.base, 15); group.add(title);
@@ -232,8 +261,9 @@ export function createForest(ctx) {
       items.push({ x: mx, z: mz, r: 1.7, text: () => { const n = GAMES.games().letters.list.filter(l => !GAMES.gameState().letters[l.id]).length; return n ? `letter|有 ${n} 封鄰居的來信！按空白鍵讀信、回信` : 'letter|信都回完了，按空白鍵再讀一封'; }, act: () => GAMES.letter() });
       items.push({ x: sx, z: sz, r: 1.8, text: () => 'spirit|字精靈：「我會依句子換衣服，猜猜我怎麼念？」按空白鍵玩多音字', act: () => GAMES.spirit() });
     }
-    const tl = []; for (let k = 0; k < T.trees * 30 && tl.length < T.trees; k++) { const edge = k % 3 === 0, a = r() * Math.PI * 2, d = edge ? RAD + 0.5 + r() * 9 : 4 + r() * 21, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!edge && !free(x, z, 0.3)) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < T.pineK ? 'pine' : 'broad' }); if (d < RAD + 1) colliders.push({ x, z, r: 0.42 * s }); }
+    const tl = []; for (let k = 0; k < T.trees * 30 && tl.length < T.trees; k++) { const edge = k % 3 === 0, a = r() * Math.PI * 2, d = edge ? RAD + 0.5 + r() * 9 : 4 + r() * 21, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!edge && !free(x, z, 0.3)) continue; if (edge && z / d > 0.45) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < T.pineK ? 'pine' : 'broad' }); if (d < RAD + 1) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, T.leaf, T.pine);
+    border(ringPts(0, 0, RAD + 0.4), H, { leaf: T.leaf, pine: T.pine, pineK: Math.max(0.35, T.pineK), seed: rid.length * 131, skip: river ? (x, z) => inRiver(x, z) : null, low: p => p.nz > 0.45 }); // 邊界：樹籬＋大樹圍一圈
     const bpts = []; for (let k = 0; k < 2400 && bpts.length < 170; k++) { const a = r() * Math.PI * 2, d = 3 + Math.sqrt(r()) * 21, x = Math.cos(a) * d, z = Math.sin(a) * d; if (pathD(x, z) < 0.9 || (river && inRiver(x, z)) || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.3) || Object.values(pos).some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.6)) continue; bpts.push({ x, y: H(x, z), z, r: r() * 6.28, s: 0.8 + r() * 0.6 }); }
     const bloom = bloomField(bpts, [ACCENT, 0xffffff, 0xfff3a8, 0xffb3c7, 0xd8c2ff]);
     const lushNow = () => { const [have, all] = regionCount(rid); return (have + (levelOf('guard-' + rid) > 0 ? 1 : 0)) / (all + 1); }; // 這一區的茂盛程度（守護者也算一份）
@@ -256,7 +286,8 @@ export function createForest(ctx) {
         if (n.plab.userData.text !== txt) setLabel(n.plab, txt, { bg: HEAT_BG[col], fg: S.state === 'locked' && !S.a ? '#8a7a92' : '#4a3b52', icon: S.due ? 'st-review' : S.state === 'locked' ? 'st-locked' : 'chart', h: n.guardian ? 0.62 : 0.5 }); } }
     function setParent(on) { parentOn = !!on; if (parentOn && !heat) { heat = new THREE.Group(); group.add(heat); for (const n of nodes) { n.heat = heatDisc(n.x, n.z, n.guardian ? 3.3 : 2.7, H, heat); n.plab = label(''); n.plab.userData.base = n.lab.userData.base; n.plab.position.set(n.x, n.plab.userData.base, n.z); group.add(n.plab); } }
       if (!heat) return; heat.visible = parentOn; for (const n of nodes) { n.plab.visible = parentOn; n.lab.visible = !parentOn; } if (parentOn) paintHeat(); }
-    function layoutStones() { stones.forEach((s, i) => { const nd = nodes.find(n => n.id === s.to); const vis = nd.state !== 'locked'; const t0 = revealFrom.get(s.to); let k = vis ? 1 : 0; if (vis && t0 != null) k = smooth(0, 0.35, revealT - t0 - 0.4 - s.k * 1.4); M4.compose(V.set(s.x, s.y, s.z), Q.setFromEuler(E.set(0, s.rot, 0)), S.setScalar(s.s * k + 1e-4)); st.im.setMatrixAt(i, M4); }); st.im.instanceMatrix.needsUpdate = true; }
+    const nodeOf = {}; for (const n of nodes) nodeOf[n.id] = n;
+    function layoutStones() { st.layout(s => { const vis = nodeOf[s.to].state !== 'locked'; const t0 = revealFrom.get(s.to); if (!vis) return 0; return t0 != null ? smooth(0, 0.35, revealT - t0 - 0.4 - s.k * 1.4) : 1; }); }
     function update(dt, time) { revealT += dt; if (revealFrom.size) { layoutStones(); for (const [id, t0] of revealFrom) if (revealT - t0 > 2.4) revealFrom.delete(id); }
       for (const n of nodes) {
         if (n.state !== 'locked' && n.fogK > 0) { n.fogK = Math.max(0, n.fogK - dt * 0.9); n.fogMat.opacity = 0.6 * n.fogK; n.fog.scale.setScalar(1 + (1 - n.fogK) * 0.6); if (!n.fogK) n.fog.visible = false; }
@@ -270,9 +301,11 @@ export function createForest(ctx) {
         if (parentOn) { n.plab.position.y = n.lab.position.y; if (n.heat.ring.visible) { const k = 0.5 + Math.sin(time * 3 + n.x) * 0.5; n.heat.ring.material.opacity = 0.45 + k * 0.45; n.heat.ring.scale.setScalar(1 + k * 0.04); } } }
       title.position.y = title.userData.base - curveDrop(0, 15); for (const f of fx) f(dt, time); bloom.update(dt); }
     const spawns = { entry: { x: ENTRY[0], z: ENTRY[1] - 0.5, yaw: Math.PI } };
-    const portals = [{ x: ENTRY[0], z: ENTRY[1] + 1.4, r: 1.7, to: 'trunk', spawn: 'from-' + rid, text: () => 'door|按空白鍵回到森林主幹道', locked: () => false }];
+    const portals = [{ x: ENTRY[0], z: ENTRY[1] + 1.6, r: 1.5, to: 'trunk', spawn: 'from-' + rid, icon: 'forest', name: '森林主幹道', text: () => 'door|走進拱門回到森林主幹道', locked: () => false }];
+    // 小地圖用：邊界、石板路（通往哪個知識點）、河
+    const mini = { shape: 'circle', cx: 0, cz: 0, R: RAD, grass: '#' + new THREE.Color(T.grass[0]).getHexString(), paths: edges.map(e => ({ to: e.to, pts: e.pts.map(p => [p.x, p.z]) })), river: river ? Array.from({ length: 81 }, (_, i) => [i - 40, riverZ + Math.sin((i - 40) * 0.25) * 1.2]) : null };
     refresh(); group.visible = false;
-    return { id: rid, name: R.name, group, colliders, groundY, blocked, spawns, portals, nodes, items, refresh, update, setParent, lush: lushNow, spawn: 'entry' };
+    return { id: rid, name: R.name, icon: R.img, group, colliders, groundY, blocked, spawns, portals, nodes, items, refresh, update, setParent, mini, lush: lushNow, spawn: 'entry' };
   }
 
   // ── 森林主幹道：南邊接新手村，往北爬坡；兩旁是各區域的入口 ──
@@ -283,9 +316,13 @@ export function createForest(ctx) {
     const H = (x, z) => { const base = -z * SLOPE + 1.2; let h = base + 0.3 * noise(x * 0.5, z * 0.5) + smooth(9, 16, Math.abs(x)) * 2.5; return THREE.MathUtils.lerp(h, base, 1 - smooth(0.2, 2.2, roadD(x, z))); };
     ground(90, 100, H, (x, z, c) => { const n = noise(x * 1.2, z * 1.2) * 0.5 + 0.5; c.setHex(0x9fd87a).lerp(new THREE.Color(0x86c46a), n); const d = roadD(x, z); if (d < 0.6) c.lerp(new THREE.Color(0xd9cbb4), 1 - smooth(-0.2, 0.6, d)); });
     // 主幹道的石板（大塊、兩排）
-    const slabs = []; for (let z = 31; z > -34; z -= 0.85) for (const o of [-0.5, 0.5]) slabs.push({ x: roadX(z) + o + (r() - 0.5) * 0.15, z: z + (r() - 0.5) * 0.15, rot: (r() - 0.5) * 0.4 });
-    for (const g of gates) { const sx = roadX(g.z), n = Math.floor(Math.abs(g.x - sx) / 0.85); for (let k = 1; k < n; k++) slabs.push({ x: sx + (g.x - sx) * k / n, z: g.z + (r() - 0.5) * 0.2, rot: r() }); }
-    const st = addInstanced(Gc(0.7, 0.1, 0.62, 0.04, 0, 0.05, 0), toon(0xffffff), slabs.length, { cast: false }); slabs.forEach((s, i) => { M4.compose(V.set(s.x, H(s.x, s.z), s.z), Q.setFromEuler(E.set(0, s.rot, 0)), S.setScalar(1)); st.im.setMatrixAt(i, M4); st.im.setColorAt(i, COL.setHex([0xd8d0e0, 0xc9c2d6, 0xe6dfea][i % 3])); });
+    // 主幹道：三排交錯的不規則石板鋪滿路面，兩邊一顆顆圓角路緣石，外面點綴草叢；通往各區的岔路是踏腳石
+    const deco = [], put = (kind, x, z, o) => deco.push({ kind, x, z, y: H(x, z) + (o.dy || 0), ...o });
+    for (let z = 31.2, row = 0; z > -33.6; z -= 0.62, row++) { const cx = roadX(z), yaw = Math.atan2(roadX(z - 0.5) - roadX(z + 0.5), -1);
+      for (let c = -1; c <= 1; c++) { const lat = c * 0.66 + (row % 2 ? 0.33 : 0) + (r() - 0.5) * 0.08; if (Math.abs(lat) > 1.0) continue; put(flagKind(), cx + lat, z + (r() - 0.5) * 0.1, { rot: yaw + (r() - 0.5) * 0.5, sx: 0.66 + r() * 0.1, sz: 0.58 + r() * 0.08, col: STONE_COL[Math.floor(r() * 5)], dy: 0.01 }); }
+      for (const sd of [-1, 1]) { const gap = gates.some(g => Math.sign(g.x - cx) === sd && Math.abs(g.z - z) < 1.1); if (!gap) put('cb', cx + sd * 1.32, z, { rot: (r() - 0.5) * 0.3, sx: 0.9 + r() * 0.3, sy: 0.9 + r() * 0.4, sz: 1.4 + r() * 0.3, col: PEBBLE_COL[Math.floor(r() * 4)] }); if (r() < 0.35 && !gap) put('tf', cx + sd * (1.65 + r() * 0.4), z + (r() - 0.5) * 0.5, { rot: r() * 6.28, sx: 1, sy: 0.8 + r() * 0.6, sz: 1, col: TUFT_COL[Math.floor(r() * 3)] }); } }
+    for (const g of gates) { const sx = roadX(g.z) + Math.sign(g.x - roadX(g.z)) * 1.4, ex = g.x + Math.sign(g.x) * 0.6, n = Math.max(2, Math.round(Math.abs(ex - sx) / 0.8)); deco.push(...stepStones(Array.from({ length: n + 2 }, (_, k) => ({ x: sx + (ex - sx) * (k - 0.5) / n, z: g.z })), H, { width: 1.3 })); }
+    pathDeco(deco);
     // 各區域入口（拱門＋招牌），門口一塊進度牌
     const gateObjs = gates.map(g => { const side = Math.sign(g.x) || 1, ax = g.x + side * 1.2, a = arch(ax, g.z, H(ax, g.z), side > 0 ? -Math.PI / 2 : Math.PI / 2, [0xf2928a, 0x8fb6ec, 0xb9a0d8, 0x7fc6d6, 0xf2b5c6, 0xd8b07a, 0xe8c56a][REGIONS.indexOf(g.R)], g.R.name, g.R.img);
       colliders.push({ x: ax, z: g.z - 1.3, r: 0.35 }, { x: ax, z: g.z + 1.3, r: 0.35 }); const info = label(''); info.userData.base = H(g.x, g.z) + 1.1; info.position.set(g.x - side * 0.2, info.userData.base, g.z); group.add(info);
@@ -293,13 +330,15 @@ export function createForest(ctx) {
     // 入口牌坊（南邊，回新手村）與北邊山頂
     const home = arch(roadX(32), 32.5, H(roadX(32), 32.5), 0, 0xc99a6a, '新手村', 'back'); home.bars.visible = false; colliders.push({ x: roadX(32) - 1.3, z: 32.5, r: 0.35 }, { x: roadX(32) + 1.3, z: 32.5, r: 0.35 });
     const title = label('學習森林・識字與詞語主幹道', { bg: '#f09a8a', fg: '#fff', h: 0.85, icon: 'forest' }); title.userData.base = H(0, 27) + 3.4; title.position.set(0, title.userData.base, 27); group.add(title);
-    const tl = []; for (let k = 0; k < 6000 && tl.length < 170; k++) { const x = (r() - 0.5) * 60, z = 36 - r() * 74; if (roadD(x, z) < 1.6 || gates.some(g => Math.hypot(x - g.x - g.side * 1.2, z - g.z) < 3.4) || Math.hypot(x - roadX(32), z - 32.5) < 3) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < 0.45 ? 'pine' : 'broad' }); if (Math.abs(x) < 13) colliders.push({ x, z, r: 0.42 * s }); }
+    const tl = []; for (let k = 0; k < 6000 && tl.length < 170; k++) { const x = (r() - 0.5) * 60, z = 36 - r() * 74; if (z > 30.5 || roadD(x, z) < 1.6 || gates.some(g => Math.hypot(x - g.x - g.side * 1.2, z - g.z) < 3.4) || Math.hypot(x - roadX(32), z - 32.5) < 3) continue; const s = 0.85 + r() * 0.6; tl.push({ x, z, y: H(x, z), s, r: r() * 6.28, kind: r() < 0.45 ? 'pine' : 'broad' }); if (Math.abs(x) < 13) colliders.push({ x, z, r: 0.42 * s }); }
     trees(tl, [0x8fd36f, 0x7cc76a, 0xa8de7e], [0x5fae84, 0x4f9e7a, 0x6fbf8f]);
+    { const bp = []; for (let z = 34.2; z > -34.6; z -= 0.8) for (const sd of [-1, 1]) bp.push({ x: sd * 13.1, z, nx: sd, nz: 0 }); for (let x = -12.6; x <= 12.6; x += 0.8) { bp.push({ x, z: 34.3, nx: 0, nz: 1 }); bp.push({ x, z: -34.7, nx: 0, nz: -1 }); }
+      border(bp, H, { leaf: [0x8fd36f, 0x7cc76a, 0xa8de7e], pine: [0x5fae84, 0x4f9e7a, 0x6fbf8f], pineK: 0.5, seed: 4242, low: p => p.nz > 0.5 || p.z > 28 }); } // 邊界：兩旁與南北兩端都是樹籬＋大樹
     const bpts = []; for (let k = 0; k < 3000 && bpts.length < 220; k++) { const x = (r() - 0.5) * 24, z = 33 - r() * 66; if (roadD(x, z) < 0.6 || Math.abs(x) > 12 || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.3)) continue; bpts.push({ x, y: H(x, z), z, r: r() * 6.28, s: 0.8 + r() * 0.6 }); }
     const bloom = bloomField(bpts, [0xffb3c7, 0xfff3a8, 0xffffff, 0xd8c2ff, 0xffc9a0, 0x8fd3f0]);
     const lushNow = () => { const ns = NODES.filter(n => !n.guardian); return ns.filter(n => levelOf(n.id) > 0).length / ns.length; }; // 主幹道：整座森林學會了多少
     setRoot(null);
-    const groundY = H, blocked = (x, z) => Math.abs(x) > 12.5 || z > 33.5 || z < -34;
+    const groundY = H, blocked = (x, z) => Math.abs(x) > 12.4 || z > 33.6 || z < -34.1;
     let heat = null, parentOn = false; // 家長檢視：每個區域門口一圈熱力色（整區的正確率），進度牌改成「正確率・待複習」
     function refresh() { for (const g of gateObjs) { const open = regionOpen(g.R.id); const [have, all] = regionCount(g.R.id); const conquered = levelOf('guard-' + g.R.id) > 0; bloom.set(lushNow()); g.a.bars.visible = !open; g.open = open;
         if (parentOn) { const S = regionStats(g.R.id), col = heatColor(S.rate); g.heat.paint(S.rate, S.due); const txt = `正確率 ${pct(S.rate)}${S.due ? `・待複習 ${S.due}` : ''}・學會 ${have}／${all}`;
@@ -309,10 +348,11 @@ export function createForest(ctx) {
     function setParent(on) { parentOn = !!on; if (parentOn && !heat) { heat = new THREE.Group(); group.add(heat); for (const g of gateObjs) g.heat = heatDisc(g.x, g.z, 2.2, H, heat); } if (heat) heat.visible = parentOn; refresh(); }
     function update(dt, time) { bloom.update(dt); for (const g of gateObjs) { g.info.position.y = g.info.userData.base - curveDrop(g.x, g.z); if (parentOn && g.heat.ring.visible) { const k = 0.5 + Math.sin(time * 3 + g.z) * 0.5; g.heat.ring.material.opacity = 0.45 + k * 0.45; } } title.position.y = title.userData.base - curveDrop(0, 27); }
     const spawns = { south: { x: roadX(30), z: 30, yaw: Math.PI } }; for (const g of gateObjs) spawns['from-' + g.R.id] = { x: g.x - g.side * 0.8, z: g.z, yaw: g.side > 0 ? -Math.PI / 2 : Math.PI / 2 };
-    const portals = [{ x: roadX(32), z: 31.8, r: 1.7, to: 'village', spawn: 'forest', text: () => 'door|按空白鍵回到新手村', locked: () => false },
-      ...gateObjs.map(g => ({ x: g.x + g.side * 0.6, z: g.z, r: 1.6, to: g.R.id, spawn: 'entry', locked: () => !regionOpen(g.R.id), text: () => regionOpen(g.R.id) ? `${g.R.img}|按空白鍵進入${g.R.name}（${g.R.grades}）` : `st-locked|${g.R.name}還沒打開：先通過${regionNeeds(g.R.id).map(n => `「${n.name}」`).join('、')}的挑戰` }))];
+    const portals = [{ x: roadX(32), z: 32.2, r: 1.4, to: 'village', spawn: 'forest', icon: 'sprout', name: '新手村', text: () => 'door|走進拱門回到新手村', locked: () => false },
+      ...gateObjs.map(g => ({ x: g.ax, z: g.z, r: 1.3, to: g.R.id, spawn: 'entry', icon: g.R.img, name: g.R.name, locked: () => !regionOpen(g.R.id), text: () => regionOpen(g.R.id) ? `${g.R.img}|走進拱門就會進入${g.R.name}（${g.R.grades}）` : `st-locked|${g.R.name}還沒打開：先通過${regionNeeds(g.R.id).map(n => `「${n.name}」`).join('、')}的挑戰` }))];
+    const mini = { shape: 'rect', x0: -12.4, x1: 12.4, z0: -34.1, z1: 33.6, grass: '#9fd87a', paths: [{ pts: Array.from({ length: 66 }, (_, i) => [roadX(31.5 - i), 31.5 - i]), w: 2.6 }, ...gates.map(g => ({ pts: [[roadX(g.z), g.z], [g.x + Math.sign(g.x || 1) * 0.6, g.z]] }))] };
     refresh(); group.visible = false;
-    return { id: 'trunk', name: '森林主幹道', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, setParent, lush: lushNow, spawn: 'south' };
+    return { id: 'trunk', name: '森林主幹道', icon: 'forest', group, colliders, groundY, blocked, spawns, portals, nodes: [], items: [], refresh, update, setParent, mini, lush: lushNow, spawn: 'south' };
   }
-  return { buildRegion, buildTrunk, label, arch };
+  return { buildRegion, buildTrunk, label, arch, border, ringPts, pathDeco, stepStones };
 }
