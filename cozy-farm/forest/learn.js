@@ -32,6 +32,15 @@ function record(id, right, total) { const rec = P.nodes[id] || (P.nodes[id] = { 
   if (!rec.level) rec.level = 1; else if (due || (right === total && rec.day !== today())) { rec.level = Math.min(3, rec.level + 1); if (right === total) rec.day = today(); }
   rec.last = Date.now(); rec.best = Math.max(rec.best || 0, right); save(); return { first: !was, up: rec.level > was, level: rec.level }; }
 export const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+// ── 答題統計（給家長檢視）：每個知識點答了幾題、答對幾題、最近 10 題的對錯、最後一次作答時間 ──
+export function addStats(id, right, total) { if (!total) return; const rec = P.nodes[id] || (P.nodes[id] = { level: 0, last: 0, best: 0 }); rec.a = (rec.a || 0) + total; rec.c = (rec.c || 0) + right; rec.t = Date.now();
+  rec.r = ((rec.r || '') + '1'.repeat(right) + '0'.repeat(total - right)).slice(-10); save(); }
+export function nodeStats(id) { const r = P.nodes[id] || {}, a = r.a || 0, c = r.c || 0, st = nodeState(id), due = st === 'review', nx = nextReview(id);
+  return { a, c, rate: a ? c / a : null, recent: r.r || '', level: r.level || 0, last: r.last || 0, tried: r.t || 0, state: st, due, overdueDays: due && nx ? Math.max(0, Math.floor((Date.now() - nx.getTime()) / DAY)) : 0 }; }
+export function regionStats(rid) { const ns = NODES.filter(n => n.region === rid), ss = ns.map(n => nodeStats(n.id)), a = ss.reduce((x, s) => x + s.a, 0), c = ss.reduce((x, s) => x + s.c, 0); return { a, c, rate: a ? c / a : null, due: ss.filter(s => s.due).length, mastered: ss.filter(s => s.level > 0).length, total: ns.length }; }
+// 熱力圖配色：還沒作答＝紫灰、85% 以上＝草綠、60～84%＝黃、60% 以下＝粉紅
+export const heatColor = rate => rate == null ? '#B3A8CC' : rate >= 0.85 ? '#8CC77E' : rate >= 0.6 ? '#F5B731' : '#F28CA0';
+export const pct = rate => rate == null ? '尚未作答' : Math.round(rate * 100) + '%';
 
 // ── 教育部辭典資料 ──
 let D = null;
@@ -117,7 +126,7 @@ export function modal({ title, sub = '', icon = null }) { style(); close(); ov =
   keyFn = e => { if (!ov) return; if (e.key === 'Escape') { close(); e.stopPropagation(); return; } const k = +e.key; if (k >= 1 && k <= 4) { const bs = ov.querySelectorAll('.lf-ch button'); if (bs[k - 1] && !bs[k - 1].disabled) { bs[k - 1].click(); e.stopPropagation(); } } };
   addEventListener('keydown', keyFn, true); document.body.appendChild(ov); x.focus(); return { body, close, box }; }
 // 小遊戲過關也算練習：知識點沒被封鎖才記（答對 right／total 題）
-export const recordPass = (id, right, total) => nodeById(id) && nodeState(id) !== 'locked' ? record(id, right, total) : null;
+export const recordPass = (id, right, total, stats = true) => { if (!nodeById(id) || nodeState(id) === 'locked') return null; if (stats) addStats(id, right, total); return record(id, right, total); }; // stats=false：作答時已經一題一題記過正確率
 export { el, esc, ruby, toast };
 export async function open(id, onLearned) { style(); close(); await loadData(); onDone = onLearned; const n = nodeById(id), R = regionById(n.region), L = lessonOf(id, D);
   ov = el('div', 'lf-ov'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', n.name);
@@ -168,7 +177,7 @@ function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date
     if (!q.listen && q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
     const ch = el('div', 'lf-ch'); body.appendChild(ch);
     const show1 = c => q.choiceIcons ? ICON.svg(c, 48) : esc(c);
-    q.choices.forEach((c, k) => { const b = el('button', null, `${k + 1}. ${show1(c)}`); b.onclick = () => { [...ch.children].forEach(x => x.disabled = true); const ok = k === q.a; if (ok) right++; b.classList.add(ok ? 'ok' : 'no'); ch.children[q.a].classList.add('ok');
+    q.choices.forEach((c, k) => { const b = el('button', null, `${k + 1}. ${show1(c)}`); b.onclick = () => { [...ch.children].forEach(x => x.disabled = true); const ok = k === q.a; if (ok) right++; addStats(id, ok ? 1 : 0, 1); b.classList.add(ok ? 'ok' : 'no'); ch.children[q.a].classList.add('ok');
         const why = el('div', 'lf-why', `${ok ? `${ICON.svg('star', 20)} 答對了！` : `答案是「${show1(q.choices[q.a])}」`}${q.after ? '　剛剛念的是：' + (q.afterPic ? ICON.svg(q.afterPic, 22) + ' ' : '') + esc(q.after) : ''}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
         if (q.say && !q.listen) speak(q.say, q.slow ? SLOW : 0.75);
         const nx = el('button', 'lf-btn go', i + 1 < qs.length ? '下一題 →' : '看結果'); nx.style.marginTop = '10px'; nx.onclick = () => { i++; show(); }; body.appendChild(nx); nx.focus(); }; ch.appendChild(b); }); };

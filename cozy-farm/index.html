@@ -16,6 +16,12 @@
   .panel h1 { margin:0; font-size:17px; font-weight:900; color:var(--accent); letter-spacing:.04em; flex:1; white-space:nowrap }
   .panel .head { display:flex; align-items:center; gap:8px }
   #btnGift { flex:none; width:28px; height:28px; border-radius:50%; border:0; background:#fff; font-size:15px; box-shadow:0 2px 6px #6a4f7a22; cursor:pointer; padding:0 }
+  #btnParent { flex:none; width:28px; height:28px; border-radius:50%; border:0; background:#fff; box-shadow:0 2px 6px #6a4f7a22; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center } #btnParent[aria-pressed=true] { background:#9C8BE0; box-shadow:0 0 0 3px #9C8BE055 }
+  /* 家長檢視：畫面上方的提示列（熱力圖圖例＋學習報告），面板縮小時也看得到 */
+  #parentBar { position:fixed; right:max(16px, env(safe-area-inset-right)); top:max(16px, env(safe-area-inset-top)); z-index:5; display:none; align-items:center; gap:8px; background:#f4f0fd; border:2px solid #9C8BE0; border-radius:999px; padding:5px 6px 5px 12px; font-size:13px; font-weight:900; color:#4a3b52; box-shadow:0 6px 18px #6a4f7a33; max-width:calc(100vw - 32px); white-space:nowrap }
+  body.parent #parentBar { display:flex } #parentBar .lg { display:flex; gap:6px; font-weight:700; color:#6e5d7a; font-size:12px } #parentBar .lg i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:3px; vertical-align:-1px }
+  #parentBar button { border:0; border-radius:999px; padding:6px 12px; font:inherit; font-weight:900; cursor:pointer; display:flex; align-items:center; gap:4px } #parentBar .rep { background:#9C8BE0; color:#fff } #parentBar .off { background:#fff; color:#6e5d7a }
+  @media (max-width:920px) { #parentBar { right:auto; left:max(16px, env(safe-area-inset-left)) } #parentBar .lg { display:none } body.parent .panel { top:calc(max(16px, env(safe-area-inset-top)) + 54px) } } /* 窄畫面：提示列放左上，面板往下讓位 */ /* 手機：放在提示上面，不和左上面板重疊 */
   #btnMin { flex:none; width:28px; height:28px; border-radius:50%; border:0; background:#fff; color:var(--ink); font:900 16px/1 system-ui, sans-serif; box-shadow:0 2px 6px #6a4f7a22; cursor:pointer }
   .panel .mini { display:none; font-weight:900; font-variant-numeric:tabular-nums }
   .panel.min { width:auto; padding:8px 10px 8px 14px } .panel.min > :not(.head) { display:none } .panel.min .mini { display:inline } .panel.min h1 { font-size:14px } /* 縮到最小：只剩標題、時間和展開鈕 */
@@ -45,7 +51,7 @@
 <body>
 <div id="app" aria-label="小島田園日記 3D 場景"></div>
 <section class="panel" aria-label="時間與設定">
-  <div class="head"><h1><span data-icon="sprout" data-size="24"></span>小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnGift" data-icon="gift" data-size="22" aria-label="我的收藏與獎勵" title="字精靈、衣櫃、稱號、集章冊"></button><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
+  <div class="head"><h1><span data-icon="sprout" data-size="24"></span>小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnGift" data-icon="gift" data-size="22" aria-label="我的收藏與獎勵" title="字精靈、衣櫃、稱號、集章冊"></button><button type="button" id="btnParent" data-icon="chart" data-size="22" aria-pressed="false" aria-label="家長檢視（熱力圖）" title="家長檢視：森林地圖變成熱力圖，看正確率和待複習"></button><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
   <div class="row"><span class="clock" id="clock">09:00</span><span class="chip" id="harvest">收成 0</span></div>
   <div class="row"><span class="chip" id="mapName">新手村</span><span class="chip" id="learnCount">精通 0</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
@@ -53,6 +59,7 @@
   <div class="keys">WASD 或點地面走路・空白鍵 澆水／收成／聊天・F 揮手・1～3 表情<br>Q／E 轉鏡頭・右鍵拖曳旋轉與俯仰・滾輪縮放・R 重置鏡頭</div>
   <div class="tkeys">點地面或左邊拖曳走路・雙指左右滑轉鏡頭、上下滑調俯角、捏合縮放</div>
 </section>
+<div id="parentBar" role="status"><span data-icon="family" data-size="22"></span>家長檢視<span class="lg"><span><i style="background:#8CC77E"></i>85%↑</span><span><i style="background:#F5B731"></i>60～85%</span><span><i style="background:#F28CA0"></i>60%↓</span><span><i style="background:#B3A8CC"></i>未作答</span><span><i style="background:#9C8BE0"></i>待複習</span></span><button type="button" class="rep" id="btnReport"><span data-icon="clipboard" data-size="18"></span>學習報告</button><button type="button" class="off" id="btnParentOff" aria-label="結束家長檢視">結束</button></div>
 <div id="hint"></div>
 <div id="fade" aria-hidden="true"></div>
 <div id="banner" aria-live="polite"></div>
@@ -71,6 +78,7 @@ import * as LEARN from './forest/learn.js';
 import * as GAMES from './forest/games.js';
 import * as REWARDS from './forest/rewards.js';
 import * as ICON from './forest/icons.js';
+import * as PARENT_UI from './forest/parent.js';
 
 /* ════════════════════════════════════════════════════════════════
    0. 設定：配色、地平線彎曲、裝置等級（改這裡就能換風格）
@@ -615,14 +623,22 @@ const wait = ms => new Promise(r => setTimeout(r, ms)), fadeEl = document.getEle
 let bannerT = 0; function banner(text) { bannerEl.innerHTML = withIcon(text, 30); bannerEl.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => bannerEl.classList.remove('on'), 2200); }
 function refreshLearn() { const due = LEARN.NODES.filter(n => LEARN.nodeState(n.id) === 'review').length; learnCountEl.innerHTML = `${ICON.svg('flower', 20)}精通 ${LEARN.NODES.filter(n => LEARN.isLearned(n.id)).length}／${LEARN.NODES.length}${due ? `・${ICON.svg('drop', 18)}${due}` : ''}`; for (const m of Object.values(MAPS)) m.refresh(); }
 async function gotoMap(id, spawnKey) { if (switching) return; switching = true; fadeEl.classList.add('on'); await wait(330);
-  MAP.group.visible = false; const m = mapOf(id); MAP = m; m.group.visible = true; colliders = m.colliders; m.refresh();
+  MAP.group.visible = false; const m = mapOf(id); MAP = m; m.group.visible = true; colliders = m.colliders; m.refresh(); m.setParent?.(PARENT);
   const sp = m.spawns[spawnKey] || m.spawns[m.spawn]; Object.assign(PL, { x: sp.x, z: sp.z, yaw: sp.yaw, vx: 0, vz: 0 }); camTarget.set(PL.x, m.groundY(PL.x, PL.z), PL.z); resetCamera(true); updateCamera(1); // 換地圖後相機回到預設角度
   mapNameEl.innerHTML = ICON.svg('pin', 20) + escHTML(m.name); await wait(80); fadeEl.classList.remove('on'); banner(m.name); setTimeout(() => { switching = false; }, 320); }
 const nearestNode = () => { let best = null, bd = 2.9; for (const n of MAP.nodes) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd) { bd = d; best = n; } } return best; };
 const nearPortal = () => MAP.portals.find(p => Math.hypot(PL.x - p.x, PL.z - p.z) < p.r);
 // 各區玩法的互動點（煮湯鍋、招牌、族長、花圃、石碑、信箱⋯⋯）：取最近的一個；dyn 會回傳會移動的互動點（迷路的字）
 const nearestItem = () => { let best = null, bd = 1e9; for (const it of MAP.items || []) { if (it.dyn) { for (const c of it.dyn()) if (c.d < bd) { bd = c.d; best = c; } continue; } const d = Math.hypot(it.x - PL.x, it.z - PL.z); if (d < it.r && d < bd) { bd = d; best = { ...it, d }; } } return best; };
-const nodeHint = n => { const st = LEARN.nodeState(n.id), lv = LEARN.levelOf(n.id), R = LEARN.regionById(LEARN.nodeById(n.id).region);
+// ── 家長檢視：同一張森林地圖切換成熱力圖（map.js 的 setParent），走到知識點旁邊看正確率；學習報告在 forest/parent.js ──
+let PARENT = false; const parentBtn = document.getElementById('btnParent');
+function setParentMode(on) { PARENT = on; document.body.classList.toggle('parent', on); parentBtn.setAttribute('aria-pressed', String(on)); MAP.setParent?.(on); hintSig = null;
+  banner(on ? (MAP.setParent ? 'chart|家長檢視：地上的顏色是正確率，紫色光環是待複習' : 'chart|家長檢視：走進學習森林就能看到熱力圖') : 'sprout|回到一般模式'); }
+parentBtn.addEventListener('click', () => PARENT ? setParentMode(false) : PARENT_UI.gate(() => setParentMode(true)));
+document.getElementById('btnParentOff').addEventListener('click', () => setParentMode(false)); document.getElementById('btnReport').addEventListener('click', () => PARENT_UI.report());
+const STATE_TEXT = { mastered: '已精通', review: '需要複習', open: '可以挑戰', locked: '還沒解鎖' };
+const parentHint = n => { const S = LEARN.nodeStats(n.id); return `${S.due ? 'st-review' : 'chart'}|「${n.name}」正確率 ${LEARN.pct(S.rate)}${S.a ? `（答對 ${S.c}／${S.a} 題）` : ''}・${STATE_TEXT[S.state]}${S.level ? ' ' + LEARN.stars(S.level) : ''}${S.due ? `・待複習${S.overdueDays ? ` ${S.overdueDays} 天` : ''}` : ''}・按空白鍵看學習報告`; };
+const nodeHint = n => { if (PARENT) return parentHint(n); const st = LEARN.nodeState(n.id), lv = LEARN.levelOf(n.id), R = LEARN.regionById(LEARN.nodeById(n.id).region);
   if (st === 'locked') return !LEARN.regionOpen(R.id) ? `st-locked|迷霧封鎖：先通過${LEARN.regionNeeds(R.id).map(x => `「${x.name}」`).join('、')}的挑戰` : n.guardian ? `st-guardian|守護者還在沉睡：先學會這個區域的${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}` : `st-locked|「${n.name}」被迷霧封鎖：先學會${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}`;
   if (st === 'review') return `st-review|「${n.name}」${LEARN.stars(lv)} 需要澆水了（超過複習時間），按空白鍵複習`;
   if (st === 'open') return n.guardian ? `st-guardian|按空白鍵挑戰${n.name}（綜合 ${LEARN.passOf(n.id).total} 題，通過打開下一張地圖）` : `st-available|按空白鍵挑戰「${n.name}」`;
@@ -727,7 +743,7 @@ function loop() {
   // 學習森林：靠近石碑按空白鍵學習；靠近拱門按空白鍵換地圖（還沒打通的顯示要先學會什麼）
   const pi = inVillage ? nearestPlot() : -1, nb = inVillage && pi < 0 ? nearestNeighbor() : null, it0 = !inVillage ? nearestItem() : null, kn0 = !inVillage ? nearestNode() : null;
   const kn = kn0 && (!it0 || Math.hypot(kn0.x - PL.x, kn0.z - PL.z) <= it0.d) ? kn0 : null, it = kn ? null : it0, pt = pi < 0 && !nb && !kn && !it ? nearPortal() : null; // 石碑和玩法互動點取比較近的
-  if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); else if (it) it.act(); else if (kn && LEARN.nodeState(kn.id) !== 'locked') LEARN.open(kn.id, (id, first, up) => { refreshLearn(); const nd = LEARN.nodeById(id), lv = LEARN.levelOf(id); banner(nd.guardian && first ? `st-guardian|征服${LEARN.regionById(nd.region).name}！新地圖打開了` : first ? `st-mastered|精通「${nd.name}」！` : up ? `star|「${nd.name}」熟練度 ${LEARN.stars(lv)}` : `drop|澆好水了「${nd.name}」`); }); else if (pt && !pt.locked()) gotoMap(pt.to, pt.spawn); }
+  if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); else if (it) it.act(); else if (kn && PARENT) PARENT_UI.report(); else if (kn && LEARN.nodeState(kn.id) !== 'locked') LEARN.open(kn.id, (id, first, up) => { refreshLearn(); const nd = LEARN.nodeById(id), lv = LEARN.levelOf(id); banner(nd.guardian && first ? `st-guardian|征服${LEARN.regionById(nd.region).name}！新地圖打開了` : first ? `st-mastered|精通「${nd.name}」！` : up ? `star|「${nd.name}」熟練度 ${LEARN.stars(lv)}` : `drop|澆好水了「${nd.name}」`); }); else if (pt && !pt.locked()) gotoMap(pt.to, pt.spawn); }
   talk.t = Math.max(0, talk.t - dt);
   const sig = talk.t > 0 ? talk.text : pi >= 0 ? (PLOTS[pi].stage < 2 ? `drop|按空白鍵澆水（第 ${PLOTS[pi].stage + 1} 階段）` : 'basket|按空白鍵收成') : nb ? `chat|按空白鍵和${nb.name}聊天` : it ? it.text() : kn ? nodeHint(kn) : pt ? pt.text() : ''; if (sig !== hintSig) { hintSig = sig; hintEl.innerHTML = withIcon(MOBILE ? sig.replace('按空白鍵', '按水滴鈕') : sig); hintEl.classList.toggle('on', !!sig); }
   PLOTS.forEach((p, i) => { if (p.pop > 0 || p.wet > 0) { p.pop = Math.max(0, p.pop - dt * 2.2); p.wet = Math.max(0, p.wet - dt * 0.25); updatePlot(i); } });

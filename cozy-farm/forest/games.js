@@ -2,7 +2,7 @@
    注音小村＝拼音煮湯鍋、識字林＝收服錯字小怪、書塔山頂＝字精靈（多音字）與鄰居來信、修辭花園＝種修辭花、成語古城＝石碑典故解謎。
    部首山谷的「幫迷路的字找部落」在 3D 地圖裡玩（map.js），這裡只放共用的進度。
    朗讀用 Web Speech API（zh-TW）：題目、故事、信件都有朗讀按鈕；圖示全部由 icons.js 程式畫（不用 emoji）；會洩漏答案的（多音字的句子）答完才念。 */
-import { modal, close, speak, SLOW, el, esc, ruby, recordPass, dataNow, quizOf, nodeById, nodeState, NODES } from './learn.js';
+import { modal, close, speak, SLOW, el, esc, ruby, recordPass, addStats, dataNow, quizOf, nodeById, nodeState, NODES } from './learn.js';
 import * as ICON from './icons.js';
 const ic = (n, s = 22) => ICON.svg(n, s);
 const BASE = new URL('.', import.meta.url).href;
@@ -67,8 +67,8 @@ export async function typo(sign, onCaptured) { style(); await loadGames(); const
   wrong.forEach((c, k) => { const t = el('button', null, esc(c)); t.onclick = () => { if (k !== at) { miss++; t.classList.add('no'); fb.innerHTML = '<div class="lf-why">這個字沒有錯，再找找看！</div>'; return; } [...board.children].forEach(x => x.disabled = true); t.classList.add('no'); fb.innerHTML = '';
       ask(fb, { q: `「${sign.wrong}」裡的「${c}」應該改成哪一個字？`, choices: shuffle(sign.options), a: -1, read: false }, () => {}); const ch = fb.querySelector('.lf-ch'); const opts = [...ch.children]; opts.forEach(o => { const v = o.textContent.replace(/^\d\.\s*/, ''); o.onclick = () => { opts.forEach(x => x.disabled = true); const ok = v === right[at]; o.classList.add(ok ? 'ok' : 'no'); opts.find(x => x.textContent.endsWith(right[at])).classList.add('ok');
         t.textContent = right[at]; t.classList.remove('no'); t.classList.add('ok'); speak(sign.right, 0.75);
-        const good = ok && miss === 0; fb.appendChild(el('div', 'lf-why', `${good ? `${ic('monster', 22)} 收服成功！` : '招牌修好了，小怪逃走前被你收服了！'}　正確是「${esc(sign.right)}」。${esc(sign.why)}`)); S.monsters++; S.captured++; save(); onCaptured && onCaptured(); played('typo');
-        const res = S.captured % cfg.round === 0 ? recordPass(cfg.node, cfg.round, cfg.round) : null; if (res) fb.appendChild(el('p', 'gm-note', `已經收服 ${S.monsters} 隻錯字小怪！也算「${esc(nodeById(cfg.node).name)}」的練習`)); const c2 = btn('回到森林'); c2.style.marginTop = '8px'; c2.onclick = close; fb.appendChild(c2); }; }); }; board.appendChild(t); }); }
+        const good = ok && miss === 0; fb.appendChild(el('div', 'lf-why', `${good ? `${ic('monster', 22)} 收服成功！` : '招牌修好了，小怪逃走前被你收服了！'}　正確是「${esc(sign.right)}」。${esc(sign.why)}`)); S.monsters++; S.captured++; save(); onCaptured && onCaptured(); played('typo'); addStats(cfg.node, good ? 1 : 0, 1); // 家長檢視的正確率
+        const res = S.captured % cfg.round === 0 ? recordPass(cfg.node, cfg.round, cfg.round, false) : null; if (res) fb.appendChild(el('p', 'gm-note', `已經收服 ${S.monsters} 隻錯字小怪！也算「${esc(nodeById(cfg.node).name)}」的練習`)); const c2 = btn('回到森林'); c2.style.marginTop = '8px'; c2.onclick = close; fb.appendChild(c2); }; }); }; board.appendChild(t); }); }
 
 // ── 書塔山頂：字精靈。依句子換造型，選出這個多音字在句子裡的正確讀音（答完才朗讀句子）──
 const COSTUME = ['spirit-P', 'spirit-B', 'spirit-Y', 'spirit-G', 'spirit']; // 字精靈的五套衣服（不同顏色）
@@ -88,7 +88,7 @@ export async function flower(slot, onPlant) { style(); await loadGames(); const 
   const avail = RHETORIC.filter(id => nodeById(id) && nodeState(id) !== 'locked'); if (!avail.length) { b.appendChild(el('div', 'lf-intro', '先到花園裡的石碑學「譬喻」，就能開始種花囉！')); return; }
   const id = pick(avail), F = G.flowers[id], q = quizOf(id, D, Math.random() * 1e6 | 0)[0];
   b.appendChild(el('div', 'gm-want', `<span class="em">${ic('seed', 72)}</span>這顆是「${esc(nodeById(id).name)}」的種子：答對就會開出 <b>${esc(F.name)}</b>`)); b.appendChild(el('div', 'gm-note', esc(F.tip)));
-  ask(b, { q: q.q, choices: q.choices, a: q.a, why: q.why || '' }, (ok, wrap) => { played('flower'); if (ok) { S.flowers.push({ slot, type: id, t: Date.now() }); save(); onPlant && onPlant(id); wrap.appendChild(el('div', 'lf-done', `<div class="em">${ic('flower', 72)}</div><h3>種出了 ${esc(F.name)}！</h3>`)); }
+  ask(b, { q: q.q, choices: q.choices, a: q.a, why: q.why || '' }, (ok, wrap) => { played('flower'); addStats(id, ok ? 1 : 0, 1); if (ok) { S.flowers.push({ slot, type: id, t: Date.now() }); save(); onPlant && onPlant(id); wrap.appendChild(el('div', 'lf-done', `<div class="em">${ic('flower', 72)}</div><h3>種出了 ${esc(F.name)}！</h3>`)); }
     else wrap.appendChild(el('p', 'gm-note', '種子沒有發芽⋯⋯看完說明再試一次吧！')); const c = btn(ok ? '回到花園' : '再試一次'); c.style.marginTop = '8px'; c.onclick = ok ? close : () => flower(slot, onPlant); wrap.appendChild(c); }); }
 
 // ── 成語古城：讀石碑上的典故故事（可以朗讀），答對三題，城門就會打開 ──
