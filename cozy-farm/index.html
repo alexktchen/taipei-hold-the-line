@@ -24,6 +24,8 @@
   .keys { color:var(--muted); font-size:12px; line-height:1.5 }
   #hint { position:fixed; left:50%; bottom:max(28px, env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--paper); border-radius:999px; padding:8px 18px; font-weight:900; box-shadow:0 6px 18px #6a4f7a33; opacity:0; transition:opacity .2s; pointer-events:none; max-width:min(620px, calc(100vw - 32px)); text-align:center; line-height:1.45 }
   #hint.on { opacity:1 }
+  #fade { position:fixed; inset:0; background:#fffaf3; opacity:0; pointer-events:none; transition:opacity .3s; z-index:40 } #fade.on { opacity:1 } /* 換地圖的淡入淡出 */
+  #banner { position:fixed; left:50%; top:22%; transform:translate(-50%, 8px); background:var(--paper); border-radius:20px; padding:12px 26px; font-size:24px; font-weight:900; color:var(--accent); box-shadow:0 8px 24px #6a4f7a33; opacity:0; transition:opacity .4s, transform .4s; pointer-events:none; z-index:41; white-space:nowrap } #banner.on { opacity:1; transform:translate(-50%, 0) }
   #joy { position:fixed; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:#ffffff55; border:3px solid #ffffffaa; display:none; pointer-events:none }
   #joy i { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; background:#fffaf3; box-shadow:0 4px 12px #6a4f7a44 }
   #btnAct { position:fixed; right:max(22px, env(safe-area-inset-right)); bottom:max(26px, env(safe-area-inset-bottom)); width:76px; height:76px; border-radius:50%; border:0; background:#8fd3f0; color:#fff; font-size:32px; box-shadow:0 6px 0 #5aa9cc, 0 10px 22px #6a4f7a44; display:none }
@@ -41,12 +43,15 @@
 <section class="panel" aria-label="時間與設定">
   <div class="head"><h1>🌱 小島田園日記</h1><span class="mini" id="clockMini"></span><button type="button" id="btnMin" aria-expanded="true" aria-label="縮小面板" title="縮小／展開">－</button></div>
   <div class="row"><span class="clock" id="clock">09:00</span><span class="chip" id="harvest">🧺 收成 0</span></div>
+  <div class="row"><span class="chip" id="mapName">📍 新手村</span><span class="chip" id="learnCount">📚 學會 0／30</span></div>
   <label>時間流速 <input type="range" id="speed" min="0" max="120" step="1" value="6" aria-label="時間流速（每秒經過幾分鐘）"></label>
   <label>現在時刻 <input type="range" id="tod" min="0" max="24" step="0.05" value="9" aria-label="一天中的時刻"></label>
   <div class="keys">WASD 走路・空白鍵 澆水／收成／聊天・F 揮手・1～3 表情<br>Q／E 轉鏡頭・右鍵拖曳旋轉與俯仰・滾輪縮放・R 重置鏡頭</div>
   <div class="tkeys">左邊拖曳走路・雙指左右滑轉鏡頭、上下滑調俯角、捏合縮放</div>
 </section>
 <div id="hint"></div>
+<div id="fade" aria-hidden="true"></div>
+<div id="banner" aria-live="polite"></div>
 <div id="joy"><i></i></div>
 <button id="btnAct" type="button" aria-label="澆水、收成或聊天">💧</button>
 <button id="btnWave" type="button" aria-label="揮手">👋</button>
@@ -57,6 +62,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { createForest } from './forest/map.js';
+import * as LEARN from './forest/learn.js';
 
 /* ════════════════════════════════════════════════════════════════
    0. 設定：配色、地平線彎曲、裝置等級（改這裡就能換風格）
@@ -149,8 +156,8 @@ function addMesh(geo, mat, parent, { outline = true, cast = true, receive = true
 }
 // 加一組 InstancedMesh：描邊用同一份 instanceMatrix（一次更新兩個都動）
 function addInstanced(geo, mat, count, { outline = true, cast = true, receive = true, outlineMat = OUTLINE } = {}) {
-  const im = new THREE.InstancedMesh(geo, mat, count); im.castShadow = cast; im.receiveShadow = receive; im.frustumCulled = false; if (cast) im.customDepthMaterial = DEPTH; scene.add(im);
-  let o = null; if (outline) { o = new THREE.InstancedMesh(geo, outlineMat, count); o.instanceMatrix = im.instanceMatrix; o.frustumCulled = false; scene.add(o); }
+  const im = new THREE.InstancedMesh(geo, mat, count); im.castShadow = cast; im.receiveShadow = receive; im.frustumCulled = false; if (cast) im.customDepthMaterial = DEPTH; ROOT.add(im);
+  let o = null; if (outline) { o = new THREE.InstancedMesh(geo, outlineMat, count); o.instanceMatrix = im.instanceMatrix; o.frustumCulled = false; ROOT.add(o); }
   return { im, o, setCount(n) { im.count = n; if (o) o.count = n; } };
 }
 const merge = list => mergeGeometries(list.map(g => (g.index ? g.toNonIndexed() : g)));
@@ -164,7 +171,9 @@ const OUTLINE_FADE = curvify(new THREE.MeshBasicMaterial({ color: CFG.pal.outlin
 const cloneMat = m => { const c = m.clone(); c.onBeforeCompile = m.onBeforeCompile; c.customProgramCacheKey = m.customProgramCacheKey; return c; };
 const rand = (() => { let s = 20241031; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })(); // 固定種子：每次打開都是同一座島
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const colliders = []; // 圓形碰撞：{ x, z, r }
+// 每張地圖一個 Group（田園＝新手村 village，學習森林的地圖由 forest/map.js 建）；建東西時加到 ROOT，換地圖時只切換顯示
+const village = new THREE.Group(); scene.add(village); let ROOT = village; const setRoot = g => { ROOT = g || village; };
+let colliders = []; // 圓形碰撞：{ x, z, r }（換地圖時換成那張地圖的）
 
 /* ════════════════════════════════════════════════════════════════
    2. terrain：草地小坡、蜿蜒小河、小路、木橋、水面、搖曳草叢
@@ -174,7 +183,8 @@ const riverX = z => 13 + 3.2 * Math.sin(z * 0.085) + 1.6 * Math.sin(z * 0.21 + 1
 const BRIDGE_X = riverX(BRIDGE_Z), BRIDGE_L = 2 * (RIVER_W + 1.8);
 const PATH = [[HOUSE.x, HOUSE.z + 2.0], [-6.5, -2.6], [-2.5, -0.6], [FARM.x, 0.4], [6, 1.2], [BRIDGE_X - BRIDGE_L / 2, BRIDGE_Z], [BRIDGE_X + BRIDGE_L / 2, BRIDGE_Z], [22, 3.5], [30, 7]];
 function distSeg(px, pz, ax, az, bx, bz) { const vx = bx - ax, vz = bz - az, t = Math.max(0, Math.min(1, ((px - ax) * vx + (pz - az) * vz) / (vx * vx + vz * vz))); return Math.hypot(px - ax - vx * t, pz - az - vz * t); }
-const pathDist = (x, z) => { let d = 1e9; for (let i = 0; i < PATH.length - 1; i++) d = Math.min(d, distSeg(x, z, ...PATH[i], ...PATH[i + 1])); return d; };
+const FOREST_GATE = { x: 1, z: -13.4 }, PATH2 = [[-2.5, -0.6], [-1.6, -6], [FOREST_GATE.x, FOREST_GATE.z + 0.6]]; // 往北通到學習森林入口的小路
+const pathDist = (x, z) => { let d = 1e9; for (const P of [PATH, PATH2]) for (let i = 0; i < P.length - 1; i++) d = Math.min(d, distSeg(x, z, ...P[i], ...P[i + 1])); return d; };
 const rectDist = (x, z, cx, cz, hw, hd) => Math.hypot(Math.max(Math.abs(x - cx) - hw, 0), Math.max(Math.abs(z - cz) - hd, 0));
 const FARM_HW = FARM.cols * FARM.cell / 2 + 0.9, FARM_HD = FARM.rows * FARM.cell / 2 + 0.9;
 function noise(x, z) { return Math.sin(x * 0.73 + Math.sin(z * 0.31) * 2.1) * Math.cos(z * 0.67 + Math.sin(x * 0.27) * 1.7); }
@@ -201,7 +211,7 @@ const groundY = (x, z) => onBridge(x, z) ? bridgeY(x) : Math.max(terrainHeight(x
     c.lerp(tmp.setHex(CFG.pal.field), 1 - smooth(0, 0.6, rectDist(x, z, FARM.x, FARM.z, FARM_HW - 0.5, FARM_HD - 0.5)));
     col.set([c.r, c.g, c.b], i * 3); }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals();
-  addMesh(geo, toon(0xffffff, { vertexColors: true }), scene, { outline: false, cast: false });
+  addMesh(geo, toon(0xffffff, { vertexColors: true }), village, { outline: false, cast: false });
 }
 // 水面：簡單波動＋河岸淺色泡沫邊＋流動的波紋
 const waterMat = new THREE.ShaderMaterial({ fog: true,
@@ -229,9 +239,9 @@ const waterMat = new THREE.ShaderMaterial({ fog: true,
       #include <fog_fragment>
     }` });
 Object.assign(waterMat.uniforms, CURVE); // 共用彎曲 uniform（不能放進 merge，merge 會複製一份新的值）
-{ const w = new THREE.Mesh(new THREE.PlaneGeometry(120, 120, 90, 90).rotateX(-Math.PI / 2), waterMat); w.position.set(0, WATER_Y, 2); w.frustumCulled = false; scene.add(w); }
+{ const w = new THREE.Mesh(new THREE.PlaneGeometry(120, 120, 90, 90).rotateX(-Math.PI / 2), waterMat); w.position.set(0, WATER_Y, 2); w.frustumCulled = false; village.add(w); }
 { // 木橋：拱起的圓角木板、方柱欄杆
-  const g = new THREE.Group(); g.position.set(BRIDGE_X, 0, BRIDGE_Z); scene.add(g); const N = 14, plank = G(BRIDGE_L / N - 0.04, 0.1, 1.9, 0.03);
+  const g = new THREE.Group(); g.position.set(BRIDGE_X, 0, BRIDGE_Z); village.add(g); const N = 14, plank = G(BRIDGE_L / N - 0.04, 0.1, 1.9, 0.03);
   for (let i = 0; i < N; i++) { const x = -BRIDGE_L / 2 + (i + 0.5) * BRIDGE_L / N, m = addMesh(plank, toon(i % 2 ? CFG.pal.wood : 0xd6a977), g); m.position.set(x, bridgeY(BRIDGE_X + x) - 0.05, 0); m.rotation.z = -Math.cos(Math.PI * (i + 0.5) / N) * 0.28; }
   const post = G(0.16, 0.7, 0.16, 0.03), cap = G(0.22, 0.08, 0.22, 0.03), rail = G(BRIDGE_L / 4, 0.09, 0.09, 0.03);
   for (const sz of [-1, 1]) for (let i = 0; i <= 4; i++) { const x = -BRIDGE_L / 2 + i * BRIDGE_L / 4, m = addMesh(post, toon(CFG.pal.woodDark), g); m.position.set(x, bridgeY(BRIDGE_X + x) + 0.25, sz * 0.95); addMesh(cap, toon(CFG.pal.wood), g, { outline: false }).position.set(x, bridgeY(BRIDGE_X + x) + 0.62, sz * 0.95);
@@ -267,19 +277,21 @@ Object.assign(grassMat.uniforms, CURVE);
   for (let k = 0; k < CFG.grass * 4 && n < CFG.grass; k++) { const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * (MOBILE ? 22 : 30), x = r * Math.cos(a), z = 2 + r * Math.sin(a);
     if (pathDist(x, z) < 1.1 || rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) < 0.4 || rectDist(x, z, HOUSE.x, HOUSE.z, 2.4, 2.2) < 0.6 || Math.abs(x - riverX(z)) < RIVER_W + 0.7) continue;
     const sc = 0.6 + rand() * 0.8; m.compose(v.set(x, terrainHeight(x, z) - 0.02, z), q.setFromEuler(e.set(0, rand() * Math.PI, (rand() - 0.5) * 0.3)), s.set(sc, sc * (0.8 + rand() * 0.6), sc)); im.setMatrixAt(n++, m); }
-  im.count = n; scene.add(im); }
+  im.count = n; village.add(im); }
 
 /* ════════════════════════════════════════════════════════════════
    3. props：樹、小木屋、農田、柵欄、花叢、石頭、蘑菇、路燈、粒子
    ════════════════════════════════════════════════════════════════ */
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), V = new THREE.Vector3(), E = new THREE.Euler(), COL = new THREE.Color();
-const freeSpot = (x, z, pad) => pathDist(x, z) > 1.5 + pad && rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) > 1.2 + pad && rectDist(x, z, HOUSE.x, HOUSE.z, 2.6, 2.4) > 1.6 + pad && Math.abs(x - riverX(z)) > RIVER_W + 1.2 + pad && Math.hypot(x - 0, z - 9) > 2.5 && !colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + pad + 0.4);
+const freeSpot = (x, z, pad) => pathDist(x, z) > 1.5 + pad && rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) > 1.2 + pad && rectDist(x, z, HOUSE.x, HOUSE.z, 2.6, 2.4) > 1.6 + pad && Math.abs(x - riverX(z)) > RIVER_W + 1.2 + pad && Math.hypot(x - 0, z - 9) > 2.5 && Math.hypot(x - FOREST_GATE.x, z - FOREST_GATE.z) > 3.6 && !colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + pad + 0.4);
 // 樹：積木風。闊葉樹＝幾顆圓角方塊疊成的樹冠，針葉樹＝一層層變小的方塊（每層轉 45 度）；樹幹、樹冠各一組 InstancedMesh。
 // 每個實例有自己的 aFade（擋住相機時淡出），TREES 記著每棵樹在各組裡的編號
 const TREES = [], treeParts = {};
+const TREE_GEO = {}; // 積木樹的幾何，學習森林的地圖也拿來用
 { const trunkGeo = Gc(0.3, 1.0, 0.3, 0.05, 0, 0.5, 0);
   const crownGeo = merge([[0, 1.45, 0, 1.3, 0.95, 1.3], [0.32, 1.98, 0.08, 0.82, 0.62, 0.82], [-0.42, 1.2, 0.3, 0.72, 0.58, 0.72], [0.36, 1.1, -0.4, 0.6, 0.5, 0.6]].map(([x, y, z, w, h, d]) => Gc(w, h, d, 0.12, x, y, z)));
   const pineGeo = merge([[1.5, 0.48, 0.82, 0], [1.14, 0.46, 1.27, Math.PI / 4], [0.8, 0.44, 1.7, 0], [0.44, 0.4, 2.1, Math.PI / 4]].map(([w, h, y, ry]) => Gc(w, h, w, 0.08, 0, y, 0, ry)));
+  Object.assign(TREE_GEO, { trunk: trunkGeo, broad: crownGeo, pine: pineGeo });
   const place = (n, kind) => { const list = []; for (let k = 0; k < n * 40 && list.length < n; k++) { const a = rand() * Math.PI * 2, r = 6 + Math.sqrt(rand()) * 36, x = r * Math.cos(a), z = 2 + r * Math.sin(a), s = 0.85 + rand() * 0.6; if (!freeSpot(x, z, 0.2)) continue; list.push({ x, z, s, y: terrainHeight(x, z), kind }); colliders.push({ x, z, r: 0.42 * s }); } return list; };
   const broad = place(CFG.trees[0], 'broad'), pines = place(CFG.trees[1], 'pine'), all = [...broad, ...pines];
   const fadeAttr = (geo, n) => { const a = new THREE.InstancedBufferAttribute(new Float32Array(n).fill(1), 1); a.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aFade', a); return a; };
@@ -295,7 +307,7 @@ const TREES = [], treeParts = {};
 // 小木屋：圓角方塊的牆、一層層往上收的積木屋頂、方塊煙囪、門、會發暖光的窗戶（晚上變亮）。房子的材質各自複製一份，擋住相機時整棟淡出
 const windowMat = curvify(new THREE.MeshToonMaterial({ color: CFG.pal.window, emissive: 0xffb04a, emissiveIntensity: 0.2, gradientMap: GRADIENT, transparent: true }));
 const chimneyTop = new THREE.Vector3(), HOUSE_FADE = { mats: [], fade: 1, box: new THREE.Box3(new THREE.Vector3(HOUSE.x - 2.3, 0, HOUSE.z - 2.0), new THREE.Vector3(HOUSE.x + 2.3, 4.1, HOUSE.z + 2.1)) };
-{ const g = new THREE.Group(); g.position.set(HOUSE.x, 0.05, HOUSE.z); scene.add(g);
+{ const g = new THREE.Group(); g.position.set(HOUSE.x, 0.05, HOUSE.z); village.add(g);
   const walls = addMesh(G(4, 2.3, 3.4, 0.08), toon(CFG.pal.wall), g); walls.position.y = 1.15;
   [3.9, 2.95, 2.0, 1.05].forEach((d, i) => { const m = addMesh(G(4.5 - i * 0.05, 0.4, d, 0.07), toon(i % 2 ? 0xe8847c : CFG.pal.roof), g); m.position.set(0, 2.5 + i * 0.4, 0); }); // 積木屋頂：前後一層層往內收
   const chim = addMesh(G(0.5, 1.2, 0.5, 0.05), toon(0xd7a28a), g); chim.position.set(1.1, 3.55, -0.7); addMesh(G(0.62, 0.12, 0.62, 0.04), toon(0xc48f78), g, { outline: false }).position.set(1.1, 4.17, -0.7); chimneyTop.set(HOUSE.x + 1.1, 4.25, HOUSE.z - 0.7);
@@ -311,7 +323,7 @@ const chimneyTop = new THREE.Vector3(), HOUSE_FADE = { mats: [], fade: 1, box: n
 }
 // 煙囪的煙：幾團白色小球往上飄、變大、變淡
 const smokeMat = curvify(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false }));
-const smoke = Array.from({ length: 7 }, (_, i) => { const m = new THREE.Mesh(G(0.36, 0.36, 0.36, 0.09), smokeMat.clone()); m.material.onBeforeCompile = smokeMat.onBeforeCompile; m.material.customProgramCacheKey = smokeMat.customProgramCacheKey; m.frustumCulled = false; m.userData.t = i / 7; scene.add(m); return m; });
+const smoke = Array.from({ length: 7 }, (_, i) => { const m = new THREE.Mesh(G(0.36, 0.36, 0.36, 0.09), smokeMat.clone()); m.material.onBeforeCompile = smokeMat.onBeforeCompile; m.material.customProgramCacheKey = smokeMat.customProgramCacheKey; m.frustumCulled = false; m.userData.t = i / 7; village.add(m); return m; });
 // 農田：6×4 格，作物三個生長階段（種子小土堆＋芽 → 小葉子 → 長大結果），每個部位一組 InstancedMesh
 const PLOTS = []; const FRUIT_COLORS = [0xff9a4a, 0xa8e07a, 0xff6b6b, 0xffd84a]; // 每一排一種作物：紅蘿蔔、高麗菜、番茄、向日葵
 for (let r = 0; r < FARM.rows; r++) for (let c = 0; c < FARM.cols; c++) PLOTS.push({ x: FARM.x + (c - (FARM.cols - 1) / 2) * FARM.cell, z: FARM.z + (r - (FARM.rows - 1) / 2) * FARM.cell, row: r, stage: Math.floor(rand() * 3), pop: 0, wet: 0 });
@@ -349,7 +361,7 @@ PLOTS.forEach((_, i) => updatePlot(i));
 }
 // 路燈：木柱＋燈罩，晚上亮起（兩盞有真的點光源，第三盞只發光，省效能）
 const lampGlass = curvify(new THREE.MeshToonMaterial({ color: 0xfff1c4, emissive: 0xffc46a, emissiveIntensity: 0, gradientMap: GRADIENT })); const lampLights = [];
-[[-4.6, -2.4], [4.2, -0.2], [BRIDGE_X - BRIDGE_L / 2 - 0.9, BRIDGE_Z - 1.3]].forEach(([x, z], i) => { const g = new THREE.Group(); g.position.set(x, terrainHeight(x, z), z); scene.add(g);
+[[-4.6, -2.4], [4.2, -0.2], [BRIDGE_X - BRIDGE_L / 2 - 0.9, BRIDGE_Z - 1.3]].forEach(([x, z], i) => { const g = new THREE.Group(); g.position.set(x, terrainHeight(x, z), z); village.add(g);
   addMesh(Gc(0.15, 2.2, 0.15, 0.03, 0, 1.1, 0), toon(CFG.pal.woodDark), g); addMesh(Gc(0.42, 0.42, 0.42, 0.06, 0, 2.35, 0), lampGlass, g); addMesh(merge([Gc(0.62, 0.1, 0.62, 0.03, 0, 2.62, 0), Gc(0.32, 0.12, 0.32, 0.03, 0, 2.73, 0)]), toon(CFG.pal.woodDark), g);
   if (i < 2) { const L = new THREE.PointLight(0xffc477, 0, 9, 2); L.position.set(0, 2.3, 0); g.add(L); lampLights.push(L); } colliders.push({ x, z, r: 0.22 }); });
 // 螢火蟲：Points，夜晚才出現；在 shader 裡飄動、一閃一閃
@@ -480,7 +492,7 @@ const NEIGHBOR_DEFS = [
   { name: '阿壯', type: '運動型', home: [20.5, 6.5], colors: { skin: 0xd9a27c, shirt: 0x5fd0a0, pants: 0x34507a, shoes: 0xffffff, hat: 0xff5f5f, hair: 0x2a2a2a }, accessories: ['hairSpiky', 'headband', 'vest', 'shorts'], line: '過橋跑來回十趟，熱身完畢！' },
   { name: '小禾', type: '園藝型', home: [-6, 6.5], colors: { shirt: 0xfff3d6, sleeve: 0xfff3d6, pants: 0x6fa36a, shoes: 0x8a5a3c, hat: 0xf2d27a, acc: 0xe06666, hair: 0xb5653a }, accessories: ['hairBun', 'strawhat', 'overalls', 'trowel', 'earsBear', 'shortSleeve'], line: '紅蘿蔔要多澆水，番茄要多曬太陽喔！' },
 ];
-const neighbors = NEIGHBOR_DEFS.map(d => { const ch = createBlockCharacter(d); scene.add(ch.root); return { ...d, ch, x: d.home[0], z: d.home[1], yaw: rand() * 6.28, tx: d.home[0], tz: d.home[1], wait: rand() * 3, greetCD: 0, moved: 0, stuckT: 0 }; });
+const neighbors = NEIGHBOR_DEFS.map(d => { const ch = createBlockCharacter(d); village.add(ch.root); return { ...d, ch, x: d.home[0], z: d.home[1], yaw: rand() * 6.28, tx: d.home[0], tz: d.home[1], wait: rand() * 3, greetCD: 0, moved: 0, stuckT: 0 }; });
 const NB_R = 0.3, NB_SPEED = 1.2;
 function pickTarget(n) { for (let k = 0; k < 20; k++) { const a = rand() * 6.28, r = 1 + rand() * 3.2, x = n.home[0] + Math.cos(a) * r, z = n.home[1] + Math.sin(a) * r;
     if (blocked(x, z) || rectDist(x, z, FARM.x, FARM.z, FARM_HW, FARM_HD) < 0.4 || colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + 0.45)) continue; n.tx = x; n.tz = z; return; } n.tx = n.home[0]; n.tz = n.home[1]; }
@@ -510,7 +522,7 @@ const CAM = { yaw: 0, pitch: CFG.cam.pitch * DEG, dist: CFG.cam.dist, tYaw: 0, t
 const wrapAngle = a => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 // 重置：回到預設角度（instant＝直接跳過去，換地圖時用；不然走最短的方向轉回去）
 function resetCamera(instant = false) { CAM.tYaw = CAM.yaw - wrapAngle(CAM.yaw); CAM.tPitch = CFG.cam.pitch * DEG; CAM.tDist = CFG.cam.dist; if (instant) { CAM.yaw = CAM.tYaw = 0; CAM.pitch = CAM.tPitch; CAM.dist = CAM.tDist; } }
-addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; keys.add(k);
+addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (/INPUT|TEXTAREA/.test(e.target.tagName) || LEARN.isOpen()) return; keys.add(k);
   if (k === ' ' || k === 'enter') actPressed = true; if (k === 'f') hero.wave(); if (FACE_KEYS[k]) hero.setFace(FACE_KEYS[k]);
   if (!e.repeat) { if (k === 'q') CAM.tYaw -= Math.PI / 4; if (k === 'e') CAM.tYaw += Math.PI / 4; if (k === 'r') resetCamera(); } // Q／E 每次轉 45 度
   if (k.startsWith('arrow') || k === ' ') e.preventDefault(); });
@@ -573,6 +585,25 @@ todEl.addEventListener('input', () => { hour = +todEl.value; todDrag = true; });
    7. loop：移動與碰撞、走路動畫、澆水、相機跟隨、粒子、日夜、彎曲中心
    ════════════════════════════════════════════════════════════════ */
 const blocked = (x, z) => Math.hypot(x, z - 2) > 40 || (!onBridge(x, z) && terrainHeight(x, z) < -0.2); // 小河與水池不能走（橋上可以）
+// ── 地圖：新手村（田園）＋學習森林（主幹道與七個區域，用到才建）；換地圖用淡入淡出過場，相機重置 ──
+const VILLAGE_MAP = { id: 'village', name: '新手村', group: village, colliders, groundY, blocked, nodes: [], refresh() {}, update() {}, spawn: 'start',
+  spawns: { start: { x: 0, z: 9, yaw: Math.PI }, forest: { x: FOREST_GATE.x, z: FOREST_GATE.z + 2.2, yaw: 0 } },
+  portals: [{ x: FOREST_GATE.x, z: FOREST_GATE.z + 1.2, r: 2.0, to: 'trunk', spawn: 'south', locked: () => false, text: () => '🌳 按空白鍵進入學習森林（國小國語）' }] };
+const FOREST = createForest({ THREE, G, Gc, merge, toon, addMesh, addInstanced, setRoot, ROOT: () => ROOT, curveDrop, curvify, GRADIENT, TREE_GEO, CFG });
+{ const a = FOREST.arch(FOREST_GATE.x, FOREST_GATE.z, terrainHeight(FOREST_GATE.x, FOREST_GATE.z), 0, 0x8fbf6a, '🌳 學習森林'); a.bars.visible = false; colliders.push({ x: FOREST_GATE.x - 1.3, z: FOREST_GATE.z, r: 0.35 }, { x: FOREST_GATE.x + 1.3, z: FOREST_GATE.z, r: 0.35 }); a.lab.userData.base = a.lab.position.y; VILLAGE_MAP.update = () => { a.lab.position.y = a.lab.userData.base - curveDrop(FOREST_GATE.x, FOREST_GATE.z); }; }
+const MAPS = { village: VILLAGE_MAP }; let MAP = VILLAGE_MAP, switching = false;
+const mapOf = id => { if (!MAPS[id]) { const m = id === 'trunk' ? FOREST.buildTrunk() : FOREST.buildRegion(id); scene.add(m.group); MAPS[id] = m; } return MAPS[id]; };
+const wait = ms => new Promise(r => setTimeout(r, ms)), fadeEl = document.getElementById('fade'), bannerEl = document.getElementById('banner'), mapNameEl = document.getElementById('mapName'), learnCountEl = document.getElementById('learnCount');
+let bannerT = 0; function banner(text) { bannerEl.textContent = text; bannerEl.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => bannerEl.classList.remove('on'), 2200); }
+function refreshLearn() { learnCountEl.textContent = `📚 學會 ${LEARN.NODES.filter(n => LEARN.isLearned(n.id)).length}／${LEARN.NODES.length}`; for (const m of Object.values(MAPS)) m.refresh(); }
+async function gotoMap(id, spawnKey) { if (switching) return; switching = true; fadeEl.classList.add('on'); await wait(330);
+  MAP.group.visible = false; const m = mapOf(id); MAP = m; m.group.visible = true; colliders = m.colliders; m.refresh();
+  const sp = m.spawns[spawnKey] || m.spawns[m.spawn]; Object.assign(PL, { x: sp.x, z: sp.z, yaw: sp.yaw, vx: 0, vz: 0 }); camTarget.set(PL.x, m.groundY(PL.x, PL.z), PL.z); resetCamera(true); updateCamera(1); // 換地圖後相機回到預設角度
+  mapNameEl.textContent = '📍 ' + m.name; await wait(80); fadeEl.classList.remove('on'); banner(m.name); setTimeout(() => { switching = false; }, 320); }
+const nearestNode = () => { let best = null, bd = 2.9; for (const n of MAP.nodes) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd) { bd = d; best = n; } } return best; };
+const nearPortal = () => MAP.portals.find(p => Math.hypot(PL.x - p.x, PL.z - p.z) < p.r);
+const nodeHint = n => { const st = LEARN.nodeState(n.id); if (n.guardian) return st === 'locked' ? `👑 守護者還在沉睡：先學會這個區域的${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}` : st === 'open' ? '👑 按空白鍵挑戰守護者（綜合題）' : '👑 已征服這個區域！按空白鍵再挑戰一次'; return st === 'learned' ? `✅ 按空白鍵複習「${n.name}」` : st === 'review' ? `🔁「${n.name}」好幾天沒練習了，按空白鍵複習` : st === 'open' ? `📖 按空白鍵學習「${n.name}」` : `🔒「${n.name}」還沒打通：先學會${LEARN.missingFor(n.id).map(x => `「${x.name}」`).join('、')}`; };
+refreshLearn();
 function resolveColliders(p) { for (const c of colliders) { const dx = p.x - c.x, dz = p.z - c.z, rr = c.r + PLAYER_R, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-8) { const d = Math.sqrt(d2), k = (rr - d) / d; if (!blocked(p.x + dx * k, p.z + dz * k)) { p.x += dx * k; p.z += dz * k; } } } }
 const hintEl = document.getElementById('hint'), harvestEl = document.getElementById('harvest'); let harvested = 0;
 function nearestPlot() { const fx = Math.sin(PL.yaw), fz = Math.cos(PL.yaw); let best = -1, bd = 1.5; PLOTS.forEach((p, i) => { const d = Math.hypot(p.x - PL.x - fx * 0.5, p.z - PL.z - fz * 0.5); if (d < bd) { bd = d; best = i; } }); return best; }
@@ -602,32 +633,36 @@ function loop() {
   // 時間：滑桿控制流速（每秒經過幾分鐘）
   if (!todDrag) { hour = (hour + dt * +speedEl.value / 60) % 24; todEl.value = hour.toFixed(2); }
   applyDayNight(hour); clockMini.textContent = clockEl.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor(hour % 1 * 60)).padStart(2, '0')} ${night > 0.6 ? '🌙' : hour < 7 || hour > 17 ? '🌅' : '☀️'}`;
+  if (LEARN.isOpen() || switching) { keys.clear(); joyVec.set(0, 0); actPressed = false; } // 學習畫面開著、換地圖途中不能走
+  const inVillage = MAP === VILLAGE_MAP, groundAt = MAP.groundY, blockedAt = MAP.blocked;
   // 移動：分 x、z 兩軸各試一次，撞到河邊可以沿著滑
   const [jx, jz] = inputDir(), cyw = Math.cos(CAM.yaw), syw = Math.sin(CAM.yaw), ix = jx * cyw + jz * syw, iz = -jx * syw + jz * cyw, moving = ix !== 0 || iz !== 0; /* 以相機朝向為準：W 永遠往畫面上方 */ const tvx = ix * PL.speed, tvz = iz * PL.speed; PL.vx += (tvx - PL.vx) * Math.min(1, dt * 12); PL.vz += (tvz - PL.vz) * Math.min(1, dt * 12);
-  const nx = PL.x + PL.vx * dt, nz = PL.z + PL.vz * dt; if (!blocked(nx, PL.z)) PL.x = nx; if (!blocked(PL.x, nz)) PL.z = nz; resolveColliders(PL);
-  for (const n of neighbors) { const dx = PL.x - n.x, dz = PL.z - n.z, d = Math.hypot(dx, dz), rr = NB_R + PLAYER_R; if (d < rr && d > 1e-4 && !blocked(n.x + dx / d * rr, n.z + dz / d * rr)) { PL.x = n.x + dx / d * rr; PL.z = n.z + dz / d * rr; } } // 鄰居也擋路
+  const nx = PL.x + PL.vx * dt, nz = PL.z + PL.vz * dt; if (!blockedAt(nx, PL.z)) PL.x = nx; if (!blockedAt(PL.x, nz)) PL.z = nz; resolveColliders(PL);
+  if (inVillage) for (const n of neighbors) { const dx = PL.x - n.x, dz = PL.z - n.z, d = Math.hypot(dx, dz), rr = NB_R + PLAYER_R; if (d < rr && d > 1e-4 && !blocked(n.x + dx / d * rr, n.z + dz / d * rr)) { PL.x = n.x + dx / d * rr; PL.z = n.z + dz / d * rr; } } // 鄰居也擋路
   if (moving) { const target = Math.atan2(ix, iz); let d = target - PL.yaw; d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; PL.yaw += d * Math.min(1, dt * 10); } // 轉身：走最短的角度、平滑插值
   // 走路動畫：上下彈跳、手腳擺動；站著時微微呼吸
   const spd = Math.hypot(PL.vx, PL.vz) / PL.speed; PL.phase += dt * 11 * spd;
-  player.position.set(PL.x, groundY(PL.x, PL.z), PL.z); player.rotation.y = PL.yaw;
+  player.position.set(PL.x, groundAt(PL.x, PL.z), PL.z); player.rotation.y = PL.yaw;
   PL.watering = Math.max(0, PL.watering - dt); hero.hold = PL.watering > 0 ? 'water' : null; hero.update(dt, spd); // 走路、待機、揮手、澆水（舉起澆水壺）
-  updateNeighbors(dt);
-  // 澆水／收成
+  if (inVillage) updateNeighbors(dt); MAP.update(dt, time);
   // 澆水／收成優先；旁邊沒有田就和最近的鄰居聊天（聊天內容顯示幾秒）
-  const pi = nearestPlot(), nb = pi < 0 ? nearestNeighbor() : null; if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); } talk.t = Math.max(0, talk.t - dt);
-  const sig = talk.t > 0 ? talk.text : pi >= 0 ? (PLOTS[pi].stage < 2 ? `💧 按空白鍵澆水（第 ${PLOTS[pi].stage + 1} 階段）` : '🧺 按空白鍵收成') : nb ? `💬 按空白鍵和${nb.name}聊天` : ''; if (sig !== hintSig) { hintSig = sig; hintEl.textContent = MOBILE ? sig.replace('按空白鍵', '按 💧 ') : sig; hintEl.classList.toggle('on', !!sig); }
+  // 學習森林：靠近石碑按空白鍵學習；靠近拱門按空白鍵換地圖（還沒打通的顯示要先學會什麼）
+  const pi = inVillage ? nearestPlot() : -1, nb = inVillage && pi < 0 ? nearestNeighbor() : null, kn = !inVillage ? nearestNode() : null, pt = pi < 0 && !nb && !kn ? nearPortal() : null;
+  if (actPressed) { actPressed = false; if (pi >= 0) waterPlot(pi); else if (nb) talkTo(nb); else if (kn && LEARN.nodeState(kn.id) !== 'locked') LEARN.open(kn.id, (id, first) => { refreshLearn(); const nd = LEARN.nodeById(id); banner(!first ? `🔁 複習完成「${nd.guardian ? '守護者挑戰' : nd.name}」` : nd.guardian ? `👑 征服${LEARN.regionById(nd.region).name}！` : `🌟 學會「${nd.name}」！`); }); else if (pt && !pt.locked()) gotoMap(pt.to, pt.spawn); }
+  talk.t = Math.max(0, talk.t - dt);
+  const sig = talk.t > 0 ? talk.text : pi >= 0 ? (PLOTS[pi].stage < 2 ? `💧 按空白鍵澆水（第 ${PLOTS[pi].stage + 1} 階段）` : '🧺 按空白鍵收成') : nb ? `💬 按空白鍵和${nb.name}聊天` : kn ? nodeHint(kn) : pt ? pt.text() : ''; if (sig !== hintSig) { hintSig = sig; hintEl.textContent = MOBILE ? sig.replace('按空白鍵', '按 💧 ') : sig; hintEl.classList.toggle('on', !!sig); }
   PLOTS.forEach((p, i) => { if (p.pop > 0 || p.wet > 0) { p.pop = Math.max(0, p.pop - dt * 2.2); p.wet = Math.max(0, p.wet - dt * 0.25); updatePlot(i); } });
   // 水滴
   let nd = 0; for (const d of drops) { d.t += dt; d.vy -= 9 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; if (d.y > 0.1 && nd < 24) { M4.compose(V.set(d.x, d.y, d.z), Q.identity(), S.setScalar(1)); dropI.setMatrixAt(nd++, M4); } }
   for (let k = drops.length - 1; k >= 0; k--) if (drops[k].y <= 0.1) drops.splice(k, 1); dropI.count = nd; dropI.instanceMatrix.needsUpdate = true;
   // 相機：固定 45 度俯視，平滑跟隨；地平線彎曲以相機看的那一點為中心
-  camTarget.lerp(V.set(PL.x, 0, PL.z), 1 - Math.exp(-dt * 5)); updateCamera(dt); updateOcclusion(dt);
+  camTarget.lerp(V.set(PL.x, groundAt(PL.x, PL.z), PL.z), 1 - Math.exp(-dt * 5)); updateCamera(dt); if (inVillage) updateOcclusion(dt);
   // 陰影只算角色附近：太陽跟著角色移動
   sun.position.copy(camTarget).addScaledVector(sunDir, 30); sun.target.position.copy(camTarget);
   // 草、水、螢火蟲的時間；花瓣；煙
   grassMat.uniforms.uTime.value = time; grassMat.uniforms.uPlayer.value.set(PL.x, 0, PL.z); waterMat.uniforms.uTime.value = time; ffMat.uniforms.uTime.value = time; fireflies.position.set(camTarget.x, 0, camTarget.z - 2);
   petals.forEach((p, i) => { p.y -= p.sp * dt; p.ph += dt; p.rx += dt * 2.1; p.rz += dt * 1.3; if (p.y < 0) { p.y = 6 + rand() * 2; p.x = (rand() - 0.5) * 26; p.z = (rand() - 0.5) * 26; }
-    M4.compose(V.set(camTarget.x + p.x + Math.sin(p.ph) * 0.6, p.y + groundY(camTarget.x + p.x, camTarget.z + p.z), camTarget.z + p.z + Math.cos(p.ph * 0.7) * 0.4), Q.setFromEuler(E.set(p.rx, p.ph, p.rz)), S.setScalar(1)); petalI.setMatrixAt(i, M4); }); petalI.instanceMatrix.needsUpdate = true;
+    M4.compose(V.set(camTarget.x + p.x + Math.sin(p.ph) * 0.6, p.y + groundAt(camTarget.x + p.x, camTarget.z + p.z), camTarget.z + p.z + Math.cos(p.ph * 0.7) * 0.4), Q.setFromEuler(E.set(p.rx, p.ph, p.rz)), S.setScalar(1)); petalI.setMatrixAt(i, M4); }); petalI.instanceMatrix.needsUpdate = true;
   smoke.forEach(m => { m.userData.t = (m.userData.t + dt * 0.18) % 1; const t = m.userData.t; m.position.set(chimneyTop.x + Math.sin(t * 6 + time) * 0.25 * t, chimneyTop.y + t * 2.6, chimneyTop.z - t * 0.6); m.scale.setScalar(0.6 + t * 1.6); m.material.opacity = 0.65 * (1 - t); });
   renderer.render(scene, camera);
 }
@@ -635,7 +670,7 @@ function loop() {
 function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 52 : 40; camera.updateProjectionMatrix(); ffMat.uniforms.uPR.value = renderer.getPixelRatio(); }
 resize(); addEventListener('resize', resize);
 renderer.setAnimationLoop(loop);
-window.FARM_DEBUG = { CFG, CURVE, CAM, TREES, HOUSE_FADE, resetCamera, PL, PLOTS, hero, neighbors, camTarget, setHour: h => { hour = h; }, water: () => { actPressed = true; } }; // 除錯用
+window.FARM_DEBUG = { CFG, CURVE, CAM, TREES, HOUSE_FADE, resetCamera, gotoMap, MAPS, LEARN, get MAP() { return MAP; }, PL, PLOTS, hero, neighbors, camTarget, setHour: h => { hour = h; }, water: () => { actPressed = true; } }; // 除錯用
 </script>
 </body>
 </html>
