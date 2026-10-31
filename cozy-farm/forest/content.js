@@ -15,19 +15,20 @@ export const regionById = id => REGIONS.find(r => r.id === id);
 export const passOf = id => nodeById(id).pass || GRAPH.pass;
 
 // ── 注音符號：說明用的例字（念出這個字就是這個符號的音）與例詞；建置時會用教育部辭典檢查例字讀音 ──
+// 聽的時候念例詞（名詞，大多是疊字，兩個字都有這個音，念得慢、聽得清楚）；例字是說明這個符號本身的音
 export const SHENGMU = [
-  ['ㄅ', '玻', '爸爸', '👨'], ['ㄆ', '坡', '葡萄', '🍇'], ['ㄇ', '摸', '貓', '🐱'], ['ㄈ', '佛', '飛機', '✈️'],
-  ['ㄉ', '得', '大象', '🐘'], ['ㄊ', '特', '兔子', '🐰'], ['ㄋ', '訥', '牛', '🐮'], ['ㄌ', '勒', '老虎', '🐯'],
-  ['ㄍ', '哥', '狗', '🐶'], ['ㄎ', '科', '恐龍', '🦖'], ['ㄏ', '喝', '花', '🌸'],
-  ['ㄐ', '基', '雞', '🐔'], ['ㄑ', '欺', '汽車', '🚗'], ['ㄒ', '希', '西瓜', '🍉'],
-  ['ㄓ', '知', '蜘蛛', '🕷️'], ['ㄔ', '吃', '車子', '🚙'], ['ㄕ', '詩', '獅子', '🦁'], ['ㄖ', '日', '熱', '🔥'],
-  ['ㄗ', '資', '嘴巴', '👄'], ['ㄘ', '雌', '草莓', '🍓'], ['ㄙ', '思', '傘', '☂️'],
+  ['ㄅ', '玻', '爸爸', '👨'], ['ㄆ', '坡', '婆婆', '👵'], ['ㄇ', '摸', '媽媽', '👩'], ['ㄈ', '佛', '飛機', '✈️'],
+  ['ㄉ', '得', '弟弟', '👦'], ['ㄊ', '特', '兔子', '🐰'], ['ㄋ', '訥', '奶奶', '🧓'], ['ㄌ', '勒', '老虎', '🐯'],
+  ['ㄍ', '哥', '哥哥', '🧑'], ['ㄎ', '科', '恐龍', '🦖'], ['ㄏ', '喝', '蝴蝶', '🦋'],
+  ['ㄐ', '基', '金魚', '🐠'], ['ㄑ', '欺', '氣球', '🎈'], ['ㄒ', '希', '星星', '⭐'],
+  ['ㄓ', '知', '蜘蛛', '🕷️'], ['ㄔ', '吃', '車子', '🚙'], ['ㄕ', '詩', '叔叔', '🧔'], ['ㄖ', '日', '日曆', '📅'],
+  ['ㄗ', '資', '嘴巴', '👄'], ['ㄘ', '雌', '草莓', '🍓'], ['ㄙ', '思', '松鼠', '🐿️'],
 ];
 export const YUNMU = [
-  ['ㄧ', '衣', '椅子', '🪑'], ['ㄨ', '烏', '烏龜', '🐢'], ['ㄩ', '迂', '魚', '🐟'],
-  ['ㄚ', '啊', '爸爸', '👨'], ['ㄛ', '喔', '婆婆', '👵'], ['ㄜ', '鵝', '鵝', '🦢'], ['ㄝ', null, '爺爺', '👴'],
-  ['ㄞ', '哀', '愛心', '❤️'], ['ㄟ', null, '杯子', '🥤'], ['ㄠ', '凹', '貓', '🐱'], ['ㄡ', '歐', '猴子', '🐒'],
-  ['ㄢ', '安', '山', '⛰️'], ['ㄣ', '恩', '門', '🚪'], ['ㄤ', '骯', '糖果', '🍬'], ['ㄥ', null, '風', '🌬️'], ['ㄦ', '兒', '耳朵', '👂'],
+  ['ㄧ', '衣', '衣服', '👕'], ['ㄨ', '烏', '烏龜', '🐢'], ['ㄩ', '迂', '玉米', '🌽'],
+  ['ㄚ', '啊', '沙發', '🛋️'], ['ㄛ', '喔', '婆婆', '👵'], ['ㄜ', '鵝', '哥哥', '🧑'], ['ㄝ', null, '爺爺', '👴'],
+  ['ㄞ', '哀', '白菜', '🥬'], ['ㄟ', null, '妹妹', '👧'], ['ㄠ', '凹', '寶寶', '👶'], ['ㄡ', '歐', '猴子', '🐒'],
+  ['ㄢ', '安', '盤子', '🍽️'], ['ㄣ', '恩', '森林', '🌲'], ['ㄤ', '骯', '糖果', '🍬'], ['ㄥ', null, '風箏', '🪁'], ['ㄦ', '兒', '耳朵', '👂'],
 ]; // 例字是 null 的，建置時從辭典裡找一個讀音剛好只有這個符號的字
 export const TONES = [
   { n: 1, name: '一聲', mark: '（不標）', ex: '媽', tip: '高高平平，像一條直直的路' },
@@ -64,13 +65,15 @@ const mk = (q, correct, wrongs, r, extra = {}, prio = 0) => { const ws = [...new
 export const toneOf = b => b.startsWith('˙') ? 5 : b.endsWith('ˊ') ? 2 : b.endsWith('ˇ') ? 3 : b.endsWith('ˋ') ? 4 : 1;
 export const stripTone = b => b.replace(/[ˊˇˋ˙]/g, '');
 const withTone = (base, n) => n === 1 ? base : n === 5 ? '˙' + base : base + ['', '', 'ˊ', 'ˇ', 'ˋ'][n];
-const INITIALS = SHENGMU.map(x => x[0]);
+const INITIALS = SHENGMU.map(x => x[0]), FINALS = YUNMU.map(x => x[0]);
+const initialsIn = b => b.split(' ').map(y => y.replace('˙', '')[0]).filter(c => INITIALS.includes(c)); // 一個詞的注音裡出現的聲母（干擾選項要避開，免得兩個答案都對）
+const twice = w => `${w}，${w}`; // 念兩次
 
 // ── 教學卡片（給 learn.js 畫）：依節點的 lesson.type；沒有 lesson 就拿題庫的前三題當例子 ──
 export function lessonOf(id, D) {
   const n = nodeById(id), intro = n.intro || '', L = n.lesson || {};
   if (n.guardian) return { intro, cards: NODES.filter(x => x.region === n.region && !x.guardian).map(x => ({ kind: 'text', q: `知識點：${x.name}`, a: `${x.grade} 年級`, why: (x.intro || '').slice(0, 42) + '…' })) };
-  if (L.type === 'zhuyin') return { intro, cards: (L.set === 'yunmu' ? YUNMU : SHENGMU).map(([s, c, w, e]) => ({ kind: 'zhuyin', sym: s, say: D.sym[s] || c, word: w, emoji: e, wordB: D.w(w) })) };
+  if (L.type === 'zhuyin') return { intro, cards: (L.set === 'yunmu' ? YUNMU : SHENGMU).map(([s, c, w, e]) => ({ kind: 'zhuyin', sym: s, say: w, ex: D.sym[s] || c, word: w, emoji: e, wordB: D.w(w) })) };
   if (L.type === 'tones') return { intro, cards: TONES.map(t => ({ kind: 'tone', ...t, b: D.ch(t.ex).b[0] })) };
   if (L.type === 'pics') return { intro, cards: PICS.map(([c, e]) => ({ kind: 'char', c, b: D.ch(c).b[0], tag: e })) };
   if (L.type === 'chars') return { intro, cards: chars(L.chars || '').map(c => { const e = D.ch(c); return { kind: 'char', c, b: e.b[0], strokes: L.show === 'strokes' ? e.s : 0, tag: L.show === 'radical' ? `${RADICAL_LABEL[e.r] || e.r}部・去部首 ${e.n} 畫` : '' }; }) };
@@ -82,13 +85,14 @@ export function lessonOf(id, D) {
 
 // ── 題型：節點的 questionTypes 從這裡挑（每一題隨機挑一種）；bank＝節點自己的 questions、mix＝守護者綜合題 ──
 export const QUESTION_TYPES = {
-  'listen-shengmu': (r, n, D) => { const [s, c] = pick(SHENGMU, r); return mk('聽聽看，這是哪一個聲母？', s, INITIALS, r, { say: D.sym[s] || c, listen: true }); },
-  'word-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r); return mk(`「${w}」${e} 開頭的聲音是？`, s, INITIALS, r, { big: w, bigB: D.w(w) }); },
-  'listen-yunmu': (r, n, D) => { const all = YUNMU.map(x => x[0]), [s, c] = pick(YUNMU, r); return mk('聽聽看，這是哪一個韻母？', s, all, r, { say: D.sym[s] || c, listen: true }); },
-  'word-yunmu': (r, n, D) => { const all = YUNMU.map(x => x[0]), [s, , w, e] = pick(YUNMU, r); return mk(`「${w}」${e} 的注音裡有哪一個韻母？`, s, all.filter(x => !stripTone(D.w(w)).includes(x)), r, { big: w, bigB: D.w(w) }); },
-  tone: (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], t = toneOf(b); return mk(r() < 0.5 ? '聽聽看，這個字是第幾聲？' : `「${c}」（${stripTone(b)}）是第幾聲？`, TONES[t - 1].name, TONES.map(x => x.name), r, { say: c, listen: true, big: c }); },
-  'zhuyin-to-char': (r, n, D) => { const pool = chars(POOL_BASIC).filter(D.one), c = pick(pool, r), b = D.ch(c).b[0]; return mk(`哪一個字念「${b}」？`, c, shuffle(pool.filter(x => x !== c && D.ch(x).b[0] !== b), r).slice(0, 8), r, { say: c }); },
-  'char-to-zhuyin': (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], base = stripTone(b), t = toneOf(b); return mk(`「${c}」的注音是？`, b, [1, 2, 3, 4].filter(k => k !== t).map(k => withTone(base, k)), r, { big: c, say: c }); },
+  // 注音小村的聽力題：念名詞例詞、慢慢念兩次（slow）；干擾選項避開詞裡出現過的其他聲母／韻母
+  'listen-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r), b = D.w(w); return mk('聽聽看，開頭是哪一個聲母？', s, INITIALS.filter(x => !initialsIn(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${e} ${w}（${b}）` }); },
+  'word-shengmu': (r, n, D) => { const [s, , w, e] = pick(SHENGMU, r), b = D.w(w); return mk(`「${w}」${e} 開頭的聲音是？`, s, INITIALS.filter(x => !initialsIn(b).includes(x)), r, { big: w, bigB: b, say: twice(w), slow: true }); },
+  'listen-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk('聽聽看，這個詞的注音裡有哪一個韻母？', s, FINALS.filter(x => !stripTone(b).includes(x)), r, { say: twice(w), slow: true, listen: true, after: `${e} ${w}（${b}）` }); },
+  'word-yunmu': (r, n, D) => { const [s, , w, e] = pick(YUNMU, r), b = D.w(w); return mk(`「${w}」${e} 的注音裡有哪一個韻母？`, s, FINALS.filter(x => !stripTone(b).includes(x)), r, { big: w, bigB: b, say: twice(w), slow: true }); },
+  tone: (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], t = toneOf(b); return mk(r() < 0.5 ? '聽聽看，這個字是第幾聲？' : `「${c}」（${stripTone(b)}）是第幾聲？`, TONES[t - 1].name, TONES.map(x => x.name), r, { say: twice(c), slow: true, listen: true, big: c, after: `「${c}」念 ${b}` }); },
+  'zhuyin-to-char': (r, n, D) => { const pool = chars(POOL_BASIC).filter(D.one), c = pick(pool, r), b = D.ch(c).b[0]; return mk(`哪一個字念「${b}」？`, c, shuffle(pool.filter(x => x !== c && D.ch(x).b[0] !== b), r).slice(0, 8), r, { say: twice(c), slow: true }); },
+  'char-to-zhuyin': (r, n, D) => { const c = pick(chars(POOL_BASIC).filter(D.one), r), b = D.ch(c).b[0], base = stripTone(b), t = toneOf(b); return mk(`「${c}」的注音是？`, b, [1, 2, 3, 4].filter(k => k !== t).map(k => withTone(base, k)), r, { big: c, say: twice(c), slow: true }); },
   'pic-char': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`${e} 是哪一個字？`, c, PICS.map(x => x[0]), r, { big: e, say: c }); },
   'char-to-pic': (r, n, D) => { const [c, e] = pick(PICS, r); return mk(`「${c}」（${D.ch(c).b[0]}）是哪一個圖？`, e, PICS.map(x => x[1]), r, { big: c, say: c }); },
   'stroke-count': (r, n, D) => { const c = pick(chars(STROKE_CHARS + DUTI), r), s = D.ch(c).s; return mk(`「${c}」一共有幾畫？`, s + ' 畫', [s - 1, s + 1, s + 2, s - 2].filter(x => x > 0).map(x => x + ' 畫'), r, { big: c, stroke: c }); },

@@ -47,7 +47,8 @@ export async function loadData() { if (D) return D;
 // ── 發音 ──
 let voice = null; const pickVoice = () => { const vs = speechSynthesis.getVoices(); voice = vs.find(v => /zh[-_]TW|cmn.*TW|Hant/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; };
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.addEventListener?.('voiceschanged', pickVoice); }
-export function speak(text) { if (!('speechSynthesis' in window)) { toast('這台裝置不支援語音朗讀'); return; } speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'zh-TW'; if (voice) u.voice = voice; u.rate = 0.75; speechSynthesis.speak(u); }
+export const SLOW = 0.5; // 注音念慢一點
+export function speak(text, rate = 0.75) { if (!('speechSynthesis' in window)) { toast('這台裝置不支援語音朗讀'); return; } speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'zh-TW'; if (voice) u.voice = voice; u.rate = rate; speechSynthesis.speak(u); }
 
 // ── 筆順動畫 ──
 const strokeCache = new Map();
@@ -123,7 +124,7 @@ function renderLearn(body, L) { body.appendChild(el('div', 'lf-intro', esc(L.int
   if (L.cards[0] && L.cards[0].kind === 'text') { for (const c of L.cards) body.appendChild(el('div', 'lf-text', `${esc(c.q)}<br>答案：<b>${esc(c.a)}</b>　${esc(c.why)}`)); body.appendChild(el('div', 'lf-intro', '看完例子，就到「練習」試試看吧！')); return; }
   const grid = el('div', 'lf-grid'); body.appendChild(grid);
   for (const c of L.cards) { const b = el('button', 'lf-card');
-    if (c.kind === 'zhuyin') b.innerHTML = `<span class="big">${c.sym}</span><span class="zy">念「${esc(c.say)}」</span><span class="tag">${c.emoji} ${esc(c.word)}</span>`;
+    if (c.kind === 'zhuyin') b.innerHTML = `<span class="big">${c.sym}</span><span class="zy">${c.emoji} ${esc(c.word)}</span><span class="tag">${esc(c.wordB)}</span>`;
     else if (c.kind === 'tone') b.innerHTML = `<span class="big">${c.ex}</span><span class="zy">${esc(c.b)}</span><span class="tag">${c.name} ${c.mark}</span>`;
     else if (c.kind === 'word') b.innerHTML = `<span class="big" style="font-size:26px">${c.emoji ? c.emoji + '<br>' : ''}${esc(c.w)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : ''}`;
     else b.innerHTML = `<span class="big">${esc(c.c)}</span><span class="zy">${esc(c.b)}</span>${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : c.strokes ? `<span class="tag">${c.strokes} 畫</span>` : ''}`;
@@ -131,32 +132,31 @@ function renderLearn(body, L) { body.appendChild(el('div', 'lf-intro', esc(L.int
 
 // 卡片細節：大字、注音、發音、筆順動畫
 function detail(body, L, c) { body.innerHTML = ''; const wrap = el('div', 'lf-detail'); body.appendChild(wrap);
-  const glyph = c.kind === 'zhuyin' ? c.sym : c.kind === 'tone' ? c.ex : c.kind === 'word' ? c.w : c.c, sayText = c.kind === 'zhuyin' ? c.say : glyph;
+  const glyph = c.kind === 'zhuyin' ? c.sym : c.kind === 'tone' ? c.ex : c.kind === 'word' ? c.w : c.c, slow = c.kind === 'zhuyin' || c.kind === 'tone', sayText = c.kind === 'zhuyin' ? `${c.word}，${c.word}` : slow ? `${glyph}，${glyph}` : glyph, rate = slow ? SLOW : 0.75;
   const side = el('div', 'lf-side');
-  side.innerHTML = c.kind === 'zhuyin' ? `<div class="huge">${c.sym}</div><div>念「${esc(c.say)}」的聲音</div><div>例：${c.emoji} ${ruby(c.word, c.wordB)}</div>`
+  side.innerHTML = c.kind === 'zhuyin' ? `<div class="huge">${c.sym}</div><div style="font-size:30px">${c.emoji} ${ruby(c.word, c.wordB)}</div><div style="color:#8a7a92">「${esc(c.word)}」裡有「${c.sym}」的音；單獨念像「${esc(c.ex)}」</div>`
     : c.kind === 'tone' ? `<div class="huge">${c.ex}</div><div class="zy">${esc(c.b)}</div><div><b>${c.name}</b>　${esc(c.tip)}</div>`
     : c.kind === 'word' ? `<div class="huge" style="font-size:44px">${c.emoji || ''} ${ruby(c.w, c.b)}</div>${c.tag ? `<div>${esc(c.tag)}</div>` : ''}`
     : `<div class="huge">${esc(c.c)}</div><div class="zy">${esc(c.b)}</div>${c.tag ? `<div>${esc(c.tag)}</div>` : ''}`;
-  const btns = el('div', 'lf-btns'); const say = el('button', 'lf-btn', '🔊 聽發音'); say.onclick = () => speak(sayText); btns.appendChild(say);
-  if (c.kind === 'zhuyin') { const sw = el('button', 'lf-btn alt', '🔊 聽例詞'); sw.onclick = () => speak(c.word); btns.appendChild(sw); }
-  if (c.kind === 'tone') { const all = el('button', 'lf-btn alt', '🔊 媽麻馬罵嗎'); all.onclick = () => speak('媽，麻，馬，罵，嗎'); btns.appendChild(all); }
+  const btns = el('div', 'lf-btns'); const say = el('button', 'lf-btn', slow ? '🔊 慢慢念' : '🔊 聽發音'); say.onclick = () => speak(sayText, rate); btns.appendChild(say);
+  if (c.kind === 'tone') { const all = el('button', 'lf-btn alt', '🔊 媽麻馬罵嗎'); all.onclick = () => speak('媽，麻，馬，罵，嗎', SLOW); btns.appendChild(all); }
   side.appendChild(btns);
   const strokeChar = [...glyph].length === 1 ? glyph : null;
   if (strokeChar) { const cv = el('canvas'); cv.width = cv.height = 440; cv.setAttribute('aria-label', `「${strokeChar}」的筆順動畫`); wrap.appendChild(cv); const cnt = el('div', null, ''); const pl = strokePlayer(cv, strokeChar, { onCount: (i, n) => { cnt.textContent = `第 ${i}／${n} 筆`; } });
     const sb = el('div', 'lf-btns'); const play = el('button', 'lf-btn go', '▶ 播放筆順'), step = el('button', 'lf-btn alt', '下一筆'); play.onclick = () => pl.play(); step.onclick = () => pl.step(); sb.append(play, step); side.append(sb, cnt);
     pl.load().then(ok => { if (ok) pl.play(); else { play.disabled = step.disabled = true; } }); }
-  wrap.appendChild(side); const back = el('button', 'lf-btn alt', '← 回到卡片'); back.style.marginTop = '14px'; back.onclick = () => { body.innerHTML = ''; renderLearn(body, L); }; body.appendChild(back); speak(sayText); }
+  wrap.appendChild(side); const back = el('button', 'lf-btn alt', '← 回到卡片'); back.style.marginTop = '14px'; back.onclick = () => { body.innerHTML = ''; renderLearn(body, L); }; body.appendChild(back); speak(sayText, rate); }
 
 function renderQuiz(body, id) { const PASS = passOf(id), qs = quizOf(id, D, Date.now() & 0xffffff); let i = 0, right = 0;
   const show = () => { body.innerHTML = ''; const bar = el('div', 'lf-bar', `<i style="width:${i / qs.length * 100}%"></i>`); body.appendChild(bar);
     if (i >= qs.length) return finish(); const q = qs[i];
     body.appendChild(el('div', 'lf-q', `第 ${i + 1} 題　${esc(q.q)}`));
-    if (q.listen) { const b = el('button', 'lf-btn go', '🔊 再聽一次'); b.onclick = () => speak(q.say); body.appendChild(b); speak(q.say); }
+    if (q.listen) { const b = el('button', 'lf-btn go', '🔊 再聽一次'); b.onclick = () => speak(q.say, q.slow ? SLOW : 0.75); body.appendChild(b); speak(q.say, q.slow ? SLOW : 0.75); }
     else if (q.big) body.appendChild(el('div', 'lf-qbig', q.bigB ? ruby(q.big, q.bigB) : esc(q.big)));
     const ch = el('div', 'lf-ch'); body.appendChild(ch);
     q.choices.forEach((c, k) => { const b = el('button', null, `${k + 1}. ${esc(c)}`); b.onclick = () => { [...ch.children].forEach(x => x.disabled = true); const ok = k === q.a; if (ok) right++; b.classList.add(ok ? 'ok' : 'no'); ch.children[q.a].classList.add('ok');
-        const why = el('div', 'lf-why', `${ok ? '答對了！🎉' : `答案是「${esc(q.choices[q.a])}」`}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
-        if (q.say && !q.listen) speak(q.say);
+        const why = el('div', 'lf-why', `${ok ? '答對了！🎉' : `答案是「${esc(q.choices[q.a])}」`}${q.after ? '　剛剛念的是：' + esc(q.after) : ''}${q.why ? '　' + esc(q.why) : ''}`); body.appendChild(why);
+        if (q.say && !q.listen) speak(q.say, q.slow ? SLOW : 0.75);
         const nx = el('button', 'lf-btn go', i + 1 < qs.length ? '下一題 →' : '看結果'); nx.style.marginTop = '10px'; nx.onclick = () => { i++; show(); }; body.appendChild(nx); nx.focus(); }; ch.appendChild(b); }); };
   const finish = () => { const pass = right >= PASS.need, res = pass ? record(id, right, qs.length) : null, first = res && res.first, g = nodeById(id).guardian;
     const nx = pass && nextReview(id), when = nx ? `${nx.getMonth() + 1}/${nx.getDate()}` : '';
