@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>彎曲地平線測試</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root { --bg:#fff8f4; --ink:#211d1d; --muted:#78685e; --line:#211d1d1f; --coral:#db6a41; --panel:#fff8f4ee; color-scheme:light; }
+  * { box-sizing:border-box }
+  html, body { height:100%; margin:0; overflow:hidden }
+  body { background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; font-size:13px }
+  #stage { position:fixed; inset:0 }
+  .panel { position:fixed; left:max(16px, env(safe-area-inset-left)); top:16px; width:min(300px, calc(100vw - 32px)); background:var(--panel); border-radius:16px; box-shadow:0 8px 28px #78685e40; padding:14px 16px; display:flex; flex-direction:column; gap:10px; max-height:calc(100vh - 32px); overflow:auto }
+  .panel h1 { margin:0; font-size:17px; font-weight:900; color:var(--coral) }
+  .panel p { margin:0; color:var(--muted); line-height:1.5 }
+  label { display:flex; flex-direction:column; gap:4px; font-weight:700 }
+  label.row { flex-direction:row; align-items:center; gap:8px; font-weight:500 }
+  label span.v { color:var(--muted); font-weight:500; font-family:ui-monospace,Menlo,Consolas,monospace }
+  input[type=range] { width:100% }
+  .seg { display:flex; gap:6px; flex-wrap:wrap }
+  .seg button { flex:1; border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 10px; font:inherit; cursor:pointer }
+  .seg button[aria-pressed="true"] { background:var(--coral); border-color:var(--coral); color:#fff8f4; font-weight:700 }
+  .hint { position:fixed; right:max(16px, env(safe-area-inset-right)); bottom:16px; background:var(--panel); border-radius:999px; padding:6px 14px; color:var(--muted); box-shadow:0 4px 14px #78685e30 }
+  @media (max-width:640px) { .panel { top:auto; bottom:16px; max-height:46vh } .hint { display:none } }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="彎曲地平線測試場景"></div>
+<section class="panel" aria-label="彎曲地平線設定">
+  <h1>彎曲地平線（滾木效果）</h1>
+  <p>頂點離相機越遠就往下彎：y −= k × d²。用 onBeforeCompile 改 MeshStandardMaterial，地面、樹（InstancedMesh）、房子、影子都一起彎。</p>
+  <label class="row"><input type="checkbox" id="on" checked> 開啟彎曲</label>
+  <div class="seg" role="group" aria-label="彎曲方式"><button type="button" data-mode="0" aria-pressed="true">滾木（只往前彎）</button><button type="button" data-mode="1" aria-pressed="false">球（四周都彎）</button></div>
+  <label>曲率 k <span class="v" id="kv"></span><input type="range" id="k" min="0" max="0.03" step="0.0005" value="0.006"></label>
+  <label>腳邊平坦區 <span class="v" id="fv"></span><input type="range" id="flat" min="0" max="12" step="0.5" value="3"></label>
+  <label>鏡頭俯角 <span class="v" id="pv"></span><input type="range" id="pitch" min="8" max="60" step="1" value="22"></label>
+  <div class="seg" role="group" aria-label="地面"><button type="button" data-ground="shader" aria-pressed="true">平面＋shader</button><button type="button" data-ground="ref" aria-pressed="false">真的大圓柱／球（對照）</button></div>
+  <label class="row"><input type="checkbox" id="auto" checked> 自動往前走</label>
+  <p id="note"></p>
+</section>
+<div class="hint">WASD／方向鍵走路・拖曳旋轉鏡頭</div>
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+<script type="module" src="js/curve-test.js"></script>
+</body>
+</html>
