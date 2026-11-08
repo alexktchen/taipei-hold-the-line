@@ -1,0 +1,3 @@
+{
+  "_說明": "把 Gobkit 等角色的 GLB 放在這個資料夾，依角色 id 填：\"office\": { \"file\": \"office.glb\", \"height\": 1.7, \"rotateY\": 0, \"clips\": { \"run\": \"Run\", \"idle\": \"Idle\", \"jump\": \"Jump\", \"fall\": \"Fall\", \"win\": \"Victory\" } }。沒填的角色用程式人偶。"
+}

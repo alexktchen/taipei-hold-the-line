@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+<title>激走跑者：台北・東京・京都</title>
+<meta name="description" content="TomaRunner 風格的徒步競速網頁遊戲：8 位 Q 版大頭人在台北夜市、東京下町商店街、京都祇園坂道上衝刺、跳躍、推人、丟道具。">
+<meta name="theme-color" content="#14122a">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+  :root { --ink:#f4f1ff; --muted:#a9a3c8; --paper:#1a1836f0; --accent:#ff5a3c; --accent2:#3ad6ff; --gold:#ffd166; color-scheme:dark; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  html, body { margin:0; height:100%; overflow:hidden; background:#14122a; color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; touch-action:none; overscroll-behavior:none; -webkit-text-size-adjust:100% }
+  #app { position:fixed; inset:0 } #app canvas { display:block }
+  button { font:inherit; color:inherit; cursor:pointer }
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; overflow:auto; padding:max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom)); background:radial-gradient(1200px 600px at 50% -10%, #3a2a6a99, transparent), #14122acc; backdrop-filter:blur(6px); z-index:20; touch-action:pan-y }
+  .screen[hidden] { display:none }
+  .logo { text-align:center; margin:8px 0 14px }
+  .logo b { display:block; font-size:clamp(34px, 7vw, 58px); font-weight:900; letter-spacing:.06em; background:linear-gradient(180deg,#fff 20%, var(--gold) 55%, var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 8px 30px #ff5a3c44; line-height:1.1 }
+  .logo span { display:block; color:var(--muted); font-weight:700; letter-spacing:.3em; font-size:12px; margin-top:6px }
+  .logo em { display:block; color:#cfc8ff; font-style:normal; font-size:13px; margin-top:8px; font-weight:500 }
+  .wrap { width:min(980px, 100%); display:grid; gap:16px; grid-template-columns:1fr }
+  .card { background:var(--paper); border-radius:20px; padding:14px 16px; box-shadow:0 10px 40px #0008; border:1px solid #ffffff14 }
+  .card h2 { margin:0 0 10px; font-size:15px; letter-spacing:.12em; color:var(--muted); font-weight:900 } .card h2 b { color:var(--ink); font-size:18px; margin-right:8px }
+  .chars { display:grid; grid-template-columns:220px 1fr; gap:14px; align-items:start }
+  #preview { width:220px; height:260px; border-radius:16px; background:linear-gradient(180deg,#2a2550,#15132c); display:block; box-shadow:inset 0 0 0 1px #ffffff14 }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px }
+  .pick { position:relative; border:2px solid transparent; border-radius:14px; background:#ffffff0c; padding:8px 6px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; transition:transform .12s, border-color .12s, background .12s }
+  .pick:hover { background:#ffffff18 } .pick.on { border-color:var(--gold); background:#ffd16622; transform:translateY(-2px) }
+  .pick img { width:72px; height:86px; object-fit:contain; image-rendering:auto; filter:drop-shadow(0 6px 8px #0008) }
+  .pick b { font-size:15px } .pick small { color:var(--muted); font-size:11px }
+  .info { margin-top:10px; display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; color:#d8d2ff; font-size:13px } .info b { font-size:18px; color:var(--gold) } .info .stats { display:flex; gap:8px; flex-wrap:wrap } .stat { background:#ffffff12; border-radius:999px; padding:2px 10px; font-size:12px } .stat i { font-style:normal; color:var(--accent2); font-weight:900 }
+  .courses { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px }
+  .course { border:2px solid transparent; border-radius:16px; overflow:hidden; background:#ffffff0c; text-align:left; padding:0; transition:transform .12s, border-color .12s } .course.on { border-color:var(--gold); transform:translateY(-2px) }
+  .course .sky { height:74px; position:relative } .course .sky::after { content:""; position:absolute; left:0; right:0; bottom:0; height:22px; background:linear-gradient(180deg, transparent, #0006) }
+  .course .body { padding:10px 12px 12px } .course b { display:block; font-size:17px } .course small { display:block; color:var(--muted); font-size:11px; letter-spacing:.15em; margin:2px 0 6px } .course p { margin:0; font-size:12px; color:#cfc8ff; line-height:1.5 }
+  .opts { display:flex; flex-wrap:wrap; gap:18px; align-items:center } .seg { display:inline-flex; background:#ffffff10; border-radius:999px; padding:3px } .seg button { border:0; background:transparent; border-radius:999px; padding:6px 14px; font-weight:900; color:var(--muted) } .seg button.on { background:var(--accent2); color:#0b1430 }
+  .opts label { display:flex; align-items:center; gap:10px; font-weight:700; color:var(--muted); font-size:13px }
+  #btnStart { margin:6px auto 0; border:0; border-radius:999px; padding:16px 54px; font-size:22px; font-weight:900; background:linear-gradient(180deg, #ff7a5c, var(--accent)); color:#fff; box-shadow:0 8px 0 #a8321c, 0 16px 40px #ff5a3c55; letter-spacing:.1em } #btnStart:active { transform:translateY(5px); box-shadow:0 3px 0 #a8321c }
+  .help { color:var(--muted); font-size:12px; text-align:center; line-height:1.7; margin:4px 0 0 } .help kbd { background:#ffffff14; border-radius:6px; padding:1px 7px; font-family:inherit; color:var(--ink); font-weight:900 }
+  .credit { color:#6f6a90; font-size:11px; text-align:center; margin-top:14px; line-height:1.6 } .credit a { color:#9f98d8 }
+  @media (max-width:640px) { .chars { grid-template-columns:1fr } #preview { width:100%; height:200px } .grid { grid-template-columns:repeat(4, 1fr) } .pick img { width:54px; height:64px } .pick b { font-size:13px } }
+
+  /* ─── HUD ─── */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; font-weight:900 } #hud[hidden] { display:none }
+  .place { position:absolute; left:max(18px, env(safe-area-inset-left)); bottom:max(18px, env(safe-area-inset-bottom)); display:flex; align-items:baseline; gap:4px; text-shadow:0 4px 0 #0008, 0 10px 30px #0008 }
+  .place b { font-size:clamp(64px, 12vw, 104px); line-height:1; color:var(--gold); -webkit-text-stroke:3px #3a1a10 } .place i { font-style:normal; font-size:clamp(20px, 4vw, 32px); color:#fff; -webkit-text-stroke:1.5px #3a1a10 } .place.p1 b { color:#fff } 
+  .lap { position:absolute; left:max(18px, env(safe-area-inset-left)); top:max(16px, env(safe-area-inset-top)); font-size:20px; letter-spacing:.1em; text-shadow:0 2px 0 #0008 } .lap b { font-size:34px; color:var(--accent2) } .lap span { color:var(--muted) }
+  .timer { position:absolute; left:max(18px, env(safe-area-inset-left)); top:calc(max(16px, env(safe-area-inset-top)) + 54px); font-size:18px; color:#fff; font-variant-numeric:tabular-nums; text-shadow:0 2px 0 #0008 }
+  .gauges { position:absolute; right:max(18px, env(safe-area-inset-right)); bottom:max(18px, env(safe-area-inset-bottom)); width:min(260px, 42vw); display:flex; flex-direction:column; gap:6px; align-items:flex-end }
+  .dash { width:100%; height:16px; border-radius:999px; background:#0008; border:2px solid #ffffff44; overflow:hidden; position:relative } .dash i { display:block; height:100%; width:100%; background:linear-gradient(90deg, #3ad6ff, #a0f0ff); transform-origin:left; transition:transform .08s linear } .dash.low i { background:linear-gradient(90deg, #ff5a3c, #ffb08a) } .dash::after { content:"DASH"; position:absolute; left:8px; top:-1px; font-size:11px; letter-spacing:.2em; color:#fff; mix-blend-mode:difference }
+  .speed { font-size:34px; color:#fff; text-shadow:0 3px 0 #0008; font-variant-numeric:tabular-nums } .speed small { font-size:13px; color:var(--muted); margin-left:4px }
+  .item { position:absolute; right:max(18px, env(safe-area-inset-right)); top:max(16px, env(safe-area-inset-top)); width:84px; height:84px; border-radius:22px; background:#0a0a1aaa; border:3px solid #ffffff33; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; transition:transform .15s, border-color .15s } .item.has { border-color:var(--gold); transform:scale(1.06); box-shadow:0 0 24px #ffd16655 } .item svg { width:44px; height:44px } .item b { font-size:11px; color:#fff } .item.has .hint { position:absolute; bottom:-18px; font-size:11px; color:var(--gold) }
+  #mini { position:absolute; right:max(18px, env(safe-area-inset-right)); top:calc(max(16px, env(safe-area-inset-top)) + 100px); width:150px; height:150px; border-radius:50%; background:#0a0a1a99; border:3px solid #ffffff33 }
+  .center { position:absolute; left:50%; top:24%; transform:translate(-50%, 0); font-size:clamp(48px, 14vw, 120px); color:var(--gold); -webkit-text-stroke:3px #3a1a10; text-shadow:0 10px 0 #0006, 0 20px 50px #000a; opacity:0; transition:opacity .15s, transform .15s; white-space:nowrap } .center.on { opacity:1 } .center.pop { animation:pop .5s ease-out } .center.warn { color:#ff5a3c; font-size:clamp(28px, 7vw, 56px) }
+  @keyframes pop { 0% { transform:translate(-50%, 0) scale(1.6) } 100% { transform:translate(-50%, 0) scale(1) } }
+  #toast { position:absolute; left:50%; top:calc(24% + 130px); transform:translateX(-50%); background:#0a0a1acc; border-radius:999px; padding:8px 20px; font-size:16px; color:#fff; opacity:0; transition:opacity .2s; white-space:nowrap } #toast.on { opacity:1 }
+  #btnMute { position:absolute; left:50%; top:max(14px, env(safe-area-inset-top)); transform:translateX(-50%); pointer-events:auto; border:0; border-radius:999px; background:#0a0a1aaa; color:#fff; width:40px; height:40px; display:flex; align-items:center; justify-content:center } #btnMute svg { width:22px; height:22px }
+  .screen #btnMuteMenu { position:absolute; right:14px; top:max(14px, env(safe-area-inset-top)); border:0; border-radius:999px; background:#ffffff14; color:#fff; width:40px; height:40px; display:flex; align-items:center; justify-content:center } #btnMuteMenu svg { width:22px; height:22px }
+  .tctl { display:none } body.touch .tctl { display:block }
+  .tctl button { position:absolute; pointer-events:auto; border:0; border-radius:50%; background:#ffffff22; border:2px solid #ffffff55; color:#fff; font-weight:900; font-size:14px; letter-spacing:.05em; user-select:none; -webkit-user-select:none; backdrop-filter:blur(4px) } .tctl button:active, .tctl button.down { background:#ffd16688; border-color:var(--gold) }
+  .tctl .l { left:max(16px, env(safe-area-inset-left)); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 120px); width:78px; height:78px; font-size:30px } .tctl .r { left:calc(max(16px, env(safe-area-inset-left)) + 92px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 120px); width:78px; height:78px; font-size:30px }
+  .tctl .jump { right:max(18px, env(safe-area-inset-right)); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 100px); width:84px; height:84px; background:#3ad6ff44 }
+  .tctl .dash { right:calc(max(18px, env(safe-area-inset-right)) + 96px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 100px); width:84px; height:84px; background:#ff5a3c44; border-radius:50% } .tctl .dash::after { content:none }
+  .tctl .shove { right:calc(max(18px, env(safe-area-inset-right)) + 56px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 194px); width:66px; height:66px; font-size:12px }
+  .tctl .item { right:calc(max(18px, env(safe-area-inset-right)) + 140px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 194px); width:66px; height:66px; font-size:12px; position:absolute; top:auto; display:block; border-radius:50%; transform:none; box-shadow:none; background:#ffd16644 }
+  body.touch .gauges { bottom:calc(max(18px, env(safe-area-inset-bottom)) + 6px); width:min(200px, 40vw) } body.touch .speed { font-size:24px } body.touch .place { bottom:max(18px, env(safe-area-inset-bottom)) }
+  body.touch #mini { width:110px; height:110px } body.touch .item { width:68px; height:68px } body.touch .item svg { width:34px; height:34px }
+
+  /* ─── 結果 ─── */
+  #results .card { width:min(560px, 100%) } #results h2 { font-size:28px; margin:0 0 4px; text-align:center } #results h2 b { color:var(--gold) } #results .sub { text-align:center; color:var(--muted); margin:0 0 14px; font-size:13px }
+  table { width:100%; border-collapse:collapse; font-size:15px } td { padding:8px 8px; border-bottom:1px solid #ffffff14 } tr.me td { background:#ffd16622; color:var(--gold) } td.pl { font-size:20px; font-weight:900; width:44px } td.t { text-align:right; font-variant-numeric:tabular-nums; color:#d8d2ff } td small { color:var(--muted); margin-left:6px; font-weight:500 }
+  .btns { display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap } .btns button { border:0; border-radius:999px; padding:12px 26px; font-weight:900; font-size:16px } .btns .pri { background:var(--accent); color:#fff; box-shadow:0 5px 0 #a8321c } .btns .sec { background:#ffffff18; color:#fff }
+  #loading { position:fixed; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; background:#14122a; color:var(--muted); font-weight:900; letter-spacing:.2em; transition:opacity .3s } #loading[hidden] { display:none } #loading b { font-size:28px; color:var(--gold); letter-spacing:.1em }
+</style>
+</head>
+<body>
+<div id="app" aria-label="激走跑者 3D 畫面"></div>
+<div id="loading"><b>激走跑者</b><span id="loadMsg">建造城市中…</span></div>
+
+<section id="menu" class="screen" aria-label="選角色與賽道">
+  <button id="btnMuteMenu" type="button" aria-label="靜音"></button>
+  <div class="logo"><b>激走跑者</b><span>GEKISOU RUNNER</span><em>8 人徒步競速・台北夜市・東京下町・京都祇園</em></div>
+  <div class="wrap">
+    <div class="card chars">
+      <canvas id="preview" width="440" height="520" aria-label="角色預覽"></canvas>
+      <div><h2><b>選角色</b>CHARACTER</h2><div id="charList" class="grid"></div><div id="charInfo" class="info"></div></div>
+    </div>
+    <div class="card"><h2><b>選賽道</b>COURSE</h2><div id="courseList" class="courses"></div></div>
+    <div class="card opts">
+      <label>難度 <span class="seg" id="diffSeg"></span></label>
+      <label>圈數 <span class="seg" id="lapSeg"></span></label>
+      <label>對手 <span class="seg" id="aiSeg"></span></label>
+    </div>
+    <button id="btnStart" type="button">開跑！</button>
+    <p class="help"><kbd>←</kbd><kbd>→</kbd> 或 <kbd>A</kbd><kbd>D</kbd> 轉向・<kbd>空白鍵</kbd> 跳・<kbd>Shift</kbd> 衝刺（看能量條）・<kbd>E</kbd> 推人・<kbd>Q</kbd> 用道具・<kbd>↓</kbd> 煞車<br>跟在別人後面跑能量回得快；跳得過三角錐、機車、腳踏車，跳不過販賣機和攤販。</p>
+    <p class="credit">非官方、網友自製的致敬作品。人偶是程式畫的 Q 版大頭人（風格參考 <a href="https://gobkit.com/freebies" target="_blank" rel="noopener">Gobkit</a> 的免費角色包；把 GLB 放進 <code>models/</code> 並寫 <code>manifest.json</code> 就會改用它們）。街景、招牌、地標都是象徵性的迷你模型。</p>
+  </div>
+</section>
+
+<div id="hud" hidden>
+  <div class="lap">LAP <b id="hudLap">1</b><span>/<span id="hudLaps">2</span></span></div>
+  <div class="timer" id="hudTime">0:00.00</div>
+  <div class="place" id="hudPlaceBox"><b id="hudPlace">8</b><i id="hudPlaceSuf">th</i></div>
+  <div class="gauges"><div class="dash" id="hudDash"><i></i></div><div class="speed"><span id="hudSpeed">0</span><small>km/h</small></div></div>
+  <div class="item" id="hudItem"><span class="ico"></span><b>道具</b><span class="hint">Q 使用</span></div>
+  <canvas id="mini" width="300" height="300" aria-label="小地圖"></canvas>
+  <div id="center" class="center" aria-live="polite"></div>
+  <div id="toast" role="status"></div>
+  <button id="btnMute" type="button" aria-label="靜音"></button>
+  <div class="tctl">
+    <button class="l" data-k="left" aria-label="左轉">◀</button><button class="r" data-k="right" aria-label="右轉">▶</button>
+    <button class="jump" data-k="jump">跳</button><button class="dash" data-k="dash">衝刺</button>
+    <button class="shove" data-k="shove">推</button><button class="item" data-k="item">道具</button>
+  </div>
+</div>
+
+<section id="results" class="screen" hidden aria-label="成績">
+  <div class="card"><h2 id="resTitle">第 <b>1</b> 名！</h2><p class="sub" id="resSub"></p><table><tbody id="resBody"></tbody></table>
+    <div class="btns"><button class="pri" id="btnAgain">再跑一次</button><button class="sec" id="btnMenu">回選單</button></div></div>
+</section>
+
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/examples/jsm/"}}</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
