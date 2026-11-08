@@ -322,31 +322,62 @@ export function buildScenery(track, course, seed = 7) {
   const stepsAt = (period, offset = 0) => { const arr = []; for (let i = offset; i < N; i += period) arr.push(i / N); return arr; };
 
   // ── 房子：沿兩側排
-  for (const s of [1, -1]) {
-    let i = R.range(0, 6);
-    while (i < N) {
-      const w = isKyoto ? R.range(6.5, 10) : isTokyo ? R.range(6, 9) : R.range(8, 13);
-      const t = i / N;
-      if (!noBuildAt(t)) {
-        const sideFlag = s > 0 ? 'L' : 'R';
-        // 河邊段（京都 river 在右側不蓋房）
-        const skip = isKyoto && track.inRange(t, feat.river) && s < 0;
-        if (!skip) {
-          const f = track.frameT(t, s * (lim + 0.5));
-          // 彎道內側房子會互相穿插；用曲率縮小一點
-          b.push(f.x, f.y, f.z, f.ry);
-          if (isTaipei) bldTaipei(b, R, w, isNight); else if (isTokyo) bldTokyo(b, R, w, lit); else machiya(b, R, w);
-          b.pop();
+  const bldW = () => isKyoto ? R.range(6.5, 10) : isTokyo ? R.range(6, 9) : R.range(8, 13);
+  const placeBld = (t, x, y, z, ry, w, s) => {
+    if (noBuildAt(t)) return;
+    if (isKyoto && track.inRange(t, feat.river) && s < 0) return; // 河邊段右側不蓋房
+    b.push(x, y, z, ry);
+    if (isTaipei) bldTaipei(b, R, w, isNight); else if (isTokyo) bldTokyo(b, R, w, lit); else machiya(b, R, w);
+    b.pop();
+  };
+  if (course.grid) {
+    const nC = track.corners.length;
+    for (let i = 0; i < nC; i++) {
+      const A = track.corners[i], B = track.corners[(i + 1) % nC];
+      const d = B.pos.clone().sub(A.pos); const L = d.length(); d.normalize(); const l = new THREE.Vector3(d.z, 0, -d.x);
+      for (const s of [1, -1]) {
+        let a = lim + 0.5; const end = L - (lim + 0.5);
+        while (end - a >= 4) {
+          let w = bldW(); if (a + w > end || end - (a + w) < 4) w = end - a; // 最後一棟吃掉剩下的
+          const m = a + w / 2, c = A.pos.clone().addScaledVector(d, m).addScaledVector(l, s * (lim + 0.5));
+          placeBld(((A.idx + m) % N) / N, c.x, lerp(A.pos.y, B.pos.y, m / L), c.z, Math.atan2(-s * l.x, -s * l.z), w, s);
+          a += w + R.range(0, 0.3);
         }
       }
-      i += w + R.range(0, 0.3);
     }
+  } else {
+    for (const s of [1, -1]) {
+      let i = R.range(0, 6);
+      while (i < N) { const w = bldW(), f = track.frameT(i / N, s * (lim + 0.5)); placeBld(i / N, f.x, f.y, f.z, f.ry, w, s); i += w + R.range(0, 0.3); }
+    }
+  }
+  // ── 直角彎：外側補一棟轉角大樓把正前方的牆補滿，牆上放箭頭指示牌（像走廊盡頭的告示）
+  for (const c of track.corners) {
+    const u = c.dIn, v = c.dOut, P = c.pos, H = isKyoto ? R.range(6, 9) : R.range(12, isTaipei ? 24 : 16);
+    const du = lim + 0.5 + 7, dv = -6.5, sizeV = 2 * lim + 16;
+    const cx = P.x + u.x * du + v.x * dv, cz = P.z + u.z * du + v.z * dv;
+    const ry = Math.atan2(-u.x, -u.z); // 局部 +z 朝向跑過來的人
+    b.push(cx, P.y, cz, ry);
+    const wallCol = isTaipei ? R.pick(TW_TILES) : isTokyo ? R.pick(JP_WALLS) : 0xe8e0d0;
+    b.box(sizeV, H + 4, 14, 0, H / 2 - 2, 0, wallCol);
+    if (isKyoto) b.box(sizeV + 0.8, 0.5, 14.8, 0, H + 0.2, 0, 0x3a3a40); else b.box(sizeV, 0.6, 14, 0, H + 0.3, 0, wallCol);
+    // 窗
+    for (let f = 1; f < Math.floor(H / 3); f++) for (let k = 0; k < Math.floor(sizeV / 3); k++) { const on = lit && R.chance(0.5); b.box(1.4, 1.2, 0.06, -sizeV / 2 + 1.5 + k * 3, f * 3 + 1.5, 7.03, on ? 0xffe4a8 : 0x3a4858, { lit: on }); }
+    b.pop();
+    // 箭頭牌：掛在正前方的牆上、略偏彎道外側，高 3.4 公尺
+    const sx = P.x + u.x * (lim + 0.45) + v.x * (-lim * 0.35), sz = P.z + u.z * (lim + 0.45) + v.z * (-lim * 0.35);
+    b.push(sx, P.y, sz, ry);
+    b.box(4.6, 3.0, 0.14, 0, 3.6, -0.08, 0x2a2a2a);
+    b.sign(c.turn > 0 ? '←' : '→', 4.4, 2.8, 0, 3.6, 0.0, '#f2c230', '#1f4fd0', { size: 112 }); // turn>0 左轉
+    if (lit) b.box(1.0, 0.08, 0.3, 0, 4.7, 0.2, 0xfff1c0, { lit: true });
+    b.pop();
   }
   // ── 遠景：第二排街廓（深色量體，夜晚亮窗）
   const backRows = isTaipei ? 2 : 1;
   for (let row = 0; row < backRows; row++) for (const s of [1, -1]) {
     for (let i = R.range(0, 10); i < N; i += R.range(11, 19)) {
       const f = track.frameT(i / N, s * (lim + 14 + row * 14)), w = R.range(10, 18), h = isKyoto ? R.range(5, 9) : R.range(10, isTaipei ? 36 : 22);
+      { let tooClose = false; for (let k = 0; k < N; k += 2) { const q = track.pos[k]; if ((q.x - f.x) ** 2 + (q.z - f.z) ** 2 < 14 * 14) { tooClose = true; break; } } if (tooClose) continue; } // 太靠近別段馬路就不放
       b.push(f.x, f.y, f.z, f.ry); b.box(w, h + 4, 12, 0, h / 2 - 2, -6, R.pick(isTaipei ? [0x3a3a48, 0x4a4a58, 0x5a5a68] : isKyoto ? [0x5a4232, 0xe8e0d0, 0x4a3626] : [0x8a8a90, 0xa8a4a0, 0x6a6a70])); if (isKyoto) b.box(w + 1, 0.5, 13, 0, h + 0.2, -6, 0x3a3a40);
       if (lit) for (let k = 0; k < Math.round(w * h / 14); k++) if (R.chance(0.4)) b.box(0.9, 1.0, 0.1, -w / 2 + 1 + R() * (w - 2), 1 + R() * (h - 2), 0.05, R.pick([0xffe4a8, 0xbfe6ff, 0xfff1c8]), { lit: true });
       b.pop();
@@ -388,9 +419,9 @@ export function buildScenery(track, course, seed = 7) {
     else { if (pick < 0.62) stoneLantern(b); else if (pick < 0.75) bench(b); else if (pick < 0.85) planter(b, R); else if (pick < 0.9) bicycle(b, 0x3a3a3a); else flag(b, R, R.pick(['抹茶', '甘味', '京漬物', '湯豆腐']), R.pick(['#5a3a22', '#b8362a', '#1f2f6f']), '#f4e8c8'); }
     b.pop();
   }
-  world.itemT = isTaipei ? [0.14, 0.42, 0.66, 0.88] : isTokyo ? [0.13, 0.4, 0.5, 0.74, 0.92] : [0.12, 0.33, 0.56, 0.8];
+  world.itemT = course.items || [0.14, 0.42, 0.66, 0.88];
   const LW = track.halfW * 0.62; // 三線道間距
-  const blockedT = (t) => world.itemT.some(x => Math.abs(x - t) < 0.015) || t < 0.03 || t > 0.965
+  const blockedT = (t) => world.itemT.some(x => Math.abs(x - t) < 0.015) || t < 0.03 || t > 0.965 || track.nearCorner(t, 9)
     || (isTaipei && (Math.abs(t - feat.intersection[0]) < 0.02 || Math.abs(t - feat.intersection[1]) < 0.02))
     || (isTokyo && Math.abs(t - feat.crossing) < 0.025) || (isKyoto && Math.abs(t - feat.crosswalk) < 0.015);
   for (let i = 14; i < N - 8; i += R.range(11, 19)) {
@@ -407,15 +438,15 @@ export function buildScenery(track, course, seed = 7) {
     }
   }
   // ── 加速墊
-  const boostT = isTaipei ? [0.31, 0.78] : isTokyo ? [0.09, 0.44, 0.86] : [0.22, 0.73];
+  const boostT = course.boosts || [0.31, 0.78];
   for (const t of boostT) { const f = track.frameT(t, 0); b.push(f.x, f.y + 0.01, f.z, f.yaw); for (let i = 0; i < 3; i++) { b.box(1.2, 0.02, 0.35, -0.6, 0, i * 1.1 - 1, 0x40f0ff, { lit: true, ry: 0.6 }); b.box(1.2, 0.02, 0.35, 0.6, 0, i * 1.1 - 1, 0x40f0ff, { lit: true, ry: -0.6 }); } b.pop(); world.boosts.push({ x: f.x, z: f.z, r: 1.6 }); }
 
   // ── 主題特色
   if (isTaipei) {
     // 夜市段：攤販、跨街燈籠、更多人
     const [m0, m1] = feat.market; const span = m1 - m0;
-    for (const s of [1, -1]) for (let k = 0; k < Math.round(span * N / 4.5); k++) { const t = m0 + (k + (s > 0 ? 0.25 : 0.75)) * span / Math.round(span * N / 4.5); const f = track.frameT(t, s * (track.halfW + 0.9)); b.push(f.x, f.y + 0.14, f.z, f.ry); stall(b, R, isNight); b.pop(); b.push(f.x, f.y + 0.14, f.z, f.ry + Math.PI + R.range(-0.5, 0.5)); b.push(R.range(-0.8, 0.8), 0, -1.6, 0); person(b, R); b.pop(); b.pop(); }
-    for (let k = 0; k < Math.round(span * N / 5); k++) { const t = m0 + k * span / Math.round(span * N / 5); const f = track.frameT(t, 0); b.push(f.x, f.y, f.z, f.yaw); b.box(0.05, 0.05, lim * 2 + 2, 0, 5.2, 0, 0x1a1a1a, { ry: Math.PI / 2 }); lanternRow(b, 9, 4.9, 0, (lim * 2) / 9, R.pick([0xe03a2a, 0xe03a2a, 0xf2b134])); b.pop(); }
+    for (const s of [1, -1]) for (let k = 0; k < Math.round(span * N / 4.5); k++) { const t = m0 + (k + (s > 0 ? 0.25 : 0.75)) * span / Math.round(span * N / 4.5); if (track.nearCorner(t, 7)) continue; const f = track.frameT(t, s * (track.halfW + 0.9)); b.push(f.x, f.y + 0.14, f.z, f.ry); stall(b, R, isNight); b.pop(); b.push(f.x, f.y + 0.14, f.z, f.ry + Math.PI + R.range(-0.5, 0.5)); b.push(R.range(-0.8, 0.8), 0, -1.6, 0); person(b, R); b.pop(); b.pop(); }
+    for (let k = 0; k < Math.round(span * N / 5); k++) { const t = m0 + k * span / Math.round(span * N / 5); if (track.nearCorner(t, 5)) continue; const f = track.frameT(t, 0); b.push(f.x, f.y, f.z, f.yaw); b.box(0.05, 0.05, lim * 2 + 2, 0, 5.2, 0, 0x1a1a1a, { ry: Math.PI / 2 }); lanternRow(b, 9, 4.9, 0, (lim * 2) / 9, R.pick([0xe03a2a, 0xe03a2a, 0xf2b134])); b.pop(); }
     // 廟
     { const f = track.frameT(feat.temple, lim + 0.5); b.push(f.x, f.y, f.z, f.ry); temple(b, R, isNight); b.pop(); world.labels.push({ x: f.x, y: f.y + 11, z: f.z, text: '保安宮' }); }
     // 路口：紅綠燈＋斑馬線＋穿越的機車
@@ -472,7 +503,9 @@ export function buildScenery(track, course, seed = 7) {
   const ground = new THREE.Group();
   const minY = Math.min(...track.pos.map(p => p.y)), maxY = Math.max(...track.pos.map(p => p.y));
   if (maxY - minY > 1.5) { // 有坡度：地面跟著賽道，兩側再向外斜下去
-    for (const s of [1, -1]) { b.raw(track.ribbon(s * (lim + 0.4), 0.1, s * (lim + 24), 0.1, course.pal.ground, { noise: 0.02 })); b.raw(track.ribbon(s * (lim + 24), 0.1, s * (lim + 60), -8, course.pal.ground, { noise: 0.03 })); }
+    // 格子路線的街道只隔約 30 公尺，地面帶狀不能太寬，否則會蓋到隔壁那條路
+    const gw = course.grid ? 8 : 24, gs = course.grid ? 11 : 60, gd = course.grid ? -3 : -8;
+    for (const s of [1, -1]) { b.raw(track.ribbon(s * (lim + 0.4), 0.1, s * (lim + gw), 0.1, course.pal.ground, { noise: 0.02 })); b.raw(track.ribbon(s * (lim + gw), 0.1, s * (lim + gs), gd, course.pal.ground, { noise: 0.03 })); }
   }
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: course.pal.ground }));
   plane.rotation.x = -Math.PI / 2; plane.position.y = (maxY - minY > 1.5 ? minY - 8 : -0.05); plane.receiveShadow = true; ground.add(plane);

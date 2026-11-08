@@ -10,8 +10,21 @@ const _d = new THREE.Vector3();
 export class Track {
   constructor(course) {
     this.course = course;
-    const pts = course.points.map(([x, z, y = 0]) => new THREE.Vector3(x, y, z));
-    this.curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
+    const sc = course.scale || 1, pts = course.points.map(([x, z, y = 0]) => new THREE.Vector3(x * sc, y, z * sc));
+    this.corners = [];
+    if (course.grid) { // 格子路線：直線＋小半徑直角彎（二次貝茲），彎道資訊留給場景放轉角大樓與箭頭
+      const rc = course.corner || 3.5, n = pts.length, path = new THREE.CurvePath();
+      const cutIn = [], cutOut = [];
+      for (let i = 0; i < n; i++) {
+        const P = pts[i], A = pts[(i - 1 + n) % n], B = pts[(i + 1) % n];
+        const dIn = new THREE.Vector3().subVectors(P, A).normalize(), dOut = new THREE.Vector3().subVectors(B, P).normalize();
+        cutIn.push(P.clone().addScaledVector(dIn, -rc)); cutOut.push(P.clone().addScaledVector(dOut, rc));
+        const turn = Math.sign(dIn.x * dOut.z - dIn.z * dOut.x); // >0 右轉（以 left=(tz,0,-tx) 的定義，左轉為負）
+        this.corners.push({ pos: P, dIn, dOut, turn: -turn });
+      }
+      for (let i = 0; i < n; i++) { path.add(new THREE.LineCurve3(cutOut[i], cutIn[(i + 1) % n])); path.add(new THREE.QuadraticBezierCurve3(cutIn[(i + 1) % n], pts[(i + 1) % n], cutOut[(i + 1) % n])); }
+      this.curve = path;
+    } else this.curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
     this.length = this.curve.getLength();
     const N = this.N = Math.round(this.length);
     const sp = this.curve.getSpacedPoints(N); sp.pop();
@@ -24,7 +37,10 @@ export class Track {
     for (let i = 0; i < N; i++) this.curv.push(angleDiff(this.yaw[(i + 4) % N], this.yaw[(i - 4 + N) % N]) / 8); // 每公尺轉幾弧度（正＝往左彎）
     this.halfW = course.width / 2; this.sw = course.sidewalk || 2.4;
     this.limit = this.halfW + this.sw; // 再過去就是牆（房子）
+    // 每個彎道對應的賽道比例 t（最近樣本）
+    for (const c of this.corners) { let best = 0, bd = Infinity; for (let i = 0; i < N; i++) { const d = this.pos[i].distanceToSquared(c.pos); if (d < bd) { bd = d; best = i; } } c.idx = best; c.t = best / N; }
   }
+  nearCorner(t, margin = 6) { return this.corners.some(c => { const d = Math.abs(((t - c.t) % 1 + 1.5) % 1 - 0.5); return d * this.N < margin; }); }
   wrap(i) { const N = this.N; return ((i % N) + N) % N; }
   idxAtT(t) { return this.wrap(Math.round(((t % 1) + 1) % 1 * this.N)); }
   // 把點投影到賽道：hint 是上一次的樣本（附近搜尋），沒有就全掃

@@ -161,7 +161,7 @@ async function startRace() {
   hud.setTrack(track); hud.show(true); hud.lastItem = undefined; hud.lastPlace = 0; hud.update(race, 0);
   const p = race.player; cam.yaw = p.heading; cam.pos.copy(p.pos).add(new THREE.Vector3(-Math.sin(p.heading) * 7, 3, -Math.cos(p.heading) * 7)); cam.fov = 62;
   $('loading').hidden = true;
-window.RUNNER = { startRace, endRace, pick, get race() { return race; } }; // 除錯用
+window.RUNNER = { startRace, endRace, pick, renderer, scene, camera, get race() { return race; } }; // 除錯用
   audio.ensure(); audio.startMusic(course.music);
   if (MOBILE) setTimeout(() => hud.toast('左右滑換線道・上滑跳・下滑煞車・左右交替點畫面加速・拉桿往上衝刺', 6), 4200);
   lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
@@ -206,7 +206,7 @@ function loop(now) {
   if (steps === 15) acc = 0;
   const p = race.player;
   // 相機：跟在後面，衝刺時視角拉寬、些微震動
-  cam.yaw += angleDiff(p.tanYaw ?? p.heading, cam.yaw) * (1 - Math.exp(-5 * dt));
+  cam.yaw += angleDiff(p.tanYaw ?? p.heading, cam.yaw) * (1 - Math.exp(-6.5 * dt));
   const port = isPortrait(), CC = port ? CFG.cam.portrait : CFG.cam.landscape, back = CC.back + p.speed * 0.06, up = CC.up;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
   const target = new THREE.Vector3(p.pos.x - fx * back, p.group.position.y - p.h * 0.6 + up, p.pos.z - fz * back);
