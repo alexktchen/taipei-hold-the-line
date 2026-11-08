@@ -2,6 +2,7 @@
 export const CFG = {
   laps: 2,
   racers: 8,
+  cam: { squeeze: 0.84, portrait: { back: 5.0, up: 2.5, fov: 74, look: 7, lookY: 0.9 }, landscape: { back: 5.4, up: 2.3, fov: 60, look: 6.5, lookY: 1.0 } }, // squeeze < 1：畫面左右壓縮（PS1 走廊感）
   phys: {
     maxSpeed: 11.5,     // 跑步最高速（單位／秒）
     accel: 7,          // 加速到目標速度的速率
@@ -42,7 +43,7 @@ export const CFG = {
     {
       id: 'taipei', name: '台北夜市大街', sub: 'TAIPEI NIGHT MARKET', theme: 'taipei', time: 'night',
       desc: '騎樓、鐵窗、招牌與滿街機車；夜市段有攤販與紅燈籠，小心路口衝出來的機車和垃圾車。',
-      width: 9, sidewalk: 2.6,
+      width: 6.4, sidewalk: 1.4,
       points: [[0, 0], [70, 0], [120, -8], [142, -48], [128, -92], [82, -112], [34, -104], [4, -72], [-36, -82], [-92, -104], [-134, -72], [-136, -18], [-104, 22], [-60, 34], [-26, 14]],
       // 特色段：t 是賽道比例（0 起點）
       features: { market: [0.04, 0.26], temple: 0.50, intersection: [0.36, 0.74], truck: 0.62 },
@@ -54,7 +55,7 @@ export const CFG = {
     {
       id: 'tokyo', name: '東京下町商店街', sub: 'TOKYO SHITAMACHI', theme: 'tokyo', time: 'dusk',
       desc: '電線桿、自動販賣機、居酒屋提燈與櫻花；平交道有電車通過，遠方看得到東京鐵塔與富士山。',
-      width: 8.5, sidewalk: 2.4,
+      width: 6.0, sidewalk: 1.3,
       points: [[0, 0], [80, 0], [140, 22], [162, 70], [134, 112, 5], [72, 122], [22, 92], [-28, 110], [-90, 122], [-142, 82], [-152, 22], [-112, -30], [-50, -32], [-20, -12]],
       features: { crossing: 0.60, shrine: 0.82, sakura: [0.66, 0.96], bridge: [0.25, 0.33] },
       sky: { top: 0x2a2f6a, horizon: 0xf08a5a, ground: 0x3a3a4a }, fog: { color: 0xc48a7a, near: 70, far: 240 },
@@ -65,7 +66,7 @@ export const CFG = {
     {
       id: 'kyoto', name: '京都祇園坂道', sub: 'KYOTO GION', theme: 'kyoto', time: 'day',
       desc: '町家木格子、石燈籠與楓葉；爬上清水坂、穿過千本鳥居，鴨川邊有人力車慢慢走。',
-      width: 8, sidewalk: 2.2,
+      width: 5.8, sidewalk: 1.2,
       points: [[0, 0], [52, -4], [100, -30, 2], [124, -80, 8], [96, -124, 12], [44, -134, 10], [2, -104, 6], [-40, -132, 4], [-102, -124, 0], [-134, -70], [-124, -20], [-84, 12], [-40, 22]],
       features: { torii: [0.36, 0.48], pagoda: 0.30, river: [0.70, 0.95], bamboo: [0.52, 0.62], crosswalk: 0.66 },
       sky: { top: 0x6fb2f0, horizon: 0xe8f0f8, ground: 0x9aa8a0 }, fog: { color: 0xdbe6ee, near: 80, far: 260 },

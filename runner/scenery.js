@@ -310,7 +310,7 @@ function pedestrianMesh(atlas, R) {
 
 /* ───────── 主流程 ───────── */
 export function buildScenery(track, course, seed = 7) {
-  const R = mkRng(seed), atlas = new SignAtlas(), b = new Builder(atlas);
+  const R = mkRng(seed), atlas = new SignAtlas(), b = new Builder(atlas), bt = new Builder(atlas); // bt：樹，離鏡頭近就不畫
   const world = { obstacles: [], movers: [], boosts: [], itemT: [], atlas, labels: [] };
   const isNight = night(course), lit = course.time !== 'day';
   const lim = track.limit, N = track.N, feat = course.features || {};
@@ -362,17 +362,16 @@ export function buildScenery(track, course, seed = 7) {
     for (const t of stepsAt(14, 7)) { if (track.inRange(t, feat.bridge)) continue; const f = track.frameT(t, lim - 0.6); b.push(f.x, f.y + 0.14, f.z, f.ry); utilityPole(b, lit); b.pop(); poles.push(f); }
     for (let i = 0; i < poles.length; i++) { const a = poles[i], c = poles[(i + 1) % poles.length]; const dx = c.x - a.x, dz = c.z - a.z, len = Math.hypot(dx, dz); if (len > 40) continue; for (const [dy, off] of [[8.1, -0.7], [8.1, 0.7], [7.5, -0.5], [7.5, 0.5]]) { b.push((a.x + c.x) / 2, (a.y + c.y) / 2 + dy - 0.3, (a.z + c.z) / 2, Math.atan2(dx, dz)); b.box(0.04, 0.04, len, off, 0, 0, 0x1a1a1a); b.pop(); } }
   }
-  for (const s of [1, -1]) for (const t of stepsAt(9, s > 0 ? 4 : 8)) {
+  for (const s of [1, -1]) for (const t of stepsAt(14, s > 0 ? 4 : 11)) {
     if (noBuildAt(t) && !(isKyoto && track.inRange(t, feat.river) && s < 0)) continue;
-    const f = track.frameT(t, s * (lim - 0.9));
-    b.push(f.x, f.y + 0.14, f.z, f.ry);
-    if (isTaipei) { if (R.chance(0.4)) palm(b, R, R.range(5, 7)); else treeRound(b, R, R.range(3.5, 5)); }
-    else if (isTokyo) { if (track.inRange(t, feat.sakura) || R.chance(0.3)) treeBlossom(b, R, R.range(4, 5.5), C.sakura); else treeRound(b, R, R.range(3.5, 4.5)); }
-    else { if (R.chance(0.6)) treeBlossom(b, R, R.range(3.5, 5), C.maple); else b.cone(1.4, 4, 0, 3, 0, C.pine, { seg: 7 }), b.cyl(0.14, 0.18, 1.2, 0, 0.6, 0, 0x4a3626, { seg: 6 }); }
-    b.pop();
+    const f = track.frameT(t, s * (lim - 0.5));
+    bt.push(f.x, f.y + 0.14, f.z, f.ry);
+    if (isTaipei) { if (R.chance(0.4)) palm(bt, R, R.range(5.5, 7)); else treeRound(bt, R, R.range(4.5, 5.5)); }
+    else if (isTokyo) { if (track.inRange(t, feat.sakura) || R.chance(0.3)) treeBlossom(bt, R, R.range(4.5, 5.5), C.sakura); else treeRound(bt, R, R.range(4, 5)); }
+    else { if (R.chance(0.6)) treeBlossom(bt, R, R.range(4, 5), C.maple); else bt.cone(1.4, 4, 0, 3, 0, C.pine, { seg: 7 }), bt.cyl(0.14, 0.18, 1.2, 0, 0.6, 0, 0x4a3626, { seg: 6 }); }
+    bt.pop();
   }
 
-  // ── 人行道上的障礙物（機車／腳踏車／販賣機／垃圾桶／花台／石燈籠）與馬路上的三角錐、水窪
   const sidewalkObs = Math.round(N / 4.5);
   for (let k = 0; k < sidewalkObs; k++) { // 人行道上的東西玩家碰不到，不用碰撞圓
     const t = R(), s = R.chance(0.5) ? 1 : -1;
@@ -390,7 +389,7 @@ export function buildScenery(track, course, seed = 7) {
     b.pop();
   }
   world.itemT = isTaipei ? [0.14, 0.42, 0.66, 0.88] : isTokyo ? [0.13, 0.4, 0.5, 0.74, 0.92] : [0.12, 0.33, 0.56, 0.8];
-  const LW = track.halfW - 1.5; // 三線道間距
+  const LW = track.halfW * 0.62; // 三線道間距
   const blockedT = (t) => world.itemT.some(x => Math.abs(x - t) < 0.015) || t < 0.03 || t > 0.965
     || (isTaipei && (Math.abs(t - feat.intersection[0]) < 0.02 || Math.abs(t - feat.intersection[1]) < 0.02))
     || (isTokyo && Math.abs(t - feat.crossing) < 0.025) || (isKyoto && Math.abs(t - feat.crosswalk) < 0.015);
@@ -415,7 +414,7 @@ export function buildScenery(track, course, seed = 7) {
   if (isTaipei) {
     // 夜市段：攤販、跨街燈籠、更多人
     const [m0, m1] = feat.market; const span = m1 - m0;
-    for (const s of [1, -1]) for (let k = 0; k < Math.round(span * N / 4.5); k++) { const t = m0 + (k + (s > 0 ? 0.25 : 0.75)) * span / Math.round(span * N / 4.5); const f = track.frameT(t, s * (track.halfW + 1.3)); b.push(f.x, f.y + 0.14, f.z, f.ry); stall(b, R, isNight); b.pop(); b.push(f.x, f.y + 0.14, f.z, f.ry + Math.PI + R.range(-0.5, 0.5)); b.push(R.range(-0.8, 0.8), 0, -1.6, 0); person(b, R); b.pop(); b.pop(); }
+    for (const s of [1, -1]) for (let k = 0; k < Math.round(span * N / 4.5); k++) { const t = m0 + (k + (s > 0 ? 0.25 : 0.75)) * span / Math.round(span * N / 4.5); const f = track.frameT(t, s * (track.halfW + 0.9)); b.push(f.x, f.y + 0.14, f.z, f.ry); stall(b, R, isNight); b.pop(); b.push(f.x, f.y + 0.14, f.z, f.ry + Math.PI + R.range(-0.5, 0.5)); b.push(R.range(-0.8, 0.8), 0, -1.6, 0); person(b, R); b.pop(); b.pop(); }
     for (let k = 0; k < Math.round(span * N / 5); k++) { const t = m0 + k * span / Math.round(span * N / 5); const f = track.frameT(t, 0); b.push(f.x, f.y, f.z, f.yaw); b.box(0.05, 0.05, lim * 2 + 2, 0, 5.2, 0, 0x1a1a1a, { ry: Math.PI / 2 }); lanternRow(b, 9, 4.9, 0, (lim * 2) / 9, R.pick([0xe03a2a, 0xe03a2a, 0xf2b134])); b.pop(); }
     // 廟
     { const f = track.frameT(feat.temple, lim + 0.5); b.push(f.x, f.y, f.z, f.ry); temple(b, R, isNight); b.pop(); world.labels.push({ x: f.x, y: f.y + 11, z: f.z, text: '保安宮' }); }
@@ -428,7 +427,7 @@ export function buildScenery(track, course, seed = 7) {
       world.movers.push(makeCrosser(track, t, atlas, R, 'scooter'));
     }
     // 垃圾車（沿路慢慢開）
-    world.movers.push(makeRoadVehicle(track, garbageTruckMesh(atlas), feat.truck, -2.4, 5.5, 1.5, 3.0, 1.4, '垃圾車'));
+    world.movers.push(makeRoadVehicle(track, garbageTruckMesh(atlas), feat.truck, -LW, 5.5, 1.3, 3.0, 1.4, '垃圾車'));
     // 台北 101：放在賽道外側遠處
     { const c = track.pos[track.idxAtT(0.5)].clone().add(track.left[track.idxAtT(0.5)].clone().multiplyScalar(-120)); b.push(c.x, -2, c.z, 0); taipei101(b); b.pop(); }
     // YouBike 站
@@ -450,7 +449,7 @@ export function buildScenery(track, course, seed = 7) {
     { const c = track.pos[track.idxAtT(0.2)].clone().add(track.left[track.idxAtT(0.2)].clone().multiplyScalar(-150)); b.push(c.x, 0, c.z, 0); tokyoTower(b); b.pop(); }
     { const c = track.pos[track.idxAtT(0.75)].clone().add(track.left[track.idxAtT(0.75)].clone().multiplyScalar(420)); fuji(b, c.x, c.z, 1.0); }
     // 計程車（停在路邊）
-    for (const t of [0.05, 0.47, 0.7]) { const f = track.frameT(t, -(track.halfW - 1.2)); b.push(f.x, f.y, f.z, f.yaw); b.box(1.8, 0.9, 4.2, 0, 0.7, 0, R.pick([0xf2c230, 0x1a1a1a, 0x2f8a55])); b.box(1.7, 0.7, 2.2, 0, 1.45, -0.2, 0xf4f4f4); b.box(0.5, 0.2, 0.3, 0, 1.9, -0.2, 0xffe066, { lit }); for (const z of [1.4, -1.4]) for (const s of [-1, 1]) b.cyl(0.35, 0.35, 0.25, s * 0.85, 0.35, z, 0x222222, { seg: 10, rz: Math.PI / 2 }); b.pop(); addObs(f, 1.6, 1.8, 'solid', '計程車'); }
+    for (const t of [0.05, 0.47, 0.7]) { const f = track.frameT(t, -LW); b.push(f.x, f.y, f.z, f.yaw); b.box(1.8, 0.9, 4.2, 0, 0.7, 0, R.pick([0xf2c230, 0x1a1a1a, 0x2f8a55])); b.box(1.7, 0.7, 2.2, 0, 1.45, -0.2, 0xf4f4f4); b.box(0.5, 0.2, 0.3, 0, 1.9, -0.2, 0xffe066, { lit }); for (const z of [1.4, -1.4]) for (const s of [-1, 1]) b.cyl(0.35, 0.35, 0.25, s * 0.85, 0.35, z, 0x222222, { seg: 10, rz: Math.PI / 2 }); b.pop(); addObs(f, 1.2, 1.8, 'solid', '計程車'); }
   }
   if (isKyoto) {
     // 千本鳥居：兩側密排
@@ -464,7 +463,7 @@ export function buildScenery(track, course, seed = 7) {
     { const [r0, r1] = feat.river; b.raw(track.ribbon(-lim - 0.6, 0.14, -lim - 4, -1.6, 0x8aa070, { range: [r0, r1] })); b.raw(track.ribbon(-lim - 4, -1.6, -lim - 30, -1.6, 0x4a8ab8, { range: [r0, r1] })); b.raw(track.ribbon(-lim - 30, -1.6, -lim - 38, 0.4, 0x8aa070, { range: [r0, r1] }));
       for (let k = 0; k < 24; k++) { const f = track.frameT(r0 + (r1 - r0) * (k + 0.5) / 24, -(lim + 2)); b.push(f.x, f.y - 1.0, f.z, f.yaw); bench(b); if (k % 2) { b.push(0.4, 0, -0.5, Math.PI); person(b, R); b.pop(); } b.pop(); } }
     { const t = feat.crosswalk; b.raw(track.crosswalk(t), 0xffffff); for (let k = 0; k < 3; k++) world.movers.push(makeCrosser(track, t, atlas, R, 'ped', k)); }
-    world.movers.push(makeRoadVehicle(track, rickshawMesh(atlas), 0.2, 2.2, 4.2, 1.0, 2.2, 1.1, '人力車'));
+    world.movers.push(makeRoadVehicle(track, rickshawMesh(atlas), 0.2, LW, 4.2, 0.9, 2.2, 1.1, '人力車'));
     // 遠山
     for (let k = 0; k < 14; k++) { const a = k / 14 * TAU, c = Math.cos(a) * 320, s2 = Math.sin(a) * 320; b.cone(R.range(90, 150), R.range(40, 80), c, 0, s2, R.pick([0x5a7a5a, 0x6a8a66, 0x4a6a50]), { seg: 10 }); }
   }
@@ -478,7 +477,8 @@ export function buildScenery(track, course, seed = 7) {
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: course.pal.ground }));
   plane.rotation.x = -Math.PI / 2; plane.position.y = (maxY - minY > 1.5 ? minY - 8 : -0.05); plane.receiveShadow = true; ground.add(plane);
 
-  const group = b.build({ nearCull: 4.5 });
+  const group = b.build({ nearCull: 2.2 });
+  group.add(bt.build({ nearCull: 6 }));
   group.add(ground);
   for (const m of world.movers) group.add(m.mesh);
   return { group, ...world };

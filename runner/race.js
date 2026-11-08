@@ -6,7 +6,7 @@ import { clamp, lerp, angleDiff, damp, textSprite, rng as mkRng } from './util.j
 
 const P = CFG.phys;
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
-const itemGeo = new RoundedBoxGeometry(0.9, 0.9, 0.9, 2, 0.12);
+const itemGeo = new RoundedBoxGeometry(1.25, 1.25, 1.25, 2, 0.14);
 
 export class Race {
   constructor({ track, world, defs, playerIndex, laps, difficulty, onEvent, makeRig }) {
@@ -20,11 +20,11 @@ export class Race {
     for (const o of world.obstacles) { const pr = track.nearest(_v.set(o.x, 0, o.z), null, {}); o.idx = pr.idx; o.lat = pr.lateral; }
     // 道具箱
     this.boxes = [];
-    for (const t of world.itemT) for (const lane of [-1, 0, 1]) { const lat = lane * (track.halfW - 1.5);
+    for (const t of world.itemT) for (const lane of [-1, 0, 1]) { const lat = lane * track.halfW * 0.62;
       const p = track.pointT(t, lat), idx = track.idxAtT(t);
       const mesh = new THREE.Mesh(itemGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x442266 }));
-      mesh.position.set(p.x, p.y + 1.0, p.z); mesh.castShadow = true;
-      const q = textSprite('?', { color: '#fff', bg: 'rgba(0,0,0,0)', size: 56, w: 96, h: 96 }); q.scale.set(1.1, 1.1, 1); mesh.add(q);
+      mesh.position.set(p.x, p.y + 1.3, p.z); mesh.castShadow = true;
+      const q = textSprite('?', { color: '#fff', bg: 'rgba(0,0,0,0)', size: 56, w: 96, h: 96 }); q.scale.set(1.5, 1.5, 1); mesh.add(q);
       this.group.add(mesh);
       this.boxes.push({ x: p.x, z: p.z, y: p.y, idx, lat, mesh, active: true, respawn: 0, phase: Math.random() * 6 });
     }
@@ -41,7 +41,7 @@ export class Race {
         ai: { lane: 0, laneT: 0, wobble: Math.random() * 10, skill: lerp(0.85, 1.0, Math.random()), persona: lerp(0.97, 1.03, Math.random()), itemT: 2 + Math.random() * 4, jumpT: 0, dashHold: false, mash: lerp(0.35, 0.75, Math.random()), mashT: 0 },
       };
       const group = new THREE.Group(); group.add(rig.root);
-      const tag = textSprite(def.name, { color: r.isPlayer ? '#ffe066' : '#fff', bg: r.isPlayer ? 'rgba(200,60,40,.85)' : 'rgba(20,20,40,.7)' }); tag.position.y = 2.3; tag.scale.multiplyScalar(0.55); group.add(tag);
+      const tag = textSprite(def.name, { color: r.isPlayer ? '#ffe066' : '#fff', bg: r.isPlayer ? 'rgba(200,60,40,.85)' : 'rgba(20,20,40,.7)' }); tag.position.y = 2.3; tag.scale.multiplyScalar(0.55); tag.visible = i !== playerIndex; group.add(tag);
       r.group = group; r.tag = tag; this.group.add(group);
       // 起跑格：兩排四列，在起跑線後面
       const row = Math.floor(i / 3), col = i % 3; r.prog = this.N - 5 - row * 3.5; r.lane = col - 1; r.lat = r.lane * this.LW;
@@ -51,7 +51,7 @@ export class Race {
     });
     this.player = this.racers[playerIndex];
   }
-  get LW() { return this.track.halfW - 1.5; } // 三線道的間距（9 公尺寬的路＝3 公尺）
+  get LW() { return this.track.halfW * 0.62; } // 三線道的間距（6.4 公尺寬的路≈2 公尺）
   // 由 (prog, lat) 算世界座標與朝向
   _rail(r) {
     const N = this.N; r.prog = ((r.prog % N) + N) % N;
@@ -84,7 +84,7 @@ export class Race {
     // 會動的東西
     for (const m of this.world.movers) m.update(dt, this.time);
     // 道具箱
-    for (const b of this.boxes) { b.phase += dt; if (!b.active) { b.respawn -= dt; if (b.respawn <= 0) { b.active = true; b.mesh.visible = true; } } b.mesh.rotation.y = b.phase * 1.5; b.mesh.rotation.x = Math.sin(b.phase) * 0.3; b.mesh.position.y = b.y + 1.0 + Math.sin(b.phase * 2) * 0.12; b.mesh.material.emissive.setHSL((b.phase * 0.15) % 1, 0.7, 0.35); b.mesh.material.color.setHSL((b.phase * 0.15 + 0.5) % 1, 0.6, 0.75); }
+    for (const b of this.boxes) { b.phase += dt; if (!b.active) { b.respawn -= dt; if (b.respawn <= 0) { b.active = true; b.mesh.visible = true; } } b.mesh.rotation.y = b.phase * 1.5; b.mesh.rotation.x = Math.sin(b.phase) * 0.3; b.mesh.position.y = b.y + 1.3 + Math.sin(b.phase * 2) * 0.12; b.mesh.material.emissive.setHSL((b.phase * 0.15) % 1, 0.7, 0.35); b.mesh.material.color.setHSL((b.phase * 0.15 + 0.5) % 1, 0.6, 0.75); }
     // 名次（給 AI 道具與橡皮筋用）
     const order = [...this.racers].sort((a, b) => (a.finished && b.finished) ? a.finishTime - b.finishTime : a.finished ? -1 : b.finished ? 1 : b.total - a.total);
     order.forEach((r, k) => r.place = k + 1);

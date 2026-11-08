@@ -207,14 +207,15 @@ function loop(now) {
   const p = race.player;
   // 相機：跟在後面，衝刺時視角拉寬、些微震動
   cam.yaw += angleDiff(p.tanYaw ?? p.heading, cam.yaw) * (1 - Math.exp(-5 * dt));
-  const port = isPortrait(), back = (port ? 7.8 : 6.8) + p.speed * 0.1, up = port ? 5.2 : 3.3;
+  const port = isPortrait(), CC = port ? CFG.cam.portrait : CFG.cam.landscape, back = CC.back + p.speed * 0.06, up = CC.up;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
   const target = new THREE.Vector3(p.pos.x - fx * back, p.group.position.y - p.h * 0.6 + up, p.pos.z - fz * back);
   cam.pos.lerp(target, 1 - Math.exp(-7 * dt));
   shake = Math.max(0, shake - dt);
   camera.position.copy(cam.pos); if (shake > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * shake * 0.5, (Math.random() - 0.5) * shake * 0.5, 0));
-  cam.look.set(p.pos.x + fx * (port ? 8 : 6), p.group.position.y + (port ? 0.2 : 1.0), p.pos.z + fz * (port ? 8 : 6)); camera.lookAt(cam.look);
-  cam.fov = damp(cam.fov, (port ? 80 : 62) + (p.dashing ? 12 : 0) + (p.boost > 0 ? 10 : 0), 6, dt); camera.fov = cam.fov; camera.updateProjectionMatrix();
+  cam.look.set(p.pos.x + fx * CC.look, p.group.position.y + CC.lookY, p.pos.z + fz * CC.look); camera.lookAt(cam.look);
+  cam.fov = damp(cam.fov, CC.fov + (p.dashing ? 10 : 0) + (p.boost > 0 ? 8 : 0), 6, dt); camera.fov = cam.fov; camera.updateProjectionMatrix();
+  camera.projectionMatrix.elements[0] *= CFG.cam.squeeze; camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); // 左右壓縮
   // 太陽影子跟著玩家
   sunDir.set(...course.light.sunPos).normalize();
   sun.position.copy(p.pos).addScaledVector(sunDir, 90); sun.target.position.copy(p.pos); sun.target.updateMatrixWorld();
