@@ -90,28 +90,49 @@ let pvLast = performance.now();
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 60)); resize();
 
 /* ── 輸入 ── */
-const keys = {}; const edge = { jump: false, shove: false, item: false };
-addEventListener('keydown', (e) => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'Space') { edge.jump = true; e.preventDefault(); } if (e.code === 'KeyE' || e.code === 'KeyX') edge.shove = true; if (e.code === 'KeyQ' || e.code === 'KeyZ' || e.code === 'ControlLeft') edge.item = true; if (e.code === 'KeyM') { audio.setMuted(!audio.muted); paintMute(); } if (e.code === 'Escape' && race && race.state !== 'finished') endRace(true); });
+const keys = {}; const edge = { jump: false, shove: false, item: false, left: false, right: false, mashL: false, mashR: false, brakePulse: false };
+addEventListener('keydown', (e) => {
+  if (e.repeat) return; keys[e.code] = true;
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') { edge.jump = true; e.preventDefault(); }
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') { edge.left = true; e.preventDefault(); } if (e.code === 'ArrowRight' || e.code === 'KeyD') { edge.right = true; e.preventDefault(); }
+  if (e.code === 'KeyZ' || e.code === 'KeyJ') edge.mashL = true; if (e.code === 'KeyX' || e.code === 'KeyK') edge.mashR = true;
+  if (e.code === 'KeyE') edge.shove = true; if (e.code === 'KeyQ' || e.code === 'ControlLeft') edge.item = true;
+  if (e.code === 'KeyM') { audio.setMuted(!audio.muted); paintMute(); } if (e.code === 'Escape' && race && race.state !== 'finished') endRace(true);
+});
 addEventListener('keyup', (e) => { keys[e.code] = false; });
-const touch = { left: false, right: false, dash: false };
+const touch = { dash: false };
 for (const b of document.querySelectorAll('.tctl button')) {
   const k = b.dataset.k;
-  const down = (e) => { e.preventDefault(); b.classList.add('down'); if (k === 'left' || k === 'right' || k === 'dash') touch[k] = true; else edge[k] = true; audio.ensure(); };
-  const up = (e) => { e.preventDefault(); b.classList.remove('down'); if (k in touch) touch[k] = false; };
+  const down = (e) => { e.preventDefault(); e.stopPropagation(); b.classList.add('down'); edge[k] = true; audio.ensure(); };
+  const up = (e) => { e.preventDefault(); b.classList.remove('down'); };
   b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
 }
-// 手機：按住畫面左半邊往左、右半邊往右（按鈕以外的地方）
-const zonePointers = new Map();
-const zoneUpdate = () => { touch.zoneL = false; touch.zoneR = false; for (const side of zonePointers.values()) { if (side < 0) touch.zoneL = true; else touch.zoneR = true; } };
+// 衝刺拉桿：按住往上拉就衝刺，放開彈回
+const lever = $('lever'), knob = $('leverKnob'); let leverId = null, leverY0 = 0, leverLift = 0;
+const setLever = (lift) => { leverLift = clamp(lift, 0, 1); knob.style.transform = `translateY(${-leverLift * 100}px)`; touch.dash = leverLift > 0.45; lever.classList.toggle('on', touch.dash); };
+lever.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); leverId = e.pointerId; leverY0 = e.clientY + leverLift * 100; lever.setPointerCapture(e.pointerId); audio.ensure(); });
+lever.addEventListener('pointermove', (e) => { if (e.pointerId !== leverId) return; setLever((leverY0 - e.clientY) / 100); });
+for (const ev of ['pointerup', 'pointercancel']) lever.addEventListener(ev, (e) => { if (e.pointerId !== leverId) return; leverId = null; setLever(0); });
+// 畫面滑動：左右滑換線道、上滑跳、下滑煞車；沒有滑動就是點擊，左半邊／右半邊交替點擊加速
+const swipes = new Map();
 const appEl = $('app');
-appEl.addEventListener('pointerdown', (e) => { if (!MOBILE || !race) return; zonePointers.set(e.pointerId, e.clientX < innerWidth / 2 ? -1 : 1); zoneUpdate(); audio.ensure(); });
-appEl.addEventListener('pointermove', (e) => { if (!zonePointers.has(e.pointerId)) return; zonePointers.set(e.pointerId, e.clientX < innerWidth / 2 ? -1 : 1); zoneUpdate(); });
-for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => { if (zonePointers.delete(e.pointerId)) zoneUpdate(); });
+appEl.addEventListener('pointerdown', (e) => { if (!race) return; swipes.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), done: false }); audio.ensure(); });
+appEl.addEventListener('pointermove', (e) => {
+  const sw = swipes.get(e.pointerId); if (!sw || sw.done) return;
+  const dx = e.clientX - sw.x, dy = e.clientY - sw.y, TH = 28;
+  if (Math.abs(dx) < TH && Math.abs(dy) < TH) return;
+  sw.done = true;
+  if (Math.abs(dx) > Math.abs(dy)) { if (dx < 0) edge.left = true; else edge.right = true; } else { if (dy < 0) edge.jump = true; else edge.brakePulse = true; }
+});
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => {
+  const sw = swipes.get(e.pointerId); if (!sw) return; swipes.delete(e.pointerId);
+  if (!sw.done && ev === 'pointerup' && performance.now() - sw.t < 400) { if (sw.x < innerWidth / 2) edge.mashL = true; else edge.mashR = true; }
+});
 function readInput() {
-  const steer = (keys.ArrowLeft || keys.KeyA || touch.left || touch.zoneL ? 1 : 0) - (keys.ArrowRight || keys.KeyD || touch.right || touch.zoneR ? 1 : 0);
-  const inp = { steer, brake: !!(keys.ArrowDown || keys.KeyS), dash: !!(keys.ShiftLeft || keys.ShiftRight || keys.ArrowUp || keys.KeyW || touch.dash), jump: edge.jump, shove: edge.shove, item: edge.item };
-  edge.jump = edge.shove = edge.item = false; return inp;
+  const inp = { left: edge.left, right: edge.right, jump: edge.jump, brake: !!(keys.ArrowDown || keys.KeyS), brakePulse: edge.brakePulse, dash: !!(keys.ShiftLeft || keys.ShiftRight || touch.dash), mashL: edge.mashL, mashR: edge.mashR, shove: edge.shove, item: edge.item };
+  for (const k in edge) edge[k] = false; return inp;
 }
+const clearEdges = (inp) => { inp.left = inp.right = inp.jump = inp.brakePulse = inp.mashL = inp.mashR = inp.shove = inp.item = false; };
 
 /* ── 比賽 ── */
 const hud = new HUD();
@@ -142,6 +163,7 @@ async function startRace() {
   $('loading').hidden = true;
 window.RUNNER = { startRace, endRace, pick, get race() { return race; } }; // 除錯用
   audio.ensure(); audio.startMusic(course.music);
+  if (MOBILE) setTimeout(() => hud.toast('左右滑換線道・上滑跳・下滑煞車・左右交替點畫面加速・拉桿往上衝刺', 6), 4200);
   lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
 }
 function clearRace() {
@@ -169,7 +191,7 @@ function onEvent(type, r, extra) {
     case 'boost': if (mine) { audio.boost(); hud.toast('加速！'); } break;
     case 'wall': if (mine) { audio.bump(); shake = 0.25; } break;
     case 'shieldBreak': if (mine) { audio.shield(); hud.toast('平安符擋下了一次！'); } break;
-    case 'wrongway': if (mine) { if (extra) { hud.showCenter('逆向！', 2.5, true); audio.wrong(); } else hud.hideCenter(); } break;
+    case 'mash': audio.tone(320 + r.mash * 300, 0.04, 'square', 0.08); break;
   }
 }
 let shake = 0;
@@ -180,11 +202,11 @@ function loop(now) {
   if (!race) return;
   // 固定步長模擬（1/60 秒），畫面慢時多算幾步，比賽速度不會變慢
   acc += dt; const inp = readInput(); let steps = 0;
-  while (acc >= STEP && steps < 15) { race.update(STEP, inp); acc -= STEP; steps++; inp.jump = inp.shove = inp.item = false; }
+  while (acc >= STEP && steps < 15) { race.update(STEP, inp); acc -= STEP; steps++; clearEdges(inp); }
   if (steps === 15) acc = 0;
   const p = race.player;
   // 相機：跟在後面，衝刺時視角拉寬、些微震動
-  cam.yaw += angleDiff(p.heading, cam.yaw) * (1 - Math.exp(-5 * dt));
+  cam.yaw += angleDiff(p.tanYaw ?? p.heading, cam.yaw) * (1 - Math.exp(-5 * dt));
   const port = isPortrait(), back = (port ? 7.8 : 6.8) + p.speed * 0.1, up = port ? 5.2 : 3.3;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
   const target = new THREE.Vector3(p.pos.x - fx * back, p.group.position.y - p.h * 0.6 + up, p.pos.z - fz * back);
@@ -198,7 +220,9 @@ function loop(now) {
   sun.position.copy(p.pos).addScaledVector(sunDir, 90); sun.target.position.copy(p.pos); sun.target.updateMatrixWorld();
   // 衝刺音
   const dashing = p.dashing && race.state === 'racing'; if (dashing !== dashSound) { dashSound = dashing; audio.dashLoop(dashing); }
+  for (const r of race.racers) if (!r.isPlayer) r.tag.visible = r.pos.distanceToSquared(camera.position) > 30; // 太近的名牌不顯示
   hud.update(race, dt);
+  lever.querySelector('.fill').style.transform = `scaleY(${p.dash.toFixed(3)})`; lever.classList.toggle('low', p.dash < 0.2);
   renderer.render(scene, camera);
 }
 $('btnStart').addEventListener('click', () => { audio.ensure(); startRace(); });

@@ -17,7 +17,7 @@ export class HUD {
   constructor() {
     this.el = document.getElementById('hud'); this.$ = (id) => document.getElementById(id);
     this.lap = this.$('hudLap'); this.laps = this.$('hudLaps'); this.time = this.$('hudTime'); this.place = this.$('hudPlace'); this.suf = this.$('hudPlaceSuf'); this.placeBox = this.$('hudPlaceBox');
-    this.dash = this.$('hudDash'); this.speed = this.$('hudSpeed'); this.item = this.$('hudItem'); this.center = this.$('center'); this.toastEl = this.$('toast');
+    this.dash = this.$('hudDash'); this.mash = this.$('hudMash'); this.speed = this.$('hudSpeed'); this.item = this.$('hudItem'); this.center = this.$('center'); this.toastEl = this.$('toast');
     this.mini = this.$('mini'); this.mctx = this.mini.getContext('2d'); this.lastItem = undefined; this.lastPlace = 0; this.centerT = 0; this.toastT = 0;
   }
   show(on) { this.el.hidden = !on; }
@@ -45,6 +45,7 @@ export class HUD {
     if (p.place !== this.lastPlace) { this.lastPlace = p.place; this.place.textContent = p.place; this.suf.textContent = SUFFIX[p.place] || 'th'; this.placeBox.classList.toggle('p1', p.place === 1); }
     this.dash.firstElementChild.style.transform = `scaleX(${p.dash.toFixed(3)})`; this.dash.classList.toggle('low', p.dash < 0.2);
     this.speed.textContent = Math.round(p.speed * 4.2);
+    this.mash.firstElementChild.style.transform = `scaleX(${p.mash.toFixed(3)})`;
     if (p.item !== this.lastItem) { this.lastItem = p.item; this.item.classList.toggle('has', !!p.item); this.item.querySelector('.ico').innerHTML = p.item ? ICONS[p.item] : ''; this.item.querySelector('b').textContent = p.item ? CFG.items[p.item].name : '道具'; }
     if (this.centerT > 0) { this.centerT -= dt; if (this.centerT <= 0) this.center.classList.remove('on'); }
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) this.toastEl.classList.remove('on'); }

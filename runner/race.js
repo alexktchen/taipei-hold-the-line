@@ -20,7 +20,7 @@ export class Race {
     for (const o of world.obstacles) { const pr = track.nearest(_v.set(o.x, 0, o.z), null, {}); o.idx = pr.idx; o.lat = pr.lateral; }
     // 道具箱
     this.boxes = [];
-    for (const t of world.itemT) for (const lat of [-2.6, 0, 2.6]) {
+    for (const t of world.itemT) for (const lane of [-1, 0, 1]) { const lat = lane * (track.halfW - 1.5);
       const p = track.pointT(t, lat), idx = track.idxAtT(t);
       const mesh = new THREE.Mesh(itemGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x442266 }));
       mesh.position.set(p.x, p.y + 1.0, p.z); mesh.castShadow = true;
@@ -35,40 +35,43 @@ export class Race {
         i, def, rig, isPlayer: i === playerIndex, name: def.name, stats: Object.assign({ speed: 1, accel: 1, handling: 1, weight: 1, dash: 1, draft: 1, shove: 1, tough: 1, jump: 1 }, def.stats),
         pos: new THREE.Vector3(), heading: 0, speed: 0, h: 0, vy: 0, grounded: true, slide: new THREE.Vector3(),
         idx: 0, frac: 0, lateral: 0, lap: 0, prog: 0, total: 0, place: i + 1,
+        lane: 0, lat: 0, latKick: 0, lunge: 0, mash: 0, lastMash: '', brakeT: 0,
         dash: 1, dashing: false, stun: 0, slip: 0, shield: 0, boost: 0, immune: 0, shoveCd: 0, puddle: false, sidewalk: false, wrongT: 0, finished: false, finishTime: 0,
         item: null, itemCd: 0, steer: 0, brake: false, lastBoost: -1, hint: null,
-        ai: { lane: 0, laneT: 0, wobble: Math.random() * 10, skill: lerp(0.85, 1.0, Math.random()), persona: lerp(0.97, 1.03, Math.random()), itemT: 2 + Math.random() * 4, jumpT: 0, dashHold: false },
+        ai: { lane: 0, laneT: 0, wobble: Math.random() * 10, skill: lerp(0.85, 1.0, Math.random()), persona: lerp(0.97, 1.03, Math.random()), itemT: 2 + Math.random() * 4, jumpT: 0, dashHold: false, mash: lerp(0.35, 0.75, Math.random()), mashT: 0 },
       };
       const group = new THREE.Group(); group.add(rig.root);
-      const tag = textSprite(def.name, { color: r.isPlayer ? '#ffe066' : '#fff', bg: r.isPlayer ? 'rgba(200,60,40,.85)' : 'rgba(20,20,40,.7)' }); tag.position.y = 2.35; tag.scale.multiplyScalar(0.7); group.add(tag);
+      const tag = textSprite(def.name, { color: r.isPlayer ? '#ffe066' : '#fff', bg: r.isPlayer ? 'rgba(200,60,40,.85)' : 'rgba(20,20,40,.7)' }); tag.position.y = 2.3; tag.scale.multiplyScalar(0.55); group.add(tag);
       r.group = group; r.tag = tag; this.group.add(group);
       // 起跑格：兩排四列，在起跑線後面
-      const row = Math.floor(i / 2), col = i % 2; const startIdx = this.N - 5 - row * 3.2;
-      track.point(startIdx, (col ? -1 : 1) * 1.7, 0, r.pos);
-      r.heading = track.yaw[track.wrap(Math.floor(startIdx))]; r.hint = track.wrap(Math.floor(startIdx));
-      this._project(r); r.lap = 0;
+      const row = Math.floor(i / 3), col = i % 3; r.prog = this.N - 5 - row * 3.5; r.lane = col - 1; r.lat = r.lane * this.LW;
+      this._rail(r); this._project(r); r.lap = 0;
       this._place(r);
       return r;
     });
     this.player = this.racers[playerIndex];
   }
+  get LW() { return this.track.halfW - 1.5; } // 三線道的間距（9 公尺寬的路＝3 公尺）
+  // 由 (prog, lat) 算世界座標與朝向
+  _rail(r) {
+    const N = this.N; r.prog = ((r.prog % N) + N) % N;
+    const i = Math.floor(r.prog), f = r.prog - i; this.track.point(i, r.lat, f, r.pos); r.heading = this.track.yaw[i];
+  }
   _project(r) {
-    const pr = this.track.nearest(r.pos, r.hint, {});
-    const prev = r.idx;
-    r.idx = pr.idx; r.frac = pr.frac; r.lateral = pr.lateral; r.hint = pr.idx; r.groundY = pr.y; r.tanYaw = pr.yaw; r.curv = pr.curv;
+    const prev = r.idx, N = this.N, i = Math.floor(r.prog), f = r.prog - i;
+    r.idx = i; r.frac = f; r.lateral = r.lat; r.hint = i; r.groundY = lerp(this.track.pos[i].y, this.track.pos[(i + 1) % N].y, f); r.tanYaw = this.track.yaw[i]; r.curv = this.track.curv[i];
     // 跨越終點線
     if (this.state === 'racing' && !r.finished) {
       if (prev > this.N * 0.75 && r.idx < this.N * 0.25) { r.lap++; if (r.lap > this.laps) { r.finished = true; r.finishTime = this.raceTime; this.on('finish', r); } else if (r.lap > 1) this.on('lap', r); }
       else if (prev < this.N * 0.25 && r.idx > this.N * 0.75) r.lap--;
     }
-    r.prog = r.idx + r.frac; r.total = r.lap * this.N + r.prog;
-    r.sidewalk = Math.abs(r.lateral) > this.track.halfW;
+    r.total = r.lap * this.N + r.prog; r.sidewalk = false;
   }
   _place(r) {
     const y = r.groundY + (r.sidewalk ? 0.14 : 0) + r.h;
     r.group.position.set(r.pos.x, y, r.pos.z); r.group.rotation.y = r.heading;
   }
-  // 玩家輸入：{ steer(-1..1，正＝左), brake, jump, dash, shove, item }
+  // 玩家輸入：{ left, right（換道，按一下）, jump, brake（按住）, brakePulse, dash（拉桿）, mashL, mashR（左右交替點擊加速）, shove, item }
   update(dt, input) {
     dt = Math.min(dt, 0.05); this.time += dt;
     if (this.state === 'countdown') {
@@ -90,28 +93,36 @@ export class Race {
       this._step(r, inp, dt, racing);
     }
     this._collide(dt);
-    for (const r of this.racers) { this._project(r); this._place(r); r.rig.update(dt, { speed: r.speed, maxSpeed: P.maxSpeed, grounded: r.grounded, stun: r.stun, slip: r.slip, finished: r.finished, steer: r.steer }); r.tag.visible = !r.isPlayer; }
+    for (const r of this.racers) { this._project(r); this._place(r); r.rig.update(dt, { speed: r.speed, maxSpeed: P.maxSpeed, grounded: r.grounded, stun: r.stun, slip: r.slip, finished: r.finished, steer: r.steer }); }
     this._projectiles(dt); this._effects(dt);
     if (this.player.finished && this.state === 'racing') { this.state = 'finished'; this.on('raceOver'); }
   }
   _step(r, inp, dt, racing) {
-    const S = r.stats, tr = this.track;
-    r.stun = Math.max(0, r.stun - dt); r.slip = Math.max(0, r.slip - dt); r.shield = Math.max(0, r.shield - dt); r.boost = Math.max(0, r.boost - dt); r.immune = Math.max(0, r.immune - dt); r.shoveCd = Math.max(0, r.shoveCd - dt); r.itemCd = Math.max(0, r.itemCd - dt);
+    const S = r.stats, tr = this.track, LW = this.LW;
+    r.stun = Math.max(0, r.stun - dt); r.slip = Math.max(0, r.slip - dt); r.shield = Math.max(0, r.shield - dt); r.boost = Math.max(0, r.boost - dt); r.immune = Math.max(0, r.immune - dt); r.shoveCd = Math.max(0, r.shoveCd - dt); r.itemCd = Math.max(0, r.itemCd - dt); r.brakeT = Math.max(0, r.brakeT - dt);
     const canAct = racing && !r.finished && r.stun <= 0 && r.slip <= 0;
-    const steer = canAct ? clamp(inp.steer || 0, -1, 1) : 0;
-    r.steer = damp(r.steer, steer, 12, dt);
-    r.brake = !!inp.brake && canAct;
-    // 衝刺
+    // 換道（三格）
+    if (canAct && inp.left) r.lane = Math.max(-1, r.lane - 1);
+    if (canAct && inp.right) r.lane = Math.min(1, r.lane + 1);
+    // 左右交替點擊加速：每次換邊 +0.16，會慢慢消退
+    if (inp.mash !== undefined) r.mash = inp.mash;
+    else {
+      if (canAct && inp.mashL && r.lastMash !== 'L') { r.lastMash = 'L'; r.mash = Math.min(1, r.mash + 0.16); if (r.isPlayer) this.on('mash', r); }
+      if (canAct && inp.mashR && r.lastMash !== 'R') { r.lastMash = 'R'; r.mash = Math.min(1, r.mash + 0.16); if (r.isPlayer) this.on('mash', r); }
+      r.mash = Math.max(0, r.mash - 0.4 * dt);
+    }
+    if (inp.brakePulse) r.brakeT = 0.6;
+    r.brake = canAct && (!!inp.brake || r.brakeT > 0);
+    // 衝刺（拉桿）
     const wantDash = canAct && !!inp.dash && r.dash > 0.02;
     r.dashing = wantDash;
     if (r.dashing) r.dash = Math.max(0, r.dash - P.dashDrain / S.dash * dt); else r.dash = Math.min(1, r.dash + P.dashRegen * dt);
-    // 跟跑：前方 5 公尺內有人且橫向接近
+    // 跟跑：前方 5 公尺內有人且同一線道附近
     let draft = false;
-    for (const o of this.racers) { if (o === r) continue; const d = o.total - r.total; if (d > 0.5 && d < 5.5 && Math.abs(o.lateral - r.lateral) < 1.3) { draft = true; break; } }
+    for (const o of this.racers) { if (o === r) continue; const d = o.total - r.total; if (d > 0.5 && d < 5.5 && Math.abs(o.lat - r.lat) < 1.3) { draft = true; break; } }
     if (draft && racing) r.dash = Math.min(1, r.dash + P.draftRegen * S.draft * dt);
-    // 目標速度
-    let target = racing && !r.finished ? P.maxSpeed * S.speed : 0;
-    if (r.sidewalk) target *= P.sidewalkMul;
+    // 目標速度：基礎 82%，交替點擊最多再加 30%
+    let target = racing && !r.finished ? P.maxSpeed * S.speed * (0.82 + 0.3 * r.mash) : 0;
     if (r.dashing) target *= P.dashMul;
     if (r.boost > 0) target *= 1.5;
     if (draft) target *= 1.06;
@@ -122,11 +133,6 @@ export class Race {
     if (!r.isPlayer) target *= r.aiMul || 1;
     const rate = P.accel * S.accel * (target < r.speed ? 2.2 : 1) * (r.grounded ? 1 : 0.4);
     r.speed = damp(r.speed, target, rate / 4, dt);
-    // 轉向：速度越快越難轉一點；沒按方向時自動對齊賽道
-    const steerRate = P.steer * S.handling * (r.grounded ? 1 : 0.6) * (0.75 + 0.25 * clamp(1 - r.speed / (P.maxSpeed * 1.5), 0, 1));
-    r.heading += r.steer * steerRate * dt;
-    if (Math.abs(steer) < 0.05 && r.speed > 1 && r.slip <= 0) r.heading += angleDiff(r.tanYaw ?? r.heading, r.heading) * P.autoAlign * dt;
-    if (r.slip > 0) r.heading += dt * 2.5; // 打滑：原地轉
     // 跳
     if (canAct && inp.jump && r.grounded) { r.vy = P.jumpV * S.jump; r.grounded = false; this.on('jump', r); }
     if (!r.grounded) { r.vy -= P.gravity * dt; r.h += r.vy * dt; if (r.h <= 0) { r.h = 0; r.vy = 0; r.grounded = true; r.rig.squash = 0.82; this.on('land', r); } }
@@ -134,63 +140,59 @@ export class Race {
     if (canAct && inp.shove && r.shoveCd <= 0) { r.shoveCd = P.shoveCooldown; this._shove(r); }
     // 道具
     if (canAct && inp.item && r.item && r.itemCd <= 0) this._useItem(r);
-    // 移動
-    const fx = Math.sin(r.heading), fz = Math.cos(r.heading);
-    r.pos.x += fx * r.speed * dt + r.slide.x * dt; r.pos.z += fz * r.speed * dt + r.slide.z * dt;
-    r.slide.multiplyScalar(Math.exp(-5 * dt));
-    // 牆（房子前緣）
-    const pr = tr.nearest(r.pos, r.hint, {}); r.hint = pr.idx;
-    const lim = tr.limit - P.radius;
-    if (Math.abs(pr.lateral) > lim) {
-      const over = Math.abs(pr.lateral) - lim, l = tr.left[pr.idx], s = Math.sign(pr.lateral);
-      r.pos.x -= l.x * over * s; r.pos.z -= l.z * over * s;
-      if (!r.wallT || this.time - r.wallT > 0.4) { r.speed *= P.wallBounce; this.on('wall', r); }
-      r.wallT = this.time;
-      r.heading += angleDiff(pr.yaw, r.heading) * 0.5; r.slide.addScaledVector(l, -s * 2.5);
-    }
-    // 逆向
-    const fwdDot = Math.cos(angleDiff(pr.yaw, r.heading));
-    if (fwdDot < -0.2 && r.speed > 2 && racing) { r.wrongT += dt; if (r.isPlayer && r.wrongT > 1.2 && !r.wrongShown) { r.wrongShown = true; this.on('wrongway', r, true); } }
-    else { if (r.wrongShown) { r.wrongShown = false; this.on('wrongway', r, false); } r.wrongT = 0; }
+    // 沿軌道前進（lunge 是推人時的小衝、被撞時的後退）
+    r.prog += r.speed * dt + r.lunge * dt; r.lunge *= Math.exp(-6 * dt);
+    // 橫向：往自己的線道靠，被撞會偏出去再回來
+    const prevLat = r.lat, laneSpeed = 7.5 * S.handling;
+    r.latKick *= Math.exp(-3 * dt);
+    const targetLat = r.lane * LW + r.latKick;
+    r.lat += clamp(targetLat - r.lat, -laneSpeed * dt, laneSpeed * dt);
+    r.lat = clamp(r.lat, -(tr.halfW - 0.55), tr.halfW - 0.55);
+    r.steer = damp(r.steer, clamp((r.lat - prevLat) / (laneSpeed * dt || 1), -1, 1), 10, dt);
+    if (r.slip > 0) r.heading += dt * 2.5;
+    this._rail(r);
+    if (r.slip > 0) r.heading = tr.yaw[r.idx] + (this.time * 6) % (Math.PI * 2); // 打滑：原地轉圈
   }
   _ai(r, dt, racing) {
     if (!racing || r.finished) return {};
-    const tr = this.track, A = r.ai, N = this.N, pl = this.player;
-    // 橡皮筋：落後玩家就快一點，領先就慢一點
+    const tr = this.track, A = r.ai, N = this.N, pl = this.player, LW = this.LW;
     const gap = clamp((pl.total - r.total) / 70, -1, 1);
     r.aiMul = this.diff.aiSpeed * A.persona * (1 + this.diff.rubber * gap) * (pl.finished ? 1.05 : 1);
-    // 車道：每幾秒換一次；沒道具時往最近的道具箱靠
-    A.laneT -= dt;
-    if (A.laneT <= 0) { A.laneT = 2.5 + Math.random() * 4; A.lane = [-3, -1.6, 0, 1.6, 3][Math.floor(Math.random() * 5)]; }
-    let targetLat = A.lane;
-    if (!r.item) { let best = null, bd = 1e9; for (const b of this.boxes) { if (!b.active) continue; const d = (b.idx - r.idx + N) % N; if (d > 2 && d < 40 && d < bd) { bd = d; best = b; } } if (best) targetLat = best.lat; }
-    // 避開前方障礙（含香蕉皮、其他跑者太慢的）
-    const ahead = 16;
-    for (const o of this.world.obstacles) { const d = (o.idx - r.idx + N) % N; if (d < 1 || d > ahead) continue; if (Math.abs(o.lat - targetLat) < o.r + 0.9) { targetLat = o.lat + (targetLat >= o.lat ? 1 : -1) * (o.r + 1.1); } }
-    for (const bn of this.bananas) { const d = (bn.idx - r.idx + N) % N; if (d < 1 || d > ahead) continue; if (Math.abs(bn.lat - targetLat) < 1.2) targetLat = bn.lat + (targetLat >= bn.lat ? 1 : -1) * 1.6; }
-    for (const m of this.world.movers) for (const h of m.hits) { if (h.x > 1e5) continue; const dx = h.x - r.pos.x, dz = h.z - r.pos.z, dd = Math.hypot(dx, dz); if (dd < 14) { const pr = tr.nearest(_v.set(h.x, 0, h.z), r.hint, {}); const d = (pr.idx - r.idx + N) % N; if (d < 14 && Math.abs(pr.lateral - targetLat) < h.r + 1.0) { if (m.name === '電車' || m.name === '垃圾車' && d < 6) { return { steer: 0, brake: m.name === '電車', dash: false }; } targetLat = pr.lateral + (targetLat >= pr.lateral ? 1 : -1) * (h.r + 1.3); } } }
-    targetLat = clamp(targetLat, -tr.limit + 1.0, tr.limit - 1.0);
-    // 瞄準前方一點
-    const look = 5 + r.speed * 0.35; tr.point(r.idx + look, targetLat, undefined, _v);
-    const want = Math.atan2(_v.x - r.pos.x, _v.z - r.pos.z);
-    const steer = clamp(angleDiff(want, r.heading) * 2.8 * A.skill + Math.sin(this.time * 1.3 + A.wobble) * 0.05, -1, 1);
+    // 節奏（模擬交替點擊）：每幾秒換一個等級
+    A.mashT -= dt; if (A.mashT <= 0) { A.mashT = 2 + Math.random() * 3; A.mash = clamp(lerp(0.3, 0.85, Math.random()) * A.skill, 0, 1); }
+    const laneOf = (lat) => Math.max(-1, Math.min(1, Math.round(lat / LW)));
+    // 哪些線道前方被擋（障礙、香蕉皮、會動的東西、停住的跑者）
+    const blocked = [false, false, false], jumpable = [false, false, false], look = 13;
+    const mark = (lat, kind) => { const l = laneOf(lat) + 1; if (kind === 'jumpable') jumpable[l] = true; else blocked[l] = true; };
+    let brake = false;
+    for (const o of this.world.obstacles) { const d = (o.idx - r.idx + N) % N; if (d < 0.5 || d > look) continue; if (o.kind === 'puddle') continue; mark(o.lat, o.kind); }
+    for (const bn of this.bananas) { const d = (bn.idx - r.idx + N) % N; if (d > 0.5 && d < look) mark(bn.lat, 'solid'); }
+    for (const m of this.world.movers) for (const h of m.hits) { if (h.x > 1e5) continue; const dx = h.x - r.pos.x, dz = h.z - r.pos.z; if (dx * dx + dz * dz > 400) continue; const pr = tr.nearest(_v.set(h.x, 0, h.z), r.hint, {}); const d = (pr.idx - r.idx + N) % N; if (d < 0.5 || d > look + 4) continue; if (m.name === '電車' || m.warning) { brake = true; } else mark(pr.lateral, 'solid'); }
+    // 想去的線道：沒道具就往道具箱靠，偶爾隨機換；被擋就換到沒被擋的
+    A.laneT -= dt; if (A.laneT <= 0) { A.laneT = 3 + Math.random() * 4; A.lane = Math.floor(Math.random() * 3) - 1; }
+    let want = A.lane;
+    if (!r.item) { let best = null, bd = 1e9; for (const b of this.boxes) { if (!b.active) continue; const d = (b.idx - r.idx + N) % N; if (d > 2 && d < 40 && d < bd) { bd = d; best = b; } } if (best) want = laneOf(best.lat); }
+    const bad = (l) => blocked[l + 1] || (jumpable[l + 1] && Math.random() > A.skill * 0.5);
+    if (bad(want)) { const cands = [r.lane, r.lane - 1, r.lane + 1, -want].filter(l => l >= -1 && l <= 1 && !blocked[l + 1]); want = cands.length ? cands[0] : want; }
+    if (bad(r.lane) && bad(want)) { const free = [-1, 0, 1].filter(l => !blocked[l + 1]); if (free.length) want = free.sort((a, b2) => Math.abs(a - r.lane) - Math.abs(b2 - r.lane))[0]; }
+    const left = want < r.lane, right = want > r.lane;
     // 跳過前方可跳的障礙
     let jump = false; A.jumpT -= dt;
-    for (const o of this.world.obstacles) { if (o.kind !== 'jumpable') continue; const d = (o.idx - r.idx + N) % N; if (d > 2.5 && d < 3.2 + r.speed * 0.18 && Math.abs(o.lat - r.lateral) < o.r + 0.6 && A.jumpT <= 0 && Math.random() < A.skill) { jump = true; A.jumpT = 1; } }
+    for (const o of this.world.obstacles) { if (o.kind !== 'jumpable') continue; const d = (o.idx - r.idx + N) % N; if (d > 2.5 && d < 3.2 + r.speed * 0.18 && Math.abs(o.lat - r.lat) < o.r + 0.7 && A.jumpT <= 0 && Math.random() < A.skill) { jump = true; A.jumpT = 1; } }
     // 衝刺：直線且能量夠
     if (!A.dashHold && r.dash > 0.55 && Math.abs(r.curv || 0) < 0.03) A.dashHold = true;
     if (A.dashHold && (r.dash < 0.08 || Math.abs(r.curv || 0) > 0.06)) A.dashHold = false;
     // 道具
     let item = false; A.itemT -= dt;
     if (r.item && A.itemT <= 0 && Math.random() < this.diff.aiItems) {
-      const behind = this.racers.some(o => o !== r && r.total - o.total > 0 && r.total - o.total < 8 && Math.abs(o.lateral - r.lateral) < 2.5);
-      const aheadR = this.racers.some(o => o !== r && o.total - r.total > 0 && o.total - r.total < 22 && Math.abs(o.lateral - r.lateral) < 1.8);
+      const behind = this.racers.some(o => o !== r && r.total - o.total > 0 && r.total - o.total < 8 && Math.abs(o.lat - r.lat) < 2.5);
+      const aheadR = this.racers.some(o => o !== r && o.total - r.total > 0 && o.total - r.total < 22 && Math.abs(o.lat - r.lat) < 1.8);
       if (r.item === 'boba' && r.place > 1) item = true; if (r.item === 'banana' && behind) item = true; if (r.item === 'slipper' && aheadR) item = true; if (r.item === 'charm' && behind) item = true; if (r.item === 'cracker' && this.racers.some(o => o !== r && o.total - r.total > 0 && o.total - r.total < 14)) item = true;
-      if (A.itemT < -6) item = true; // 拿太久就用掉
+      if (A.itemT < -6) item = true;
       if (item) A.itemT = 2 + Math.random() * 3;
     }
     const shove = this.racers.some(o => o !== r && Math.hypot(o.pos.x - r.pos.x, o.pos.z - r.pos.z) < P.shoveRange * 0.9 && o.total > r.total) && Math.random() < 0.02;
-    return { steer, jump, dash: A.dashHold, item, shove };
+    return { left, right, jump, dash: A.dashHold && !brake, item, shove, brake, mash: A.mash };
   }
   _hit(r, dur, by) { // 被絆倒／撞到
     if (r.shield > 0) { r.shield = 0; this.on('shieldBreak', r); return false; }
@@ -199,15 +201,19 @@ export class Race {
     this.on('hit', r, by); this._burst(r.pos, 0xffe066, 8, 1.6);
     return true;
   }
+  // 被撞飛到隔壁線道（在最邊邊就往另一邊）
+  _knockLane(r, side) {
+    let dir = side >= 0 ? 1 : -1; if (r.lane + dir < -1 || r.lane + dir > 1) dir = -dir;
+    r.lane = Math.max(-1, Math.min(1, r.lane + dir)); r.latKick += dir * 0.5;
+  }
   _shove(r) {
     this.on('shove', r);
-    const fx = Math.sin(r.heading), fz = Math.cos(r.heading);
-    r.slide.x += fx * 3; r.slide.z += fz * 3;
+    r.lunge += 4;
     for (const o of this.racers) {
-      if (o === r) continue; const dx = o.pos.x - r.pos.x, dz = o.pos.z - r.pos.z, d = Math.hypot(dx, dz);
-      if (d < P.shoveRange * (1 + (r.stats.shove - 1) * 0.3) && (dx * fx + dz * fz) / d > 0.3) {
-        const k = 5.5 * r.stats.shove / o.stats.weight;
-        if (this._hit(o, P.shoveStun, r)) { o.slide.x += dx / d * k; o.slide.z += dz / d * k; }
+      if (o === r) continue; const dp = o.total - r.total, dl = o.lat - r.lat, d = Math.hypot(dp, dl);
+      if (d < P.shoveRange * (1 + (r.stats.shove - 1) * 0.3) && dp > -0.3) {
+        const k = 2.2 * r.stats.shove / o.stats.weight;
+        if (this._hit(o, P.shoveStun, r)) { o.latKick += (dl >= 0 ? 1 : -1) * k; o.lunge += 3; }
       }
     }
   }
@@ -215,16 +221,22 @@ export class Race {
     const it = r.item; r.item = null; r.itemCd = 0.5; this.on('useItem', r, it);
     if (it === 'boba') { r.boost = 2.5; r.dash = 1; }
     if (it === 'charm') { r.shield = 8; }
-    if (it === 'banana') { const bx = r.pos.x - Math.sin(r.heading) * 1.6, bz = r.pos.z - Math.cos(r.heading) * 1.6; const m = makeBanana(); const pr = this.track.nearest(_v.set(bx, 0, bz), r.hint, {}); m.position.set(bx, pr.y + (Math.abs(pr.lateral) > this.track.halfW ? 0.14 : 0) + 0.08, bz); this.group.add(m); this.bananas.push({ x: bx, z: bz, mesh: m, owner: r, age: 0, idx: pr.idx, lat: pr.lateral }); }
+    if (it === 'banana') { const prog = ((r.prog - 1.8) % this.N + this.N) % this.N, i = Math.floor(prog); const bp = this.track.point(i, r.lat, prog - i); const m = makeBanana(); m.position.set(bp.x, bp.y + 0.08, bp.z); this.group.add(m); this.bananas.push({ x: bp.x, z: bp.z, mesh: m, owner: r, age: 0, idx: i, lat: r.lat }); }
     if (it === 'slipper') { const m = makeSlipper(); m.position.copy(r.pos).setY(r.group.position.y + 1.0); this.group.add(m); this.projectiles.push({ mesh: m, x: r.pos.x, z: r.pos.z, y: m.position.y, heading: r.heading, speed: r.speed + 16, life: 2.4, owner: r, spin: 0 }); }
-    if (it === 'cracker') { this._burst(r.pos, 0xff4030, 30, 4); for (const o of this.racers) { if (o === r) continue; const d = o.total - r.total; if (d > -2 && d < 14) { if (this._hit(o, 1.1, r)) { o.slide.x += (Math.random() - 0.5) * 4; o.slide.z += (Math.random() - 0.5) * 4; } } } }
+    if (it === 'cracker') { this._burst(r.pos, 0xff4030, 30, 4); for (const o of this.racers) { if (o === r) continue; const d = o.total - r.total; if (d > -2 && d < 14) { if (this._hit(o, 1.1, r)) { o.latKick += (Math.random() - 0.5) * 3; } } } }
   }
   _collide(dt) {
     const tr = this.track, R2 = (P.radius * 2) ** 2;
     // 跑者互撞
     for (let i = 0; i < this.racers.length; i++) for (let j = i + 1; j < this.racers.length; j++) {
       const a = this.racers[i], b = this.racers[j]; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d2 = dx * dx + dz * dz;
-      if (d2 < R2 && d2 > 1e-6 && Math.abs(a.h - b.h) < 1.0) { const d = Math.sqrt(d2), over = P.radius * 2 - d, wa = a.stats.weight, wb = b.stats.weight, ta = wb / (wa + wb), tb = wa / (wa + wb); a.pos.x -= dx / d * over * ta; a.pos.z -= dz / d * over * ta; b.pos.x += dx / d * over * tb; b.pos.z += dz / d * over * tb; if (!a.bumpT || this.time - a.bumpT > 0.5) { this.on('bump', a, b); a.bumpT = b.bumpT = this.time; } }
+      if (d2 < R2 && d2 > 1e-6 && Math.abs(a.h - b.h) < 1.0) {
+        const d = Math.sqrt(d2), over = P.radius * 2 - d, wa = a.stats.weight, wb = b.stats.weight, ta = wb / (wa + wb), tb = wa / (wa + wb);
+        const dl = b.lat - a.lat, sgn = dl >= 0 ? 1 : -1;
+        if (Math.abs(dl) > 0.25) { a.lat -= sgn * over * ta; b.lat += sgn * over * tb; a.latKick -= sgn * 0.6 * ta; b.latKick += sgn * 0.6 * tb; }
+        else { const dp = b.total - a.total; if (dp >= 0) a.speed *= 0.97; else b.speed *= 0.97; }
+        if (!a.bumpT || this.time - a.bumpT > 0.5) { this.on('bump', a, b); a.bumpT = b.bumpT = this.time; }
+      }
     }
     for (const r of this.racers) {
       r.puddle = false;
@@ -233,14 +245,12 @@ export class Race {
         const dx = r.pos.x - o.x, dz = r.pos.z - o.z, rr = o.r + P.radius * 0.8; if (dx * dx + dz * dz > rr * rr) continue;
         if (o.kind === 'puddle') { if (r.grounded) r.puddle = true; continue; }
         if (o.kind === 'jumpable' && r.h >= o.h - 0.05) continue;
-        const d = Math.hypot(dx, dz) || 0.01, push = rr - d; r.pos.x += dx / d * push; r.pos.z += dz / d * push;
-        if (this._hit(r, o.kind === 'solid' ? 1.0 : 0.8, o)) { r.slide.x += dx / d * 3; r.slide.z += dz / d * 3; }
+        if (this._hit(r, o.kind === 'solid' ? 1.0 : 0.8, o)) { this._knockLane(r, r.lat - (o.lat ?? r.lat)); r.lunge -= 3; }
       }
       // 會動的東西
       for (const m of this.world.movers) for (const h of m.hits) {
         if (h.x > 1e5) continue; const dx = r.pos.x - h.x, dz = r.pos.z - h.z, rr = h.r + P.radius * 0.8; if (dx * dx + dz * dz > rr * rr || r.h >= h.h) continue;
-        const d = Math.hypot(dx, dz) || 0.01, push = rr - d; r.pos.x += dx / d * push; r.pos.z += dz / d * push;
-        if (this._hit(r, m.stun, m)) { r.slide.x += dx / d * 7; r.slide.z += dz / d * 7; }
+        if (this._hit(r, m.stun, m)) { this._knockLane(r, Math.random() - 0.5); r.latKick += (r.lane >= 0 ? 1 : -1) * 0.8; r.lunge -= 6; }
       }
       // 香蕉皮
       for (let k = this.bananas.length - 1; k >= 0; k--) { const bn = this.bananas[k]; if (bn.owner === r && bn.age < 1.2) continue; if (!r.grounded || r.slip > 0) continue; if ((r.pos.x - bn.x) ** 2 + (r.pos.z - bn.z) ** 2 < 1.0) { if (r.shield > 0) { r.shield = 0; this.on('shieldBreak', r); } else { r.slip = 1.1; r.speed *= 0.3; this.on('slip', r); } this.group.remove(bn.mesh); this.bananas.splice(k, 1); } }
@@ -250,6 +260,7 @@ export class Race {
       let onBoost = -1; this.world.boosts.forEach((bp, k) => { if ((r.pos.x - bp.x) ** 2 + (r.pos.z - bp.z) ** 2 < bp.r * bp.r) onBoost = k; });
       if (onBoost >= 0 && r.lastBoost !== onBoost && r.grounded) { r.boost = Math.max(r.boost, 1.3); r.dash = Math.min(1, r.dash + 0.3); this.on('boost', r); }
       r.lastBoost = onBoost;
+      r.lat = clamp(r.lat, -(tr.halfW - 0.55), tr.halfW - 0.55); this._rail(r);
     }
     for (const bn of this.bananas) bn.age += dt;
   }
@@ -263,7 +274,7 @@ export class Race {
       p.mesh.position.set(p.x, p.y, p.z); p.mesh.rotation.set(p.spin, p.heading, 0);
       let gone = p.life <= 0;
       const pr = this.track.nearest(_v.set(p.x, 0, p.z), p.owner.hint, {}); if (Math.abs(pr.lateral) > this.track.limit) gone = true;
-      for (const o of this.racers) { if (o === p.owner) continue; if ((o.pos.x - p.x) ** 2 + (o.pos.z - p.z) ** 2 < 1.1 && o.h < 1.2) { if (this._hit(o, 1.2, p.owner)) { o.slide.x += Math.sin(p.heading) * 4; o.slide.z += Math.cos(p.heading) * 4; } gone = true; break; } }
+      for (const o of this.racers) { if (o === p.owner) continue; if ((o.pos.x - p.x) ** 2 + (o.pos.z - p.z) ** 2 < 1.1 && o.h < 1.2) { if (this._hit(o, 1.2, p.owner)) { o.latKick += (Math.random() < 0.5 ? -1 : 1) * 1.5; o.lunge += 2; } gone = true; break; } }
       if (gone) { this.group.remove(p.mesh); this.projectiles.splice(k, 1); }
     }
   }

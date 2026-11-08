@@ -92,6 +92,18 @@ function stoneLantern(b) {
   b.box(0.7, 0.14, 0.7, 0, 1.78, 0, 0x7a7a74); b.sphere(0.1, 0, 1.92, 0, 0x7a7a74, { seg: 6, seg2: 4 });
 }
 function lanternRow(b, n, y, z, spacing, color = 0xe03a2a) { for (let i = 0; i < n; i++) { const x = (i - (n - 1) / 2) * spacing; b.cyl(0.22, 0.22, 0.4, x, y, z, color, { lit: true, seg: 8 }); b.cyl(0.1, 0.1, 0.06, x, y + 0.24, z, 0x1a1a1a, { seg: 6 }); b.cyl(0.1, 0.1, 0.06, x, y - 0.24, z, 0x1a1a1a, { seg: 6 }); } }
+function person(b, R) {
+  const col = R.pick([0xe8b0c8, 0x6a8ab0, 0x3a3a3a, 0xf4e8c8, 0xb8362a, 0x2f8a55, 0xf2b134, 0xffffff, 0x1f2f6f]), skin = R.pick([0xf2c9a8, 0xe8b88a, 0xd9a070]);
+  b.box(0.5, 0.62, 0.32, 0, 0.92, 0, col); b.box(0.2, 0.5, 0.2, -0.14, 0.3, 0, R.pick([0x2a2a30, 0x3b4a7a, 0x5a4a3a])); b.box(0.2, 0.5, 0.2, 0.14, 0.3, 0, R.pick([0x2a2a30, 0x3b4a7a]));
+  b.box(0.16, 0.5, 0.16, -0.33, 0.95, 0, col); b.box(0.16, 0.5, 0.16, 0.33, 0.95, 0, col);
+  b.sphere(0.3, 0, 1.56, 0, skin, { seg: 8, seg2: 6 }); b.box(0.64, 0.22, 0.6, 0, 1.76, -0.04, R.pick([0x2a1a10, 0x4a2f27, 0x8a6a4a, 0xe8e8e8]));
+  const pick = R();
+  if (pick < 0.25) { b.cyl(0.02, 0.02, 1.4, 0.3, 1.5, 0, 0x3e2a1c, { seg: 4 }); b.cone(0.85, 0.3, 0.3, 2.2, 0, R.pick([0xd9463b, 0xf2b134, 0xf4f4f4, 0x3a6fb0]), { seg: 10 }); }
+  else if (pick < 0.5) b.box(0.3, 0.36, 0.16, -0.42, 0.6, 0.1, R.pick([0x8a5a3a, 0x2a2a2a, 0xd9463b]));
+  else if (pick < 0.7) b.box(0.12, 0.2, 0.02, 0.2, 1.25, 0.3, 0x1a1a24);
+  else if (pick < 0.85) b.box(0.12, 0.3, 0.12, 0.42, 1.0, 0.1, R.pick([0xc8905a, 0xf4f4f4]));
+}
+function flag(b, R, text, bg, fg) { b.cyl(0.04, 0.05, 3.2, 0, 1.6, 0, 0x5a4a3a, { seg: 5 }); b.box(0.6, 0.04, 0.04, 0.3, 3.1, 0, 0x5a4a3a); b.sign(text, 0.55, 2.0, 0.32, 2.05, 0.02, bg, fg, { vertical: true, double: true }); }
 function awning(b, w, y, color, color2) { for (let i = 0; i < 6; i++) b.box(w / 6, 0.08, 1.3, -w / 2 + (i + 0.5) * w / 6, y, 0.65, i % 2 ? color : color2, { rx: 0.25 }); }
 function noren(b, w, y, color) { for (let i = 0; i < 3; i++) b.box(w / 3 - 0.06, 0.9, 0.03, -w / 2 + (i + 0.5) * w / 3, y, 0.08, color); b.box(w + 0.1, 0.06, 0.06, 0, y + 0.47, 0.08, 0x3e2a1c); }
 function acUnit(b, x, y, z) { b.box(0.7, 0.55, 0.3, x, y, z, 0xcfcfcf); b.cyl(0.2, 0.2, 0.04, x, y, z + 0.17, 0x4a4a4a, { seg: 10, rx: Math.PI / 2 }); }
@@ -123,7 +135,7 @@ function bldTaipei(b, R, w, isNight) {
       b.box(1.5, 1.4, 0.06, x, y, 0.03, on ? R.pick([0xffe4a8, 0xfff1c8, 0xbfe6ff]) : 0x3a4858, { lit: on });
       b.box(1.7, 1.6, 0.3, x, y, 0.1, 0x6a6a6a);                                              // 鐵窗框
       for (let j = 0; j < 4; j++) b.box(0.04, 1.5, 0.04, x - 0.6 + j * 0.4, y, 0.26, 0x7a7a7a); // 鐵條
-      if (R.chance(0.3)) acUnit(b, x + 0.9, y - 0.4, 0.3);
+      if (R.chance(0.55)) acUnit(b, x + 0.9, y - 0.4, 0.3);
     }
   }
   // 頂樓：女兒牆、加蓋、水塔
@@ -134,7 +146,7 @@ function bldTaipei(b, R, w, isNight) {
   const neon = isNight ? R.pick(['#e8322a', '#1f6fd0', '#f2b134', '#2fa35a', '#d4286e']) : R.pick(['#c8402a', '#2f5fb0', '#d49a1f']);
   b.box(w * 0.7 + 0.1, 1.15, 0.12, 0, fh + 0.75, 0.08, 0x2a2a2a);
   b.sign(R.pick(TW_SIGNS), w * 0.7, 1.05, 0, fh + 0.75, 0.15, neon, '#fff6e0');
-  if (R.chance(0.75)) {
+  if (R.chance(0.95)) {
     const x = R.chance(0.5) ? w / 2 - 0.7 : -w / 2 + 0.7, y0 = fh + 2.2, vh = Math.min(H - y0 - 0.5, 5.5);
     b.box(0.14, vh, 0.9, x, y0 + vh / 2, 0.8, 0x2a2a2a);
     b.box(0.6, 0.1, 0.1, x, y0 + vh - 0.3, 0.4, 0x3a3a3a);
@@ -214,7 +226,7 @@ function bldTokyo(b, R, w, isDusk) {
   b.box(w, 0.4, 0.2, 0, H + 0.2, -0.1, wall);
   if (R.chance(0.5)) waterTank(b, -w / 2 + 1.4, -d + 2);
   b.box(0.08, 3, 0.08, w / 2 - 1, H + 1.5, -d + 1.5, 0x5a5a5a); b.box(1.2, 0.06, 0.06, w / 2 - 1, H + 2.8, -d + 1.5, 0x5a5a5a); // 天線
-  if (R.chance(0.5)) { const x = R.chance(0.5) ? w / 2 - 0.5 : -w / 2 + 0.5, y0 = fh + 1.6, vh = Math.min(H - y0 - 0.4, 4.5); if (vh > 1.5) { b.box(0.12, vh, 0.8, x, y0 + vh / 2, 0.6, 0x2a2a2a); b.sign(R.pick(JP_VSIGNS), 0.8, vh, x, y0 + vh / 2, 0.6, R.pick(['#b8362a', '#f4f4f4', '#1f2f6f']), R.chance(0.4) ? '#1a1a1a' : '#ffffff', { vertical: true, ry: Math.PI / 2, double: true }); } }
+  if (R.chance(0.8)) { const x = R.chance(0.5) ? w / 2 - 0.5 : -w / 2 + 0.5, y0 = fh + 1.6, vh = Math.min(H - y0 - 0.4, 4.5); if (vh > 1.5) { b.box(0.12, vh, 0.8, x, y0 + vh / 2, 0.6, 0x2a2a2a); b.sign(R.pick(JP_VSIGNS), 0.8, vh, x, y0 + vh / 2, 0.6, R.pick(['#b8362a', '#f4f4f4', '#1f2f6f']), R.chance(0.4) ? '#1a1a1a' : '#ffffff', { vertical: true, ry: Math.PI / 2, double: true }); } }
 }
 function shrine(b) {
   b.box(14, 0.6, 12, 0, 0.3, -7, 0x9a9490);
@@ -327,30 +339,30 @@ export function buildScenery(track, course, seed = 7) {
           b.pop();
         }
       }
-      i += w + R.range(0.3, 1.2);
+      i += w + R.range(0, 0.3);
     }
   }
   // ── 遠景：第二排街廓（深色量體，夜晚亮窗）
-  const backRows = isKyoto ? 0 : 1;
+  const backRows = isTaipei ? 2 : 1;
   for (let row = 0; row < backRows; row++) for (const s of [1, -1]) {
-    for (let i = R.range(0, 20); i < N; i += R.range(18, 30)) {
-      const f = track.frameT(i / N, s * (lim + 16 + row * 14)), w = R.range(10, 18), h = R.range(10, isTaipei ? 36 : 22);
-      b.push(f.x, f.y, f.z, f.ry); b.box(w, h + 4, 12, 0, h / 2 - 2, -6, R.pick(isTaipei ? [0x3a3a48, 0x4a4a58, 0x5a5a68] : [0x8a8a90, 0xa8a4a0, 0x6a6a70]));
+    for (let i = R.range(0, 10); i < N; i += R.range(11, 19)) {
+      const f = track.frameT(i / N, s * (lim + 14 + row * 14)), w = R.range(10, 18), h = isKyoto ? R.range(5, 9) : R.range(10, isTaipei ? 36 : 22);
+      b.push(f.x, f.y, f.z, f.ry); b.box(w, h + 4, 12, 0, h / 2 - 2, -6, R.pick(isTaipei ? [0x3a3a48, 0x4a4a58, 0x5a5a68] : isKyoto ? [0x5a4232, 0xe8e0d0, 0x4a3626] : [0x8a8a90, 0xa8a4a0, 0x6a6a70])); if (isKyoto) b.box(w + 1, 0.5, 13, 0, h + 0.2, -6, 0x3a3a40);
       if (lit) for (let k = 0; k < Math.round(w * h / 14); k++) if (R.chance(0.4)) b.box(0.9, 1.0, 0.1, -w / 2 + 1 + R() * (w - 2), 1 + R() * (h - 2), 0.05, R.pick([0xffe4a8, 0xbfe6ff, 0xfff1c8]), { lit: true });
       b.pop();
     }
   }
   // ── 路燈、樹、小物（每隔幾公尺）
-  for (const s of [1, -1]) for (const t of stepsAt(26, s > 0 ? 0 : 13)) {
+  for (const s of [1, -1]) for (const t of stepsAt(18, s > 0 ? 0 : 9)) {
     if (isKyoto && track.inRange(t, feat.torii)) continue;
     const f = track.frameT(t, s * (lim - 0.4)); b.push(f.x, f.y + 0.14, f.z, f.ry); streetLamp(b, lit, isTaipei ? 'tw' : 'jp'); b.pop();
   }
   if (isTokyo) { // 電線桿＋電線
     const poles = [];
-    for (const t of stepsAt(22, 7)) { if (track.inRange(t, feat.bridge)) continue; const f = track.frameT(t, lim - 0.6); b.push(f.x, f.y + 0.14, f.z, f.ry); utilityPole(b, lit); b.pop(); poles.push(f); }
+    for (const t of stepsAt(14, 7)) { if (track.inRange(t, feat.bridge)) continue; const f = track.frameT(t, lim - 0.6); b.push(f.x, f.y + 0.14, f.z, f.ry); utilityPole(b, lit); b.pop(); poles.push(f); }
     for (let i = 0; i < poles.length; i++) { const a = poles[i], c = poles[(i + 1) % poles.length]; const dx = c.x - a.x, dz = c.z - a.z, len = Math.hypot(dx, dz); if (len > 40) continue; for (const [dy, off] of [[8.1, -0.7], [8.1, 0.7], [7.5, -0.5], [7.5, 0.5]]) { b.push((a.x + c.x) / 2, (a.y + c.y) / 2 + dy - 0.3, (a.z + c.z) / 2, Math.atan2(dx, dz)); b.box(0.04, 0.04, len, off, 0, 0, 0x1a1a1a); b.pop(); } }
   }
-  for (const s of [1, -1]) for (const t of stepsAt(17, s > 0 ? 5 : 11)) {
+  for (const s of [1, -1]) for (const t of stepsAt(9, s > 0 ? 4 : 8)) {
     if (noBuildAt(t) && !(isKyoto && track.inRange(t, feat.river) && s < 0)) continue;
     const f = track.frameT(t, s * (lim - 0.9));
     b.push(f.x, f.y + 0.14, f.z, f.ry);
@@ -361,29 +373,41 @@ export function buildScenery(track, course, seed = 7) {
   }
 
   // ── 人行道上的障礙物（機車／腳踏車／販賣機／垃圾桶／花台／石燈籠）與馬路上的三角錐、水窪
-  const sidewalkObs = Math.round(N / 14);
-  for (let k = 0; k < sidewalkObs; k++) {
+  const sidewalkObs = Math.round(N / 4.5);
+  for (let k = 0; k < sidewalkObs; k++) { // 人行道上的東西玩家碰不到，不用碰撞圓
     const t = R(), s = R.chance(0.5) ? 1 : -1;
     if (t < 0.03 || t > 0.97) continue;
     if (isKyoto && track.inRange(t, feat.torii)) continue;
-    const lat = s * (track.halfW + R.range(0.9, track.sw - 0.6));
+    if (isKyoto && track.inRange(t, feat.river) && s < 0) continue;
+    const lat = s * (track.halfW + R.range(0.8, track.sw - 0.5));
     const f = track.frameT(t, lat), ry = f.yaw + (R.chance(0.5) ? 0 : Math.PI) + R.range(-0.3, 0.3);
     b.push(f.x, f.y + 0.14, f.z, ry);
-    if (isTaipei) { const pick = R(); if (pick < 0.55) { scooter(b, R.pick([0xd9463b, 0x2f5fb0, 0xf4f4f4, 0x2a2a2a, 0xf2b134])); addObs(f, 0.75, 0.95, 'jumpable', '機車'); } else if (pick < 0.75) { trashCan(b, 0x3f7a5a); addObs(f, 0.42, 0.95, 'jumpable', '垃圾桶'); } else if (pick < 0.9) { planter(b, R); addObs(f, 0.7, 0.9, 'jumpable', '花台'); } else { mailboxTW(b); addObs(f, 0.6, 1.2, 'solid', '郵筒'); } }
-    else if (isTokyo) { const pick = R(); if (pick < 0.4) { vending(b, R, lit); addObs(f, 0.65, 1.85, 'solid', '自動販賣機'); } else if (pick < 0.75) { bicycle(b, R.pick([0x3a3a3a, 0xd9463b, 0x2f5fb0, 0xf4f4f4])); addObs(f, 0.6, 0.95, 'jumpable', '腳踏車'); } else if (pick < 0.9) { trashCan(b, 0x5a5a60); addObs(f, 0.42, 0.95, 'jumpable', '垃圾桶'); } else { postJP(b); addObs(f, 0.4, 1.2, 'solid', '郵筒'); } }
-    else { const pick = R(); if (pick < 0.45) { stoneLantern(b); addObs(f, 0.5, 1.9, 'solid', '石燈籠'); } else if (pick < 0.7) { bench(b); addObs(f, 0.8, 0.9, 'jumpable', '長椅'); } else if (pick < 0.9) { planter(b, R); addObs(f, 0.7, 0.9, 'jumpable', '花台'); } else { bicycle(b, 0x3a3a3a); addObs(f, 0.6, 0.95, 'jumpable', '腳踏車'); } }
+    const pick = R();
+    if (pick < 0.42) person(b, R);
+    else if (isTaipei) { if (pick < 0.75) scooter(b, R.pick([0xd9463b, 0x2f5fb0, 0xf4f4f4, 0x2a2a2a, 0xf2b134])); else if (pick < 0.85) trashCan(b, 0x3f7a5a); else if (pick < 0.92) planter(b, R); else if (pick < 0.96) mailboxTW(b); else flag(b, R, R.pick(['特價', '新開幕', '人氣', '排隊']), R.pick(['#e8322a', '#f2b134']), '#fff'); }
+    else if (isTokyo) { if (pick < 0.62) vending(b, R, lit); else if (pick < 0.8) bicycle(b, R.pick([0x3a3a3a, 0xd9463b, 0x2f5fb0, 0xf4f4f4])); else if (pick < 0.86) trashCan(b, 0x5a5a60); else if (pick < 0.9) postJP(b); else flag(b, R, R.pick(['営業中', '大売出', 'セール', 'おでん', '生ビール']), R.pick(['#b8362a', '#1f2f6f', '#f4f4f4']), pick < 0.95 ? '#fff' : '#1a1a1a'); }
+    else { if (pick < 0.62) stoneLantern(b); else if (pick < 0.75) bench(b); else if (pick < 0.85) planter(b, R); else if (pick < 0.9) bicycle(b, 0x3a3a3a); else flag(b, R, R.pick(['抹茶', '甘味', '京漬物', '湯豆腐']), R.pick(['#5a3a22', '#b8362a', '#1f2f6f']), '#f4e8c8'); }
     b.pop();
   }
-  const roadObs = Math.round(N / 40);
-  for (let k = 0; k < roadObs; k++) {
-    const t = R.range(0.05, 0.96), lat = R.range(-track.halfW + 0.8, track.halfW - 0.8);
-    if (world.itemT.some(x => Math.abs(x - t) < 0.02)) continue;
-    const f = track.frameT(t, lat);
-    if (R.chance(0.55)) { b.push(f.x, f.y, f.z, f.yaw); cone(b); b.pop(); addObs(f, 0.4, 0.75, 'jumpable', '三角錐'); }
-    else { b.push(f.x, f.y + 0.005, f.z, f.yaw); b.cyl(1.3, 1.3, 0.01, 0, 0, 0, isNight ? 0x3a5aa0 : 0x6a8ab0, { seg: 10, sx: 1.4 }); b.pop(); addObs(f, 1.4, 0, 'puddle', '水窪'); }
-  }
-  // ── 道具箱位置與加速墊
   world.itemT = isTaipei ? [0.14, 0.42, 0.66, 0.88] : isTokyo ? [0.13, 0.4, 0.5, 0.74, 0.92] : [0.12, 0.33, 0.56, 0.8];
+  const LW = track.halfW - 1.5; // 三線道間距
+  const blockedT = (t) => world.itemT.some(x => Math.abs(x - t) < 0.015) || t < 0.03 || t > 0.965
+    || (isTaipei && (Math.abs(t - feat.intersection[0]) < 0.02 || Math.abs(t - feat.intersection[1]) < 0.02))
+    || (isTokyo && Math.abs(t - feat.crossing) < 0.025) || (isKyoto && Math.abs(t - feat.crosswalk) < 0.015);
+  for (let i = 14; i < N - 8; i += R.range(11, 19)) {
+    const t = i / N; if (blockedT(t)) continue;
+    const lanes = R.chance(0.6) ? [R.int(-1, 1)] : (() => { const a = R.int(-1, 1); let c = R.int(-1, 1); if (c === a) c = ((a + 2) % 3) - 1; return [a, c]; })(); // 最多擋兩線
+    for (const lane of lanes) {
+      const f = track.frameT(t, lane * LW + R.range(-0.25, 0.25)), pick = R();
+      b.push(f.x, f.y, f.z, f.yaw + R.range(-0.2, 0.2));
+      if (pick < 0.28) { cone(b); b.pop(); addObs(f, 0.4, 0.75, 'jumpable', '三角錐'); }
+      else if (pick < 0.46) { b.pop(); b.push(f.x, f.y + 0.005, f.z, f.yaw); b.cyl(1.2, 1.2, 0.01, 0, 0, 0, isNight ? 0x3a5aa0 : 0x6a8ab0, { seg: 10, sx: 1.3 }); b.pop(); addObs(f, 1.3, 0, 'puddle', '水窪'); }
+      else if (isTaipei) { if (pick < 0.72) { scooter(b, R.pick([0xd9463b, 0x2f5fb0, 0xf4f4f4, 0x2a2a2a])); b.pop(); addObs(f, 0.75, 0.95, 'jumpable', '機車'); } else if (pick < 0.88) { for (let k = 0; k < 3; k++) b.sphere(0.4, (k - 1) * 0.5, 0.35, R.range(-0.2, 0.2), 0x2a2a30, { seg: 7, seg2: 5, sy: 0.8 }); b.pop(); addObs(f, 0.8, 0.7, 'jumpable', '垃圾袋'); } else { b.box(1.8, 1.0, 0.3, 0, 0.6, 0, 0xf2b134); b.box(1.8, 0.12, 0.32, 0, 0.6, 0, 0x1a1a1a, { rz: 0.4 }); for (const x of [-0.8, 0.8]) b.box(0.1, 1.1, 0.5, x, 0.55, 0, 0x6a6a6a); b.pop(); addObs(f, 1.0, 1.1, 'solid', '施工圍欄'); } }
+      else if (isTokyo) { if (pick < 0.7) { bicycle(b, R.pick([0x3a3a3a, 0xd9463b, 0x2f5fb0])); b.pop(); addObs(f, 0.6, 0.95, 'jumpable', '腳踏車'); } else if (pick < 0.86) { cone(b); b.box(1.6, 0.08, 0.08, 0, 0.75, 0, 0xf2f2f2); b.pop(); addObs(f, 0.9, 0.8, 'jumpable', '三角錐'); } else { b.box(1.6, 1.0, 0.3, 0, 0.6, 0, 0xf4f4f4); for (let k = 0; k < 4; k++) b.box(0.25, 1.0, 0.32, -0.6 + k * 0.4, 0.6, 0, 0xe8502a); for (const x of [-0.7, 0.7]) b.box(0.1, 1.1, 0.5, x, 0.55, 0, 0x6a6a6a); b.pop(); addObs(f, 0.9, 1.1, 'solid', '施工圍欄'); } }
+      else { if (pick < 0.68) { planter(b, R); b.pop(); addObs(f, 0.7, 0.9, 'jumpable', '花台'); } else if (pick < 0.86) { stoneLantern(b); b.pop(); addObs(f, 0.5, 1.9, 'solid', '石燈籠'); } else { b.box(1.2, 0.9, 1.2, 0, 1.0, 0, 0x1a1a24); b.box(1.25, 0.6, 1.1, 0, 1.75, -0.2, 0xb8362a); for (const sx of [-1, 1]) b.cyl(0.6, 0.6, 0.06, sx * 0.75, 0.6, 0, 0x2a2a2a, { seg: 14, rz: Math.PI / 2 }); b.pop(); addObs(f, 1.0, 2.0, 'solid', '停著的人力車'); } }
+    }
+  }
+  // ── 加速墊
   const boostT = isTaipei ? [0.31, 0.78] : isTokyo ? [0.09, 0.44, 0.86] : [0.22, 0.73];
   for (const t of boostT) { const f = track.frameT(t, 0); b.push(f.x, f.y + 0.01, f.z, f.yaw); for (let i = 0; i < 3; i++) { b.box(1.2, 0.02, 0.35, -0.6, 0, i * 1.1 - 1, 0x40f0ff, { lit: true, ry: 0.6 }); b.box(1.2, 0.02, 0.35, 0.6, 0, i * 1.1 - 1, 0x40f0ff, { lit: true, ry: -0.6 }); } b.pop(); world.boosts.push({ x: f.x, z: f.z, r: 1.6 }); }
 
@@ -391,8 +415,8 @@ export function buildScenery(track, course, seed = 7) {
   if (isTaipei) {
     // 夜市段：攤販、跨街燈籠、更多人
     const [m0, m1] = feat.market; const span = m1 - m0;
-    for (let k = 0; k < Math.round(span * N / 9); k++) { const t = m0 + (k + 0.5) * span / Math.round(span * N / 9), s = k % 2 ? 1 : -1; const f = track.frameT(t, s * (track.halfW + 1.3)); b.push(f.x, f.y + 0.14, f.z, f.ry); stall(b, R, isNight); b.pop(); addObs(f, 1.2, 2.6, 'solid', '攤販'); }
-    for (let k = 0; k < Math.round(span * N / 12); k++) { const t = m0 + k * span / Math.round(span * N / 12); const f = track.frameT(t, 0); b.push(f.x, f.y, f.z, f.yaw); b.box(0.05, 0.05, lim * 2 + 2, 0, 5.2, 0, 0x1a1a1a, { ry: Math.PI / 2 }); lanternRow(b, 9, 4.9, 0, (lim * 2) / 9, R.pick([0xe03a2a, 0xe03a2a, 0xf2b134])); b.pop(); }
+    for (const s of [1, -1]) for (let k = 0; k < Math.round(span * N / 4.5); k++) { const t = m0 + (k + (s > 0 ? 0.25 : 0.75)) * span / Math.round(span * N / 4.5); const f = track.frameT(t, s * (track.halfW + 1.3)); b.push(f.x, f.y + 0.14, f.z, f.ry); stall(b, R, isNight); b.pop(); b.push(f.x, f.y + 0.14, f.z, f.ry + Math.PI + R.range(-0.5, 0.5)); b.push(R.range(-0.8, 0.8), 0, -1.6, 0); person(b, R); b.pop(); b.pop(); }
+    for (let k = 0; k < Math.round(span * N / 5); k++) { const t = m0 + k * span / Math.round(span * N / 5); const f = track.frameT(t, 0); b.push(f.x, f.y, f.z, f.yaw); b.box(0.05, 0.05, lim * 2 + 2, 0, 5.2, 0, 0x1a1a1a, { ry: Math.PI / 2 }); lanternRow(b, 9, 4.9, 0, (lim * 2) / 9, R.pick([0xe03a2a, 0xe03a2a, 0xf2b134])); b.pop(); }
     // 廟
     { const f = track.frameT(feat.temple, lim + 0.5); b.push(f.x, f.y, f.z, f.ry); temple(b, R, isNight); b.pop(); world.labels.push({ x: f.x, y: f.y + 11, z: f.z, text: '保安宮' }); }
     // 路口：紅綠燈＋斑馬線＋穿越的機車
@@ -430,7 +454,7 @@ export function buildScenery(track, course, seed = 7) {
   }
   if (isKyoto) {
     // 千本鳥居：兩側密排
-    { const [t0, t1] = feat.torii; const n = Math.round((t1 - t0) * N / 2.2); for (let k = 0; k <= n; k++) { const f = track.frameT(t0 + (t1 - t0) * k / n, 0); b.push(f.x, f.y, f.z, f.yaw); torii(b, track.halfW * 2 + 1.2, 6.2); b.pop(); }
+    { const [t0, t1] = feat.torii; const n = Math.round((t1 - t0) * N / 1.5); for (let k = 0; k <= n; k++) { const f = track.frameT(t0 + (t1 - t0) * k / n, 0); b.push(f.x, f.y, f.z, f.yaw); torii(b, track.halfW * 2 + 1.2, 6.2); b.pop(); }
       for (const s of [1, -1]) b.raw(track.ribbon(s * (track.halfW + 0.6), 0.15, s * (lim + 0.5), 0.15, 0x3a6a3a, { range: [t0, t1] }));
       for (let k = 0; k < 30; k++) { const f = track.frameT(t0 + (t1 - t0) * R(), (R.chance(0.5) ? 1 : -1) * (lim + R.range(2, 10))); b.push(f.x, f.y, f.z, 0); b.cone(1.6, 6, 0, 3, 0, C.pine, { seg: 7 }); b.pop(); }
       const f = track.frameT((t0 + t1) / 2, 0); world.labels.push({ x: f.x, y: f.y + 8, z: f.z, text: '千本鳥居' }); }
@@ -438,7 +462,7 @@ export function buildScenery(track, course, seed = 7) {
     { const [t0, t1] = feat.bamboo; for (const s of [1, -1]) for (let k = 0; k < Math.round((t1 - t0) * N / 10); k++) { const f = track.frameT(t0 + (t1 - t0) * (k + 0.5) / Math.round((t1 - t0) * N / 10), s * (lim + 0.5)); b.push(f.x, f.y, f.z, f.ry); bambooGrove(b, R, 14, 10); b.pop(); } }
     // 鴨川：右側是河與堤防
     { const [r0, r1] = feat.river; b.raw(track.ribbon(-lim - 0.6, 0.14, -lim - 4, -1.6, 0x8aa070, { range: [r0, r1] })); b.raw(track.ribbon(-lim - 4, -1.6, -lim - 30, -1.6, 0x4a8ab8, { range: [r0, r1] })); b.raw(track.ribbon(-lim - 30, -1.6, -lim - 38, 0.4, 0x8aa070, { range: [r0, r1] }));
-      for (let k = 0; k < 10; k++) { const f = track.frameT(r0 + (r1 - r0) * (k + 0.5) / 10, -(lim + 2)); b.push(f.x, f.y - 1.0, f.z, f.yaw); bench(b); b.pop(); } }
+      for (let k = 0; k < 24; k++) { const f = track.frameT(r0 + (r1 - r0) * (k + 0.5) / 24, -(lim + 2)); b.push(f.x, f.y - 1.0, f.z, f.yaw); bench(b); if (k % 2) { b.push(0.4, 0, -0.5, Math.PI); person(b, R); b.pop(); } b.pop(); } }
     { const t = feat.crosswalk; b.raw(track.crosswalk(t), 0xffffff); for (let k = 0; k < 3; k++) world.movers.push(makeCrosser(track, t, atlas, R, 'ped', k)); }
     world.movers.push(makeRoadVehicle(track, rickshawMesh(atlas), 0.2, 2.2, 4.2, 1.0, 2.2, 1.1, '人力車'));
     // 遠山
