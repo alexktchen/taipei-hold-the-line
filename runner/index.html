@@ -41,7 +41,7 @@
   #btnStart { margin:6px auto 0; border:0; border-radius:999px; padding:16px 54px; font-size:22px; font-weight:900; background:linear-gradient(180deg, #ff7a5c, var(--accent)); color:#fff; box-shadow:0 8px 0 #a8321c, 0 16px 40px #ff5a3c55; letter-spacing:.1em } #btnStart:active { transform:translateY(5px); box-shadow:0 3px 0 #a8321c }
   .help { color:var(--muted); font-size:12px; text-align:center; line-height:1.7; margin:4px 0 0 } .help kbd { background:#ffffff14; border-radius:6px; padding:1px 7px; font-family:inherit; color:var(--ink); font-weight:900 }
   .credit { color:#6f6a90; font-size:11px; text-align:center; margin-top:14px; line-height:1.6 } .credit a { color:#9f98d8 }
-  @media (max-width:640px) { .chars { grid-template-columns:1fr } #preview { width:100%; height:200px } .grid { grid-template-columns:repeat(4, 1fr) } .pick img { width:54px; height:64px } .pick b { font-size:13px } }
+  @media (max-width:640px) { .chars { grid-template-columns:1fr } #preview { width:100%; height:230px } .pick img { width:54px; height:64px } }
 
   /* ─── HUD ─── */
   #hud { position:fixed; inset:0; pointer-events:none; z-index:10; font-weight:900 } #hud[hidden] { display:none }
@@ -61,14 +61,24 @@
   .screen #btnMuteMenu { position:absolute; right:14px; top:max(14px, env(safe-area-inset-top)); border:0; border-radius:999px; background:#ffffff14; color:#fff; width:40px; height:40px; display:flex; align-items:center; justify-content:center } #btnMuteMenu svg { width:22px; height:22px }
   .tctl { display:none } body.touch .tctl { display:block }
   .tctl button { position:absolute; pointer-events:auto; border:0; border-radius:50%; background:#ffffff22; border:2px solid #ffffff55; color:#fff; font-weight:900; font-size:14px; letter-spacing:.05em; user-select:none; -webkit-user-select:none; backdrop-filter:blur(4px) } .tctl button:active, .tctl button.down { background:#ffd16688; border-color:var(--gold) }
-  .tctl .l { left:max(16px, env(safe-area-inset-left)); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 120px); width:78px; height:78px; font-size:30px } .tctl .r { left:calc(max(16px, env(safe-area-inset-left)) + 92px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 120px); width:78px; height:78px; font-size:30px }
-  .tctl .jump { right:max(18px, env(safe-area-inset-right)); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 100px); width:84px; height:84px; background:#3ad6ff44 }
-  .tctl .dash { right:calc(max(18px, env(safe-area-inset-right)) + 96px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 100px); width:84px; height:84px; background:#ff5a3c44; border-radius:50% } .tctl .dash::after { content:none }
-  .tctl .shove { right:calc(max(18px, env(safe-area-inset-right)) + 56px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 194px); width:66px; height:66px; font-size:12px }
-  .tctl .item { right:calc(max(18px, env(safe-area-inset-right)) + 140px); bottom:calc(max(18px, env(safe-area-inset-bottom)) + 194px); width:66px; height:66px; font-size:12px; position:absolute; top:auto; display:block; border-radius:50%; transform:none; box-shadow:none; background:#ffd16644 }
-  body.touch .gauges { bottom:calc(max(18px, env(safe-area-inset-bottom)) + 6px); width:min(200px, 40vw) } body.touch .speed { font-size:24px } body.touch .place { bottom:max(18px, env(safe-area-inset-bottom)) }
-  body.touch #mini { width:110px; height:110px } body.touch .item { width:68px; height:68px } body.touch .item svg { width:34px; height:34px }
-
+  /* 直立手機：下方一排大按鈕（左轉、右轉｜衝刺、跳），上面一排小按鈕（道具、推）；左上是圈數、時間、能量條、速度，右上是道具與小地圖，名次在左下按鈕上方 */
+  .tctl .l { left:max(14px, env(safe-area-inset-left)); bottom:max(16px, env(safe-area-inset-bottom)); width:82px; height:82px; font-size:32px }
+  .tctl .r { left:calc(max(14px, env(safe-area-inset-left)) + 94px); bottom:max(16px, env(safe-area-inset-bottom)); width:82px; height:82px; font-size:32px }
+  .tctl .jump { right:max(14px, env(safe-area-inset-right)); bottom:max(16px, env(safe-area-inset-bottom)); width:86px; height:86px; background:#3ad6ff44; font-size:18px }
+  .tctl .bdash { right:calc(max(14px, env(safe-area-inset-right)) + 98px); bottom:max(16px, env(safe-area-inset-bottom)); width:86px; height:86px; background:#ff5a3c44; border-radius:50%; font-size:16px }
+  .tctl .shove { right:max(14px, env(safe-area-inset-right)); bottom:calc(max(16px, env(safe-area-inset-bottom)) + 100px); width:64px; height:64px; font-size:14px }
+  .tctl .item { right:calc(max(14px, env(safe-area-inset-right)) + 76px); bottom:calc(max(16px, env(safe-area-inset-bottom)) + 100px); width:64px; height:64px; font-size:14px; position:absolute; top:auto; display:block; border-radius:50%; transform:none; box-shadow:none; background:#ffd16644 }
+  body.touch .place { bottom:calc(max(16px, env(safe-area-inset-bottom)) + 104px); left:max(14px, env(safe-area-inset-left)) } body.touch .place b { font-size:72px } body.touch .place i { font-size:22px }
+  body.touch .gauges { left:max(14px, env(safe-area-inset-left)); right:auto; top:calc(max(16px, env(safe-area-inset-top)) + 84px); bottom:auto; width:min(180px, 46vw); align-items:flex-start } body.touch .speed { font-size:26px } body.touch .dash { height:14px }
+  body.touch .lap { font-size:16px } body.touch .lap b { font-size:28px } body.touch .timer { top:calc(max(16px, env(safe-area-inset-top)) + 46px); font-size:16px }
+  body.touch .item { width:68px; height:68px; border-radius:18px } body.touch .item svg { width:34px; height:34px } body.touch .item b { font-size:10px } body.touch .item.has .hint { display:none }
+  body.touch #mini { width:112px; height:112px; top:calc(max(16px, env(safe-area-inset-top)) + 80px) }
+  body.touch .center { top:30% } body.touch #toast { top:calc(30% + 110px); font-size:14px; max-width:calc(100vw - 32px); white-space:normal; text-align:center; border-radius:18px }
+  body.touch #btnMute { top:auto; bottom:calc(max(16px, env(safe-area-inset-bottom)) + 108px); left:50%; width:36px; height:36px }
+  /* 手機橫著拿：提示轉直 */
+  #rotate { position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; flex-direction:column; gap:12px; background:#14122af2; color:var(--ink); font-weight:900; font-size:20px; text-align:center; padding:24px } #rotate svg { width:72px; height:72px; animation:rot 1.6s ease-in-out infinite } @keyframes rot { 0%, 20% { transform:rotate(0) } 60%, 100% { transform:rotate(90deg) } }
+  body.touch.landscape #rotate { display:flex }
+  @media (max-width:640px) { .pick b { font-size:13px } .grid { grid-template-columns:repeat(4, 1fr) } }
   /* ─── 結果 ─── */
   #results .card { width:min(560px, 100%) } #results h2 { font-size:28px; margin:0 0 4px; text-align:center } #results h2 b { color:var(--gold) } #results .sub { text-align:center; color:var(--muted); margin:0 0 14px; font-size:13px }
   table { width:100%; border-collapse:collapse; font-size:15px } td { padding:8px 8px; border-bottom:1px solid #ffffff14 } tr.me td { background:#ffd16622; color:var(--gold) } td.pl { font-size:20px; font-weight:900; width:44px } td.t { text-align:right; font-variant-numeric:tabular-nums; color:#d8d2ff } td small { color:var(--muted); margin-left:6px; font-weight:500 }
@@ -78,6 +88,7 @@
 </head>
 <body>
 <div id="app" aria-label="激走跑者 3D 畫面"></div>
+<div id="rotate" aria-live="polite"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="20" height="40" rx="4"/><circle cx="24" cy="38" r="1.6" fill="currentColor"/></svg><div>請把手機轉成直的<br><small style="font-weight:500;color:#a9a3c8">這個遊戲是為直立畫面設計的</small></div></div>
 <div id="loading"><b>激走跑者</b><span id="loadMsg">建造城市中…</span></div>
 
 <section id="menu" class="screen" aria-label="選角色與賽道">
@@ -95,7 +106,7 @@
       <label>對手 <span class="seg" id="aiSeg"></span></label>
     </div>
     <button id="btnStart" type="button">開跑！</button>
-    <p class="help"><kbd>←</kbd><kbd>→</kbd> 或 <kbd>A</kbd><kbd>D</kbd> 轉向・<kbd>空白鍵</kbd> 跳・<kbd>Shift</kbd> 衝刺（看能量條）・<kbd>E</kbd> 推人・<kbd>Q</kbd> 用道具・<kbd>↓</kbd> 煞車<br>跟在別人後面跑能量回得快；跳得過三角錐、機車、腳踏車，跳不過販賣機和攤販。</p>
+    <p class="help"><kbd>←</kbd><kbd>→</kbd> 或 <kbd>A</kbd><kbd>D</kbd> 轉向・<kbd>空白鍵</kbd> 跳・<kbd>Shift</kbd> 衝刺（看能量條）・<kbd>E</kbd> 推人・<kbd>Q</kbd> 用道具・<kbd>↓</kbd> 煞車<br>手機直立拿：下方按鈕，或按住畫面左半邊／右半邊轉向<br>跟在別人後面跑能量回得快；跳得過三角錐、機車、腳踏車，跳不過販賣機和攤販。</p>
     <p class="credit">非官方、網友自製的致敬作品。人偶是程式畫的 Q 版大頭人（風格參考 <a href="https://gobkit.com/freebies" target="_blank" rel="noopener">Gobkit</a> 的免費角色包；把 GLB 放進 <code>models/</code> 並寫 <code>manifest.json</code> 就會改用它們）。街景、招牌、地標都是象徵性的迷你模型。</p>
   </div>
 </section>
@@ -112,7 +123,7 @@
   <button id="btnMute" type="button" aria-label="靜音"></button>
   <div class="tctl">
     <button class="l" data-k="left" aria-label="左轉">◀</button><button class="r" data-k="right" aria-label="右轉">▶</button>
-    <button class="jump" data-k="jump">跳</button><button class="dash" data-k="dash">衝刺</button>
+    <button class="jump" data-k="jump">跳</button><button class="bdash" data-k="dash">衝刺</button>
     <button class="shove" data-k="shove">推</button><button class="item" data-k="item">道具</button>
   </div>
 </div>

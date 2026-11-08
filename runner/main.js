@@ -36,8 +36,12 @@ function makeSky(c) {
   // 星星（夜晚）
   if (c.top === CFG.courses[0].sky.top) { const sg = new THREE.BufferGeometry(), arr = []; for (let i = 0; i < 500; i++) { const a = Math.random() * Math.PI * 2, e = Math.random() * 0.5 + 0.1; arr.push(Math.cos(a) * Math.cos(e) * 780, Math.sin(e) * 780, Math.sin(a) * Math.cos(e) * 780); } sg.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, fog: false })); sky.add(stars); }
 }
-function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-addEventListener('resize', resize); resize();
+const isPortrait = () => innerHeight >= innerWidth;
+function resize() {
+  const w = innerWidth, h = innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+  document.body.classList.toggle('portrait', isPortrait()); document.body.classList.toggle('landscape', !isPortrait());
+  if (pv.renderer) { const r = pv.canvas.getBoundingClientRect(); if (r.width > 0) { pv.renderer.setSize(Math.round(r.width), Math.round(r.height), false); pv.camera.aspect = r.width / r.height; pv.camera.updateProjectionMatrix(); } }
+}
 
 /* ── 音效 ── */
 const audio = new GameAudio();
@@ -80,6 +84,10 @@ function thumbnails() {
   if (keep) pv.scene.add(keep.root);
 }
 thumbnails(); paintChars();
+// 選單開著時，預覽人偶在轉盤上跑步
+let pvLast = performance.now();
+(function pvLoop(now) { requestAnimationFrame(pvLoop); if ($('menu').hidden || !pv.rig) return; const dt = Math.min(0.05, (now - pvLast) / 1000); pvLast = now; pv.t += dt; pv.rig.root.rotation.y = -0.5 + Math.sin(pv.t * 0.7) * 0.6; pv.rig.update(dt, { speed: 9, maxSpeed: 11, grounded: true }); pv.renderer.render(pv.scene, pv.camera); })(pvLast);
+addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 60)); resize();
 
 /* ── 輸入 ── */
 const keys = {}; const edge = { jump: false, shove: false, item: false };
@@ -92,8 +100,15 @@ for (const b of document.querySelectorAll('.tctl button')) {
   const up = (e) => { e.preventDefault(); b.classList.remove('down'); if (k in touch) touch[k] = false; };
   b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
 }
+// 手機：按住畫面左半邊往左、右半邊往右（按鈕以外的地方）
+const zonePointers = new Map();
+const zoneUpdate = () => { touch.zoneL = false; touch.zoneR = false; for (const side of zonePointers.values()) { if (side < 0) touch.zoneL = true; else touch.zoneR = true; } };
+const appEl = $('app');
+appEl.addEventListener('pointerdown', (e) => { if (!MOBILE || !race) return; zonePointers.set(e.pointerId, e.clientX < innerWidth / 2 ? -1 : 1); zoneUpdate(); audio.ensure(); });
+appEl.addEventListener('pointermove', (e) => { if (!zonePointers.has(e.pointerId)) return; zonePointers.set(e.pointerId, e.clientX < innerWidth / 2 ? -1 : 1); zoneUpdate(); });
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => { if (zonePointers.delete(e.pointerId)) zoneUpdate(); });
 function readInput() {
-  const steer = (keys.ArrowLeft || keys.KeyA || touch.left ? 1 : 0) - (keys.ArrowRight || keys.KeyD || touch.right ? 1 : 0);
+  const steer = (keys.ArrowLeft || keys.KeyA || touch.left || touch.zoneL ? 1 : 0) - (keys.ArrowRight || keys.KeyD || touch.right || touch.zoneR ? 1 : 0);
   const inp = { steer, brake: !!(keys.ArrowDown || keys.KeyS), dash: !!(keys.ShiftLeft || keys.ShiftRight || keys.ArrowUp || keys.KeyW || touch.dash), jump: edge.jump, shove: edge.shove, item: edge.item };
   edge.jump = edge.shove = edge.item = false; return inp;
 }
@@ -170,14 +185,14 @@ function loop(now) {
   const p = race.player;
   // 相機：跟在後面，衝刺時視角拉寬、些微震動
   cam.yaw += angleDiff(p.heading, cam.yaw) * (1 - Math.exp(-5 * dt));
-  const back = 6.8 + p.speed * 0.1, up = 3.3;
+  const port = isPortrait(), back = (port ? 7.8 : 6.8) + p.speed * 0.1, up = port ? 5.2 : 3.3;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
   const target = new THREE.Vector3(p.pos.x - fx * back, p.group.position.y - p.h * 0.6 + up, p.pos.z - fz * back);
   cam.pos.lerp(target, 1 - Math.exp(-7 * dt));
   shake = Math.max(0, shake - dt);
   camera.position.copy(cam.pos); if (shake > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * shake * 0.5, (Math.random() - 0.5) * shake * 0.5, 0));
-  cam.look.set(p.pos.x + fx * 6, p.group.position.y + 1.0, p.pos.z + fz * 6); camera.lookAt(cam.look);
-  cam.fov = damp(cam.fov, 62 + (p.dashing ? 12 : 0) + (p.boost > 0 ? 10 : 0), 6, dt); camera.fov = cam.fov; camera.updateProjectionMatrix();
+  cam.look.set(p.pos.x + fx * (port ? 8 : 6), p.group.position.y + (port ? 0.2 : 1.0), p.pos.z + fz * (port ? 8 : 6)); camera.lookAt(cam.look);
+  cam.fov = damp(cam.fov, (port ? 80 : 62) + (p.dashing ? 12 : 0) + (p.boost > 0 ? 10 : 0), 6, dt); camera.fov = cam.fov; camera.updateProjectionMatrix();
   // 太陽影子跟著玩家
   sunDir.set(...course.light.sunPos).normalize();
   sun.position.copy(p.pos).addScaledVector(sunDir, 90); sun.target.position.copy(p.pos); sun.target.updateMatrixWorld();

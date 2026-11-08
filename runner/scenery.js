@@ -454,7 +454,7 @@ export function buildScenery(track, course, seed = 7) {
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: course.pal.ground }));
   plane.rotation.x = -Math.PI / 2; plane.position.y = (maxY - minY > 1.5 ? minY - 8 : -0.05); plane.receiveShadow = true; ground.add(plane);
 
-  const group = b.build({ nearCull: 3.4 });
+  const group = b.build({ nearCull: 4.5 });
   group.add(ground);
   for (const m of world.movers) group.add(m.mesh);
   return { group, ...world };
