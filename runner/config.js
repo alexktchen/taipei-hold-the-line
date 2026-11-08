@@ -41,19 +41,17 @@ export const CFG = {
   ],
   courses: [
     {
-      id: 'taipei', name: '台北夜市大街', sub: 'TAIPEI NIGHT MARKET', theme: 'taipei', time: 'night',
-      desc: '騎樓、鐵窗、招牌與滿街機車；夜市段有攤販與紅燈籠，小心路口衝出來的機車和垃圾車。',
-      width: 6.4, sidewalk: 1.4,
-      // 格子狀路線：全部直角彎（grid: true），座標乘 scale；corner 是彎道半徑
-      grid: true, scale: 0.6, corner: 3.5,
-      points: [[0, 0], [70, 0], [70, -50], [120, -50], [120, 20], [170, 20], [170, -100], [90, -100], [90, -150], [-30, -150], [-30, -90], [-80, -90], [-80, -150], [-140, -150], [-140, -40], [-90, -40], [-90, 40], [-40, 40], [-40, 0]],
-      // 特色段：t 是賽道比例（0 起點），都放在直線段中間
-      features: { market: [0.235, 0.32], temple: 0.75, intersection: [0.476, 0.72], truck: 0.6 },
-      items: [0.115, 0.409, 0.548, 0.683, 0.865], boosts: [0.163, 0.591, 0.917],
+      id: 'osaka', name: '大阪道頓堀', sub: 'OSAKA DOTONBORI', theme: 'tokyo', time: 'night',
+      desc: '霓虹招牌、整排提燈、運河上的橋與平交道；夜晚的商店街最熱鬧。',
+      width: 6.2, sidewalk: 1.4,
+      grid: true, scale: 0.7, corner: 3.5,
+      points: [[0, 0], [70, 0], [70, 50], [130, 50], [130, -30], [70, -30], [70, -90], [-30, -90], [-30, -30], [-90, -30], [-90, 50], [-30, 50], [-30, 0]],
+      features: { lanterns: [0.50, 0.59], crossing: 0.278, bridge: [0.795, 0.825], shrine: 0.645 },
+      items: [0.12, 0.367, 0.443, 0.72, 0.898], boosts: [0.19, 0.544, 0.968],
       sky: { top: 0x0b1335, horizon: 0x3a2a6a, ground: 0x151228 }, fog: { color: 0x2a2048, near: 55, far: 210 },
       light: { sun: 0xb8c0ff, sunI: 0.95, sunPos: [60, 90, -40], hemi: [0x7a84d8, 0x5a4660, 1.7] },
-      pal: { road: 0x3a3a40, line: 0xe8c23a, edge: 0xdddddd, sidewalk: 0xa8655a, curb: 0x8a8a8a, ground: 0x2a2630 },
-      music: 'taipei',
+      pal: { road: 0x3a3a40, line: 0xf2f2f2, edge: 0xdddddd, sidewalk: 0x9a9488, curb: 0x8a8a8a, ground: 0x2a2630 },
+      music: 'osaka',
     },
     {
       id: 'tokyo', name: '東京下町商店街', sub: 'TOKYO SHITAMACHI', theme: 'tokyo', time: 'dusk',

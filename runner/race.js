@@ -41,8 +41,7 @@ export class Race {
         ai: { lane: 0, laneT: 0, wobble: Math.random() * 10, skill: lerp(0.85, 1.0, Math.random()), persona: lerp(0.97, 1.03, Math.random()), itemT: 2 + Math.random() * 4, jumpT: 0, dashHold: false, mash: lerp(0.35, 0.75, Math.random()), mashT: 0 },
       };
       const group = new THREE.Group(); group.add(rig.root);
-      const tag = textSprite(def.name, { color: r.isPlayer ? '#ffe066' : '#fff', bg: r.isPlayer ? 'rgba(200,60,40,.85)' : 'rgba(20,20,40,.7)' }); tag.position.y = 2.3; tag.scale.multiplyScalar(0.55); tag.visible = i !== playerIndex; group.add(tag);
-      r.group = group; r.tag = tag; this.group.add(group);
+      r.group = group; this.group.add(group);
       // 起跑格：兩排四列，在起跑線後面
       const row = Math.floor(i / 3), col = i % 3; r.prog = this.N - 5 - row * 3.5; r.lane = col - 1; r.lat = r.lane * this.LW;
       this._rail(r); this._project(r); r.lap = 0;
@@ -109,6 +108,7 @@ export class Race {
     else {
       if (canAct && inp.mashL && r.lastMash !== 'L') { r.lastMash = 'L'; r.mash = Math.min(1, r.mash + 0.16); if (r.isPlayer) this.on('mash', r); }
       if (canAct && inp.mashR && r.lastMash !== 'R') { r.lastMash = 'R'; r.mash = Math.min(1, r.mash + 0.16); if (r.isPlayer) this.on('mash', r); }
+      if (canAct && inp.mashTap) { r.mash = Math.min(1, r.mash + 0.14 * inp.mashTap); if (r.isPlayer) this.on('mash', r); } // 單鍵連點（手機加速鍵），一幀內可能點好幾下
       r.mash = Math.max(0, r.mash - 0.4 * dt);
     }
     if (inp.brakePulse) r.brakeT = 0.6;

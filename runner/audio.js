@@ -45,14 +45,14 @@ export class GameAudio {
   wrong() { this.tone(220, 0.25, 'square', 0.15); }
   shield() { this.tone(1200, 0.2, 'sine', 0.2, -400); }
   // 音樂：16 步的循環，低音＋旋律＋打擊
-  startMusic(theme = 'taipei') {
+  startMusic(theme = 'osaka') {
     const c = this.ensure(); if (!c) return; this.stopMusic();
     const scales = {
-      taipei: { bpm: 150, bass: [0, 0, 7, 7, 5, 5, 7, 9], mel: [0, 4, 7, 12, 9, 7, 4, 2, 0, 4, 7, 9, 12, 9, 7, 4], root: 220, wave: 'square' },
+      osaka: { bpm: 150, bass: [0, 0, 7, 7, 5, 5, 7, 9], mel: [0, 4, 7, 12, 9, 7, 4, 2, 0, 4, 7, 9, 12, 9, 7, 4], root: 220, wave: 'square' },
       tokyo:  { bpm: 138, bass: [0, 0, 5, 5, 3, 3, 7, 7], mel: [0, 3, 7, 10, 7, 3, 0, 3, 5, 7, 10, 12, 10, 7, 5, 3], root: 196, wave: 'triangle' },
       kyoto:  { bpm: 120, bass: [0, 0, 5, 5, 7, 7, 5, 3], mel: [0, 2, 5, 7, 9, 7, 5, 2, 0, 2, 5, 9, 12, 9, 7, 5], root: 233, wave: 'sine' },
     };
-    const S = scales[theme] || scales.taipei, stepDur = 60 / S.bpm / 2; let step = 0, next = c.currentTime + 0.1;
+    const S = scales[theme] || scales.osaka, stepDur = 60 / S.bpm / 2; let step = 0, next = c.currentTime + 0.1;
     const f = (semi) => S.root * Math.pow(2, semi / 12);
     const play = (freq, dur, type, vol, when) => { const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vol, when + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, when + dur); o.connect(g); g.connect(this.mus); o.start(when); o.stop(when + dur + 0.02); };
     const kick = (when) => { const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(150, when); o.frequency.exponentialRampToValueAtTime(40, when + 0.12); g.gain.setValueAtTime(0.5, when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.15); o.connect(g); g.connect(this.mus); o.start(when); o.stop(when + 0.2); };

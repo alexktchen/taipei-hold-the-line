@@ -34,7 +34,7 @@ function makeSky(c) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   sky = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false })); scene.add(sky);
   // 星星（夜晚）
-  if (c.top === CFG.courses[0].sky.top) { const sg = new THREE.BufferGeometry(), arr = []; for (let i = 0; i < 500; i++) { const a = Math.random() * Math.PI * 2, e = Math.random() * 0.5 + 0.1; arr.push(Math.cos(a) * Math.cos(e) * 780, Math.sin(e) * 780, Math.sin(a) * Math.cos(e) * 780); } sg.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, fog: false })); sky.add(stars); }
+  if (c.stars) { const sg = new THREE.BufferGeometry(), arr = []; for (let i = 0; i < 500; i++) { const a = Math.random() * Math.PI * 2, e = Math.random() * 0.5 + 0.1; arr.push(Math.cos(a) * Math.cos(e) * 780, Math.sin(e) * 780, Math.sin(a) * Math.cos(e) * 780); } sg.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, fog: false })); sky.add(stars); }
 }
 const isPortrait = () => innerHeight >= innerWidth;
 function resize() {
@@ -51,7 +51,7 @@ muteBtns.forEach(b => b.addEventListener('click', () => { audio.ensure(); audio.
 
 /* ── 選單 ── */
 const save = JSON.parse(localStorage.getItem('runner.pick') || '{}');
-const pick = { char: save.char || 'office', course: save.course || 'taipei', diff: save.diff || 'normal', laps: save.laps || CFG.laps, ai: save.ai ?? 7 };
+const pick = { char: save.char || 'office', course: save.course || 'osaka', diff: save.diff || 'normal', laps: save.laps || CFG.laps, ai: save.ai ?? 7 };
 const persist = () => localStorage.setItem('runner.pick', JSON.stringify(pick));
 const charList = $('charList'), courseList = $('courseList'), charInfo = $('charInfo');
 const STAT_LABEL = { speed: '速度', accel: '起跑', handling: '轉向', weight: '體重', dash: '衝刺', draft: '跟跑', shove: '推人', tough: '耐撞', jump: '跳躍' };
@@ -90,7 +90,7 @@ let pvLast = performance.now();
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 60)); resize();
 
 /* ── 輸入 ── */
-const keys = {}; const edge = { jump: false, shove: false, item: false, left: false, right: false, mashL: false, mashR: false, brakePulse: false };
+const keys = {}; const edge = { jump: false, shove: false, item: false, left: false, right: false, mashL: false, mashR: false, mashTap: 0, brakePulse: false };
 addEventListener('keydown', (e) => {
   if (e.repeat) return; keys[e.code] = true;
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') { edge.jump = true; e.preventDefault(); }
@@ -107,13 +107,19 @@ for (const b of document.querySelectorAll('.tctl button')) {
   const up = (e) => { e.preventDefault(); b.classList.remove('down'); };
   b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
 }
-// 衝刺拉桿：按住往上拉就衝刺，放開彈回
-const lever = $('lever'), knob = $('leverKnob'); let leverId = null, leverY0 = 0, leverLift = 0;
-const setLever = (lift) => { leverLift = clamp(lift, 0, 1); knob.style.transform = `translateY(${-leverLift * 100}px)`; touch.dash = leverLift > 0.45; lever.classList.toggle('on', touch.dash); };
-lever.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); leverId = e.pointerId; leverY0 = e.clientY + leverLift * 100; lever.setPointerCapture(e.pointerId); audio.ensure(); });
-lever.addEventListener('pointermove', (e) => { if (e.pointerId !== leverId) return; setLever((leverY0 - e.clientY) / 100); });
-for (const ev of ['pointerup', 'pointercancel']) lever.addEventListener(ev, (e) => { if (e.pointerId !== leverId) return; leverId = null; setLever(0); });
-// 畫面滑動：左右滑換線道、上滑跳、下滑煞車；沒有滑動就是點擊，左半邊／右半邊交替點擊加速
+// 轉向拉桿（左下）：左右拉到三格之一就換到那條線道；沒在拉時旋鈕顯示目前線道
+const steer = $('steer'), steerKnob = $('steerKnob'); let steerId = null; touch.lane = null;
+const STEER_TRAVEL = 58; // 旋鈕左右可移動的距離（px）＝一格
+const paintSteer = (lane) => { steerKnob.style.transform = `translateX(${lane * STEER_TRAVEL}px)`; };
+steer.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); steerId = e.pointerId; steer.setPointerCapture(e.pointerId); steer.classList.add('drag'); audio.ensure(); steerMove(e); });
+const steerMove = (e) => { const r = steer.getBoundingClientRect(); const pos = clamp((e.clientX - (r.left + r.width / 2)) / STEER_TRAVEL, -1.35, 1.35); steerKnob.style.transform = `translateX(${pos * STEER_TRAVEL}px)`; touch.lane = Math.max(-1, Math.min(1, Math.round(pos))); };
+steer.addEventListener('pointermove', (e) => { if (e.pointerId === steerId) steerMove(e); });
+for (const ev of ['pointerup', 'pointercancel']) steer.addEventListener(ev, (e) => { if (e.pointerId !== steerId) return; steerId = null; steer.classList.remove('drag'); if (touch.lane != null) paintSteer(touch.lane); });
+// 加速鍵（右下）：點一下加速（節奏），按住超過 0.22 秒就衝刺；外圈是能量
+const accel = $('accel'); let accelId = null, accelT0 = 0, accelTimer = 0;
+accel.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); accelId = e.pointerId; accel.setPointerCapture(e.pointerId); accelT0 = performance.now(); accel.classList.add('tap'); audio.ensure(); clearTimeout(accelTimer); accelTimer = setTimeout(() => { if (accelId != null) { touch.dash = true; accel.classList.add('dash'); } }, 220); });
+for (const ev of ['pointerup', 'pointercancel']) accel.addEventListener(ev, (e) => { if (e.pointerId !== accelId) return; accelId = null; clearTimeout(accelTimer); if (performance.now() - accelT0 < 220) edge.mashTap++; touch.dash = false; accel.classList.remove('tap', 'dash'); });
+// 畫面滑動：左右滑換線道、上滑跳、下滑煞車
 const swipes = new Map();
 const appEl = $('app');
 appEl.addEventListener('pointerdown', (e) => { if (!race) return; swipes.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), done: false }); audio.ensure(); });
@@ -122,17 +128,15 @@ appEl.addEventListener('pointermove', (e) => {
   const dx = e.clientX - sw.x, dy = e.clientY - sw.y, TH = 28;
   if (Math.abs(dx) < TH && Math.abs(dy) < TH) return;
   sw.done = true;
-  if (Math.abs(dx) > Math.abs(dy)) { if (dx < 0) edge.left = true; else edge.right = true; } else { if (dy < 0) edge.jump = true; else edge.brakePulse = true; }
+  if (Math.abs(dx) > Math.abs(dy)) { if (touch.lane != null) touch.lane = Math.max(-1, Math.min(1, touch.lane + (dx < 0 ? -1 : 1))); else if (dx < 0) edge.left = true; else edge.right = true; } else { if (dy < 0) edge.jump = true; else edge.brakePulse = true; }
 });
-for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => {
-  const sw = swipes.get(e.pointerId); if (!sw) return; swipes.delete(e.pointerId);
-  if (!sw.done && ev === 'pointerup' && performance.now() - sw.t < 400) { if (sw.x < innerWidth / 2) edge.mashL = true; else edge.mashR = true; }
-});
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => { swipes.delete(e.pointerId); });
 function readInput() {
-  const inp = { left: edge.left, right: edge.right, jump: edge.jump, brake: !!(keys.ArrowDown || keys.KeyS), brakePulse: edge.brakePulse, dash: !!(keys.ShiftLeft || keys.ShiftRight || touch.dash), mashL: edge.mashL, mashR: edge.mashR, shove: edge.shove, item: edge.item };
-  for (const k in edge) edge[k] = false; return inp;
+  const inp = { left: edge.left, right: edge.right, jump: edge.jump, brake: !!(keys.ArrowDown || keys.KeyS), brakePulse: edge.brakePulse, dash: !!(keys.ShiftLeft || keys.ShiftRight || touch.dash), mashL: edge.mashL, mashR: edge.mashR, mashTap: edge.mashTap, shove: edge.shove, item: edge.item };
+  if (touch.lane != null && race) { const pl = race.player.lane; if (touch.lane < pl) inp.left = true; else if (touch.lane > pl) inp.right = true; } // 拉桿指定的線道
+  for (const k in edge) edge[k] = k === 'mashTap' ? 0 : false; return inp;
 }
-const clearEdges = (inp) => { inp.left = inp.right = inp.jump = inp.brakePulse = inp.mashL = inp.mashR = inp.shove = inp.item = false; };
+const clearEdges = (inp) => { inp.left = inp.right = inp.jump = inp.brakePulse = inp.mashL = inp.mashR = inp.shove = inp.item = false; inp.mashTap = 0; };
 
 /* ── 比賽 ── */
 const hud = new HUD();
@@ -148,7 +152,7 @@ async function startRace() {
   const sc = buildScenery(track, course, course.id.length * 131 + 7);
   world = sc; scene.add(sc.group); scene.add(track.build());
   scene.fog = new THREE.Fog(course.fog.color, course.fog.near, course.fog.far);
-  makeSky(course.sky);
+  makeSky(Object.assign({ stars: course.time === 'night' }, course.sky));
   sun.color.set(course.light.sun); sun.intensity = course.light.sunI; hemi.color.set(course.light.hemi[0]); hemi.groundColor.set(course.light.hemi[1]); hemi.intensity = course.light.hemi[2];
   for (const l of sc.labels) { const sp = textSprite(l.text, { color: '#ffd166', bg: 'rgba(20,20,40,.6)', size: 48 }); sp.position.set(l.x, l.y, l.z); sp.scale.multiplyScalar(2.2); scene.add(sp); labelSprites.push(sp); }
   // 角色：玩家選的放第 0 位，其餘隨機挑
@@ -163,7 +167,8 @@ async function startRace() {
   $('loading').hidden = true;
 window.RUNNER = { startRace, endRace, pick, renderer, scene, camera, get race() { return race; } }; // 除錯用
   audio.ensure(); audio.startMusic(course.music);
-  if (MOBILE) setTimeout(() => hud.toast('左右滑換線道・上滑跳・下滑煞車・左右交替點畫面加速・拉桿往上衝刺', 6), 4200);
+  if (MOBILE) setTimeout(() => hud.toast('左下拉桿換線道・右下連點加速、按住衝刺・上滑跳、下滑煞車', 6), 4200);
+  touch.lane = MOBILE ? race.player.lane : null; if (MOBILE) paintSteer(race.player.lane);
   lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
 }
 function clearRace() {
@@ -221,9 +226,9 @@ function loop(now) {
   sun.position.copy(p.pos).addScaledVector(sunDir, 90); sun.target.position.copy(p.pos); sun.target.updateMatrixWorld();
   // 衝刺音
   const dashing = p.dashing && race.state === 'racing'; if (dashing !== dashSound) { dashSound = dashing; audio.dashLoop(dashing); }
-  for (const r of race.racers) if (!r.isPlayer) r.tag.visible = r.pos.distanceToSquared(camera.position) > 30; // 太近的名牌不顯示
   hud.update(race, dt);
-  lever.querySelector('.fill').style.transform = `scaleY(${p.dash.toFixed(3)})`; lever.classList.toggle('low', p.dash < 0.2);
+  accel.style.setProperty('--e', p.dash.toFixed(3)); accel.classList.toggle('low', p.dash < 0.2);
+  if (MOBILE && steerId == null) { if (touch.lane !== p.lane) { touch.lane = p.lane; paintSteer(p.lane); } }
   renderer.render(scene, camera);
 }
 $('btnStart').addEventListener('click', () => { audio.ensure(); startRace(); });

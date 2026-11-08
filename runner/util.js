@@ -32,35 +32,41 @@ export class SignAtlas {
     this.tex = new THREE.CanvasTexture(c); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 4;
     this.cache = new Map(); this.nh = 0; this.nv = 0;
   }
-  // 回傳 [u0, v0, u1, v1]（three 的 CanvasTexture 預設 flipY，所以 v 從下面算）
   _uv(x, y, w, h) { return [x / this.W, 1 - (y + h) / this.H, (x + w) / this.W, 1 - y / this.H]; }
-  h(text, bg = '#d9463b', fg = '#ffffff', opts = {}) {
-    const key = 'h|' + text + bg + fg + (opts.font || '');
-    if (this.cache.has(key)) return this.cache.get(key);
-    const i = this.nh++ % 32, x = (i % 8) * 256, y = Math.floor(i / 8) * 128;
-    const g = this.ctx;
+  _hash(str) { let h = 2166136261; for (const ch of String(str)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  // 圖案招牌（場景裡不放文字）：key 只拿來決定用哪種圖案
+  _pattern(g, x, y, w, h, key, fg) {
+    const k = this._hash(key), v = k % 6, cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) * 0.3;
+    g.fillStyle = fg; g.strokeStyle = fg; g.lineWidth = Math.max(6, r * 0.35);
+    if (v === 0) { g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill(); }
+    else if (v === 1) { for (let i = -1; i <= 1; i++) g.fillRect(cx + i * r * 0.9 - r * 0.22, cy - r, r * 0.44, r * 2); }
+    else if (v === 2) { g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath(); g.fill(); }
+    else if (v === 3) { g.fillRect(cx - r * 1.6, cy - r * 0.8, r * 3.2, r * 0.5); g.fillRect(cx - r * 1.6, cy + r * 0.3, r * 3.2, r * 0.5); }
+    else if (v === 4) { g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke(); g.beginPath(); g.arc(cx, cy, r * 0.35, 0, 7); g.fill(); }
+    else { g.beginPath(); g.moveTo(cx - r, cy + r); g.lineTo(cx, cy - r); g.lineTo(cx + r, cy + r); g.closePath(); g.fill(); }
+  }
+  _arrow(g, x, y, w, h, dir, fg) {
+    const cx = x + w / 2, cy = y + h / 2, L = w * 0.36, t = h * 0.14, hd = h * 0.3, d = dir === 'left' ? -1 : 1;
+    g.fillStyle = fg; g.beginPath();
+    g.moveTo(cx - d * L, cy - t); g.lineTo(cx + d * (L - hd), cy - t); g.lineTo(cx + d * (L - hd), cy - hd); g.lineTo(cx + d * L, cy); g.lineTo(cx + d * (L - hd), cy + hd); g.lineTo(cx + d * (L - hd), cy + t); g.lineTo(cx - d * L, cy + t); g.closePath(); g.fill();
+  }
+  h(key, bg = '#d9463b', fg = '#ffffff', opts = {}) {
+    const ck = 'h|' + key + bg + fg + (opts.arrow || '');
+    if (this.cache.has(ck)) return this.cache.get(ck);
+    const i = this.nh++ % 32, x = (i % 8) * 256, y = Math.floor(i / 8) * 128, g = this.ctx;
     g.fillStyle = bg; g.fillRect(x, y, 256, 128);
     g.strokeStyle = opts.border || 'rgba(255,255,255,.55)'; g.lineWidth = 6; g.strokeRect(x + 6, y + 6, 244, 116);
-    g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
-    let size = opts.size || (text.length <= 3 ? 84 : text.length <= 5 ? 62 : 44);
-    g.font = `900 ${size}px ${FONT}`;
-    while (g.measureText(text).width > 232 && size > 20) { size -= 4; g.font = `900 ${size}px ${FONT}`; }
-    g.fillText(text, x + 128, y + 66);
-    const uv = this._uv(x, y, 256, 128); this.cache.set(key, uv); this.tex.needsUpdate = true; return uv;
+    if (opts.arrow) this._arrow(g, x, y, 256, 128, opts.arrow, fg); else this._pattern(g, x, y, 256, 128, key, fg);
+    const uv = this._uv(x, y, 256, 128); this.cache.set(ck, uv); this.tex.needsUpdate = true; return uv;
   }
-  v(text, bg = '#d9463b', fg = '#ffffff') {
-    const key = 'v|' + text + bg + fg;
-    if (this.cache.has(key)) return this.cache.get(key);
-    const i = this.nv++ % 16, x = i * 128, y = 512;
-    const g = this.ctx;
+  v(key, bg = '#d9463b', fg = '#ffffff') {
+    const ck = 'v|' + key + bg + fg;
+    if (this.cache.has(ck)) return this.cache.get(ck);
+    const i = this.nv++ % 16, x = i * 128, y = 512, g = this.ctx;
     g.fillStyle = bg; g.fillRect(x, y, 128, 512);
     g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 6; g.strokeRect(x + 6, y + 6, 116, 500);
-    g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
-    const chars = [...text].slice(0, 6), size = chars.length <= 4 ? 88 : 68, step = Math.min(110, 480 / chars.length);
-    g.font = `900 ${size}px ${FONT}`;
-    const y0 = y + 256 - (chars.length - 1) * step / 2;
-    chars.forEach((ch, k) => g.fillText(ch, x + 64, y0 + k * step));
-    const uv = this._uv(x, y, 128, 512); this.cache.set(key, uv); this.tex.needsUpdate = true; return uv;
+    const n = 3 + (this._hash(key) % 2); for (let k = 0; k < n; k++) this._pattern(g, x + 14, y + 30 + k * (452 / n), 100, 452 / n - 20, key + k, fg);
+    const uv = this._uv(x, y, 128, 512); this.cache.set(ck, uv); this.tex.needsUpdate = true; return uv;
   }
 }
 
