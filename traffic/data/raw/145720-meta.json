@@ -195,7 +195,9 @@
     "resourcePathParameters": []
    }
   ],
-  "keyword": [],
+  "keyword": [
+   "AI-Ready Data 詮釋資料框架指標"
+  ],
   "en": {
    "title": "Taipei Citys road sign timing system plan",
    "description": "Provide information related to Taipei City&#39;s road number clock system project",
